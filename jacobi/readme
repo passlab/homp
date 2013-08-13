@@ -20,4 +20,7 @@ To compile and run the generated CUDA files:
 
 
 Another version of jacobi reference implementation.
-* jacobi-github.cu // it uses reduction entirely on GPUs, the instruction mix is different from ours. 
+* jacobi-github.cu 
+The major differences
+1. it uses reduction entirely on GPUs, the instruction mix is different from ours. 
+2. it uses pointer swapping for the old and new arrays
