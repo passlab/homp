@@ -13,5 +13,11 @@ Experimental 2-D loop mapping, manual translated CUDA version
 * rose_jacobi-ompacc-opt1-2D-v3.cu  : round-robin loop scheduling
 * rose_jacobi-ompacc-opt1-2D-v4.cu  : TODO, change the 2nd level reduction to be on GPU also
 
+To compile and run the generated CUDA files:
+[liao6@tux322:~/workspace/multi-gpu-work/benchmarks/jacobi]nvcc rose_jacobi-ompacc.cu ../libxomp/xomp.c ../libxomp/xomp_cuda_lib.cu -I ../libxomp/
+
+./a.out
+
+
 Another version of jacobi reference implementation.
-* jacobi-github.cu // it uses reduction entirely on GPUs, the instruction mix is different from outs 
+* jacobi-github.cu // it uses reduction entirely on GPUs, the instruction mix is different from ours. 
