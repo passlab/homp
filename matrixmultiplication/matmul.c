@@ -80,10 +80,27 @@ void omp_matmul(REAL *A, REAL *B, REAL *C, int n)
         }
 }
 
+/* one device */
 void ompacc_matmul(REAL *A, REAL *B, REAL *C, int n)
 {
     int i, j, k;
 #pragma omp target map(out:C[0:n][0:n]), map(in:n,A[0:n][0:n],B[0:n][0:n])
+#pragma omp parallel for private(i,j,k)
+    for (i = 0; i < n; i++)
+        for (k = 0; k < n; k++) {
+            REAL c = 0.0;
+            for (j = 0; j < n; j++)
+                c += A[i * n + j] * B[j * n + k];
+            C[i * n + k] = c;
+        }
+}
+
+/* multiple device */
+void ompacc_matmul_2(REAL *A, REAL *B, REAL *C, int n)
+{
+    int i, j, k;
+    int ndev = omp_get_num_devices();
+#pragma omp target mdevices(ndev) map(out:C[0:n][0:n]), map(in:n,A[0:n][0:n],B[0:n][0:n])
 #pragma omp parallel for private(i,j,k)
     for (i = 0; i < n; i++)
         for (k = 0; k < n; k++) {
