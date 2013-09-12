@@ -95,6 +95,7 @@ void ompacc_matmul(REAL *A, REAL *B, REAL *C, int n)
         }
 }
 
+#if 0
 /* multiple device */
 void ompacc_matmul_2(REAL *A, REAL *B, REAL *C, int n)
 {
@@ -110,6 +111,7 @@ void ompacc_matmul_2(REAL *A, REAL *B, REAL *C, int n)
             C[i * n + k] = c;
         }
 }
+#endif
 
 void openacc_matmul(REAL *A, REAL *B, REAL *C, int n)
 {

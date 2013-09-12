@@ -1,7 +1,7 @@
 #include "axpy.h"
 #include "libxomp.h" 
 
-struct OUT__1__4666___data 
+struct OUT__1__5609___data 
 {
   void *x_p;
   void *y_p;
@@ -9,26 +9,26 @@ struct OUT__1__4666___data
   void *a_p;
 }
 ;
-static void OUT__1__4666__(void *__out_argv);
+static void OUT__1__5609__(void *__out_argv);
 
 void axpy_omp(double *x,double *y,int n,double a)
 {
   int i;
-  struct OUT__1__4666___data __out_argv1__4666__;
-  __out_argv1__4666__.a_p = ((void *)(&a));
-  __out_argv1__4666__.n_p = ((void *)(&n));
-  __out_argv1__4666__.y_p = ((void *)(&y));
-  __out_argv1__4666__.x_p = ((void *)(&x));
-  XOMP_parallel_start(OUT__1__4666__,&__out_argv1__4666__,1,0);
-  XOMP_parallel_end();
+  struct OUT__1__5609___data __out_argv1__5609__;
+  __out_argv1__5609__.a_p = ((void *)(&a));
+  __out_argv1__5609__.n_p = ((void *)(&n));
+  __out_argv1__5609__.y_p = ((void *)(&y));
+  __out_argv1__5609__.x_p = ((void *)(&x));
+  XOMP_parallel_start(OUT__1__5609__,&__out_argv1__5609__,1,0,"/data/yy8/2013-8-multiple-gpu-work/benchmarks/axpy/axpy_omp.c",5);
+  XOMP_parallel_end("/data/yy8/2013-8-multiple-gpu-work/benchmarks/axpy/axpy_omp.c",7);
 }
 
-static void OUT__1__4666__(void *__out_argv)
+static void OUT__1__5609__(void *__out_argv)
 {
-  double **x = (double **)(((struct OUT__1__4666___data *)__out_argv) -> x_p);
-  double **y = (double **)(((struct OUT__1__4666___data *)__out_argv) -> y_p);
-  int *n = (int *)(((struct OUT__1__4666___data *)__out_argv) -> n_p);
-  double *a = (double *)(((struct OUT__1__4666___data *)__out_argv) -> a_p);
+  double **x = (double **)(((struct OUT__1__5609___data *)__out_argv) -> x_p);
+  double **y = (double **)(((struct OUT__1__5609___data *)__out_argv) -> y_p);
+  int *n = (int *)(((struct OUT__1__5609___data *)__out_argv) -> n_p);
+  double *a = (double *)(((struct OUT__1__5609___data *)__out_argv) -> a_p);
   int _p_i;
   long p_index_;
   long p_lower_;

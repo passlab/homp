@@ -3,7 +3,7 @@
 #include "libxomp.h" 
 #include "xomp_cuda_lib_inlined.cu" 
 
-__global__ void OUT__3__4961__(void *__out_argv)
+__global__ void OUT__3__5904__(int n,double a,double *_dev_x,double *_dev_y)
 {
   int _p_i;
   int _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -32,7 +32,7 @@ void axpy_ompacc(double *x,double *y,int n,double a)
 /* Launch CUDA kernel ... */
     int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
     int _num_blocks_ = xomp_get_max1DBlock(n - 1 - 0 + 1);
-    OUT__3__4961__<<<_num_blocks_,_threads_per_block_>>>(n,a,_dev_x,_dev_y);
+    OUT__3__5904__<<<_num_blocks_,_threads_per_block_>>>(n,a,_dev_x,_dev_y);
     xomp_freeDevice(_dev_x);
     xomp_memcpyDeviceToHost(((void *)y),((const void *)_dev_y),_dev_y_size);
     xomp_freeDevice(_dev_y);
@@ -40,7 +40,7 @@ void axpy_ompacc(double *x,double *y,int n,double a)
 }
 /* version 1: use omp parallel, i.e. each host thread responsible for one dev */
 
-__global__ void OUT__1__4961__(double a,int partsize,double *_dev_x,double *_dev_y)
+__global__ void OUT__1__5904__(double a,int partsize,double *_dev_x,double *_dev_y)
 {
   int _p_i;
   int _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -49,7 +49,7 @@ __global__ void OUT__1__4961__(double a,int partsize,double *_dev_x,double *_dev
   }
 }
 
-struct OUT__2__4961___data 
+struct OUT__2__5904___data 
 {
   void *x_p;
   void *y_p;
@@ -69,27 +69,32 @@ struct OUT__2__4961___data
 /* here we use devices, not device, map to three devices explicitly listed, and the data mapping is explicitly listed too */
 /* if no explicitly-specified mapping deviice, they are mapping to all the devices, e.g. scalars such as a and n in this example will each have a mapped copy in all the devices */
 #endif
-static void OUT__2__4961__(void *__out_argv);
+static void OUT__2__5904__(void *__out_argv);
 
 void axpy_mdev_v1(double *x,double *y,int n,double a)
 {
   int ndev = omp_get_num_devices();
-  struct OUT__2__4961___data __out_argv1__4961__;
-  __out_argv1__4961__.ndev_p = ((void *)(&ndev));
-  __out_argv1__4961__.a_p = ((void *)(&a));
-  __out_argv1__4961__.n_p = ((void *)(&n));
-  __out_argv1__4961__.y_p = ((void *)(&y));
-  __out_argv1__4961__.x_p = ((void *)(&x));
-  XOMP_parallel_start(OUT__2__4961__,&__out_argv1__4961__,1,ndev);
-  XOMP_parallel_end();
+  struct OUT__2__5904___data __out_argv1__5904__;
+  __out_argv1__5904__.ndev_p = ((void *)(&ndev));
+  __out_argv1__5904__.a_p = ((void *)(&a));
+  __out_argv1__5904__.n_p = ((void *)(&n));
+  __out_argv1__5904__.y_p = ((void *)(&y));
+  __out_argv1__5904__.x_p = ((void *)(&x));
+  XOMP_parallel_start(OUT__2__5904__,&__out_argv1__5904__,1,ndev,"/data/yy8/2013-8-multiple-gpu-work/benchmarks/axpy/axpy_ompacc.c",20);
+  XOMP_parallel_end("/data/yy8/2013-8-multiple-gpu-work/benchmarks/axpy/axpy_ompacc.c",41);
 }
 
-static void OUT__2__4961__(void *__out_argv)
+static void OUT__2__5904__(void *__out_argv)
 {
+  double **x = (double **)(((struct OUT__2__5904___data *)__out_argv) -> x_p);
+  double **y = (double **)(((struct OUT__2__5904___data *)__out_argv) -> y_p);
+  int *n = (int *)(((struct OUT__2__5904___data *)__out_argv) -> n_p);
+  double *a = (double *)(((struct OUT__2__5904___data *)__out_argv) -> a_p);
+  int *ndev = (int *)(((struct OUT__2__5904___data *)__out_argv) -> ndev_p);
   int i;
   int devid = omp_get_thread_num();
-  int remain = ( *__out_argv %  *__out_argv);
-  int esize = ( *__out_argv /  *__out_argv);
+  int remain = ( *n %  *ndev);
+  int esize = ( *n /  *ndev);
   int partsize;
   int starti;
   int endi;
@@ -107,17 +112,17 @@ static void OUT__2__4961__(void *__out_argv)
     double *_dev_x;
     int _dev_x_size = sizeof(double ) * (endi - starti);
     _dev_x = ((double *)(xomp_deviceMalloc(_dev_x_size)));
-    xomp_memcpyHostToDevice(((void *)_dev_x),((const void *)( *__out_argv)),_dev_x_size);
+    xomp_memcpyHostToDevice(((void *)_dev_x),((const void *)( *x)),_dev_x_size);
     double *_dev_y;
     int _dev_y_size = sizeof(double ) * (endi - starti);
     _dev_y = ((double *)(xomp_deviceMalloc(_dev_y_size)));
-    xomp_memcpyHostToDevice(((void *)_dev_y),((const void *)( *__out_argv)),_dev_y_size);
+    xomp_memcpyHostToDevice(((void *)_dev_y),((const void *)( *y)),_dev_y_size);
 /* Launch CUDA kernel ... */
     int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
     int _num_blocks_ = xomp_get_max1DBlock(partsize - 1 - 0 + 1);
-    OUT__1__4961__<<<_num_blocks_,_threads_per_block_>>>( *__out_argv,partsize,_dev_x,_dev_y);
+    OUT__1__5904__<<<_num_blocks_,_threads_per_block_>>>( *a,partsize,_dev_x,_dev_y);
     xomp_freeDevice(_dev_x);
-    xomp_memcpyDeviceToHost(((void *)( *__out_argv)),((const void *)_dev_y),_dev_y_size);
+    xomp_memcpyDeviceToHost(((void *)( *y)),((const void *)_dev_y),_dev_y_size);
     xomp_freeDevice(_dev_y);
   }
 }

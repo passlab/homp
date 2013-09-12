@@ -3,11 +3,11 @@
 # The translator source is rose-omp-accelerator/tests/roseTests/ompLoweringTests/roseompacc.C
 # The command lines (two steps for now) to use roseompacc is exemplified in
 # rose-omp-accelerator/tests/roseTests/ompLoweringTests/Makefile.am
-ROSE_DIR=/home/yy8/homp/ROSE/
-top_srcdir=/home/yy8/homp/ROSE/rose-omp-accelerator
-top_builddir=/home/yy8/homp/ROSE/build
+ROSE_DIR=/data/yy8//ROSE/
+top_srcdir=/data/yy8//ROSE/rose-omp-accelerator
+top_builddir=/data/yy8//ROSE/rose-omp-accelerator-build
 GOMP_PATH=/opt/local/gcc/4.4.7/lib64/
-ROSE_OMPTEST=${ROSE_DIR}/build/tests/roseTests/ompLoweringTests
+ROSE_OMPTEST=${top_builddir}/tests/roseTests/ompLoweringTests
 
 TEST_INCLUDES = -I$(top_srcdir)/src/frontend/SageIII -I$(top_srcdir)/src/midend/programTransformation/ompLowering -I.
 TEST_FLAGS=-rose:openmp:lowering -g --edg:no_warnings -DUSE_ROSE_GOMP_OPENMP_LIBRARY
