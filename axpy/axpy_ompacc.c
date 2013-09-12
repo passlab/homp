@@ -15,13 +15,17 @@ void axpy_ompacc(REAL* x, REAL* y, int n, REAL a) {
 }
 
 /* version 1: use omp parallel, i.e. each host thread responsible for one dev */
-void axpy_mdev_v1(REAL* x, REAL* y, int n, REAL a) {
+void axpy_ompacc_mdev_1(REAL* x, REAL* y, int n, REAL a) {
   int ndev = omp_get_num_devices(); /* standard omp call, see ticket 167 */
-  #pragma omp parallel num_threads(ndev)
+  printf("There are %d devices available\n", ndev);
+  REAL *lx;
+  REAL *ly;
+  #pragma omp parallel num_threads(ndev) private(lx, ly) private(lx, ly)
   {
 	int i;
     	/* chunking it for each device */
 	int devid = omp_get_thread_num();
+	cudaSetDevice(devid);
     	int remain = n % ndev;
         int esize = n / ndev;
         int partsize, starti, endi;
@@ -33,11 +37,13 @@ void axpy_mdev_v1(REAL* x, REAL* y, int n, REAL a) {
 		starti = esize*devid+remain;
 	}
 	endi=starti + partsize;
-
-#pragma omp target device (devid) map(inout: y[starti:endi]) map(in: x[starti:endi],a,partsize)
-#pragma omp parallel for shared(x, y, partsize, a) private(i)
+	printf("dev %d range: %d-%d\n", devid, starti, endi);
+	lx = &x[starti];
+	ly = &y[starti];
+#pragma omp target device (devid) map(inout: ly[0:partsize]) map(in: lx[0:partsize],a,partsize)
+#pragma omp parallel for shared(lx, ly, partsize, a)  private(i)
 	for (i = 0; i < partsize; ++i)
-	  y[i] += a * x[i];
+	  ly[i] += a * lx[i];
   }
 }
 

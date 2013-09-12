@@ -519,11 +519,23 @@ XOMP_BEYOND_BLOCK_REDUCTION_DEF(double)
 
 #undef XOMP_BEYOND_BLOCK_REDUCTION_DEF 
 
-/* some of the ompacc runtime API */
+/*
+ * the followg APIs are already in 4.0 standard 
+ */
 int omp_get_num_devices() {
   int deviceCount = 0;
   cudaGetDeviceCount(&deviceCount);
   return deviceCount;
+}
+
+/* the OMP_DEFAULT_DEVICE env variable is also defined in 4.0, which set the default-device-var icv */
+int default_device_var = -1; /* -1 means no device, the runtime should be initialized this to be 0 if there is at least one device */
+/* the following APIs are already in 4.0 standard */
+void omp_set_default_device(int device_num ) {
+  default_device_var = device_num;
+}
+int omp_get_default_device(void) {
+  return default_device_var;
 }
 
 /**
@@ -534,12 +546,12 @@ int omp_get_num_devices() {
  * may have mulitple generations, thus versions. 
  */
 typedef enum omp_device_type {
-   OMP_DEVICE_NVGPU      /* NVIDIA GPGPUs */
-   OMP_DEVICE_ITLMIC     /* Intel MIC */
-   OMP_DEVICE_TIDSP      /* TI DSP */
-   OMP_DEVICE_AMPU       /* AMD APUs */
-   OMP_NUM_DEVICE_TYPES  /* the total number of types of supported devices */
-} omp_device_type_t
+   OMP_DEVICE_NVGPU,      /* NVIDIA GPGPUs */
+   OMP_DEVICE_ITLMIC,     /* Intel MIC */
+   OMP_DEVICE_TIDSP,      /* TI DSP */
+   OMP_DEVICE_AMPU,       /* AMD APUs */
+   OMP_NUM_DEVICE_TYPES,  /* the total number of types of supported devices */
+} omp_device_type_t;
 
 /**
  ********************** Compiler notes *********************************************
@@ -561,19 +573,4 @@ void omp_get_devices(omp_device_type_t type, int *devnum_array, int *ndev); /* r
  * runtime may want to have internal array to supports the programming APIs for mulitple devices, e.g.
  */
 char * omp_device_type_name[OMP_NUM_DEVICE_TYPES];
-
-/* the OMP_DEFAULT_DEVICE env variable is also defined in 4.0, which set the default-device-var icv */
-int default_device_var = -1; /* -1 means no device, the runtime should be initialized this to be 0 if there is at least one device */
-/* the following APIs are already in 4.0 standard */
-void omp_set_default_device(int device_num ) {
-	default_device_var = device_num;
-}
-int omp_get_default_device(void) {
-	return default_device_var;
-}
-int omp_get_num_devices(void) {
-	int deviceCount;
-	cudaGetDeviceCount(&deviceCount)
-	return deviceCount;
-}
 

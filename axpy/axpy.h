@@ -3,6 +3,8 @@
 
 /* change this to do saxpy or daxpy : single precision or double precision*/
 #define REAL double
+#include <omp.h>
+#include "omp4.0.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,6 +13,7 @@ extern "C" {
 /* both the omp version and ompacc version */
 extern void axpy_omp(REAL* x, REAL* y, int n, REAL a); 
 extern void axpy_ompacc(REAL* x, REAL* y, int n, REAL a); 
+extern void axpy_ompacc_mdev_1(REAL* x, REAL* y, int n, REAL a);
 extern double read_timer(); /* in second */
 extern double read_timer_ms(); /* in ms */
 #ifdef __cplusplus

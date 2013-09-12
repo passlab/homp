@@ -68,7 +68,8 @@ int main(int argc, char *argv[])
   
   /* openmp acc version */
   double ompacc_time = read_timer();
-  axpy_ompacc(x, y_ompacc, n, a);
+//  axpy_ompacc(x, y_ompacc, n, a);
+  axpy_ompacc_mdev_1(x, y_ompacc, n, a);
   ompacc_time = read_timer() - ompacc_time;
 
   printf("axpy(%d): checksum: %g; time(s):\tOMP(%d threads)\tOMPACC\n", n, check(y_omp, y_ompacc, n),num_threads);
