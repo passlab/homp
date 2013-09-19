@@ -2,6 +2,7 @@
 /* standard one-dev support */
 #include "libxomp.h" 
 #include "xomp_cuda_lib_inlined.cu" 
+#include "homp.h"
 
 __global__ void OUT__3__5904__(int n,double a,double *_dev_x,double *_dev_y)
 {
@@ -38,6 +39,109 @@ void axpy_ompacc(double *x,double *y,int n,double a)
     xomp_freeDevice(_dev_y);
   }
 }
+
+#if 0
+/* version 2: leveraging the omp worksharing */
+void axpy_mdev_v2(REAL* x, REAL* y, int n, REAL a) {
+  int ndev = omp_get_num_devices();
+
+#pragma omp target device (0:ndev) map(tofrom: y[0:n]>>(:)) map(to: x[0:n]>>(:),a,n)
+#pragma omp parallel for shared(x, y, n, a) private(i)
+/* in this example, the y[0:n], and x[0:n] will be evenly distributed among the ndev devices, scalars such as a and n will each have a mapped copy in all the devices */
+  for (i = 0; i < n; ++i)
+    y[i] += a * x[i];
+}
+#endif
+
+void axpy_mdev_v2(double *x, double *y, int n,double a)
+{
+    int ndev = omp_get_num_devices();
+  
+    /* get number of target devices specified by the programmers */
+    int __num_target_devices__; /*XXX: = runtime or compiler generated code */
+    int __num_mapped_variables__; /* XXX: need compiler output */
+     
+    /* declare the streams used for the async launching
+     * For each device, there is one stream
+     */
+    cudaStream_t __dev_stream__[__num_target_devices__];
+
+    /* for each mapped variables on each device, we need a data_map for this,
+     * our compiler should help to create an unique id for each of the mapped variables, which will
+     * be used to access the map array
+     *
+     * in this example, x is 0, y is 1;
+     */
+    omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+    int __ndev_i__;
+    for (__ndev_i__ = 0; __ndev_i__<__num_target_devices__; __ndev_i__++) {
+        cudaSetDevice(__ndev_i__);
+        cudaStreamCreate(&__dev_stream__[__ndev_i__]);
+
+        /***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
+        omp_data_map_t * __dev_map_x__ = __data_maps__[__ndev_i__][0]; /* 0 is given by compiler here */
+        __dev_map_x__->device_id = __ndev_i__; //omp_get_device(__ndev_i__)->sysid;
+        __dev_map_x__->map_type = OMP_MAP_TO;  /* from compiler */
+        __dev_map_x__->source_ptr = x;
+        __dev_map_x__->dim_x = n;
+        __dev_map_x__->dim_y = 1;
+        __dev_map_x__->dim_z = 1;
+        __dev_map_x__->sizeof_element = sizeof(double);
+
+        __dev_map_x__->map_offset_x = __ndev_i__ * n/__num_target_devices__; /* chunking n into __ndev_i__ pieces, from compiler */
+        __dev_map_x__->map_offset_y = 0;/* from compiler */
+        __dev_map_x__->map_offset_z = 0;/* from compiler */
+
+        __dev_map_x__->map_dim_x = n/__num_target_devices__;/* from compiler */
+        __dev_map_x__->map_dim_y = 1;
+        __dev_map_x__->map_dim_z = 1;
+
+        omp_map_buffer(__dev_map_x__, 0);
+        __dev_map_x__->stream = &__dev_stream__[__ndev_i__];
+
+        omp_deviceMalloc_memcpyHostToDeviceAsync(__dev_map_x__);
+        /*************************************************************************************************************************************************************/
+
+		/***************************************************************** for y *********************************************************************/
+        omp_data_map_t * __dev_map_y__ = __data_maps__[__ndev_i__][0]; /* 0 is given by compiler here */
+        __dev_map_y__->device_id = __ndev_i__; //omp_get_device(__ndev_i__)->sysid;
+		__dev_map_y__->map_type = OMP_MAP_TOFROM; /* from compiler */
+		__dev_map_y__->source_ptr = y;
+		__dev_map_y__->dim_x = n;
+		__dev_map_y__->dim_y = 1;
+		__dev_map_y__->dim_z = 1;
+		__dev_map_y__->sizeof_element = sizeof(double);
+
+		__dev_map_y__->map_offset_x = __ndev_i__ * n / __num_target_devices__; /* chunking n into __ndev_i__ pieces, from compiler */
+		__dev_map_y__->map_offset_y = 0;/* from compiler */
+		__dev_map_y__->map_offset_z = 0;/* from compiler */
+
+		__dev_map_y__->map_dim_x = n / __num_target_devices__;/* from compiler */
+		__dev_map_y__->map_dim_y = 1;
+		__dev_map_y__->map_dim_z = 1;
+
+		omp_map_buffer(__dev_map_y__, 0);
+        __dev_map_y__->stream = &__dev_stream__[__ndev_i__];
+
+
+		omp_deviceMalloc_memcpyHostToDeviceAsync(__dev_map_y__);
+		/***************************************************************************************************************************************************************/
+        /* Launch CUDA kernel ... */
+        int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
+        int _num_blocks_ = xomp_get_max1DBlock(n - 1 - 0 + 1);
+        OUT__3__5904__<<<_num_blocks_,_threads_per_block_, __dev_stream__[__ndev_i__])>>>(n,a,__dev_map_x__->map_dev_ptr,__dev_map_y__->map_dev_ptr);
+
+        /***************************************************************************************************************************************************/
+        /****************** for each from and tofrom, we need call to DeviceToHost memcpy */
+        omp_memcpyDeviceToHostAsync(__dev_map_y__);
+    }
+
+    omp_postACCKernel(__num_target_devices__, __num_mapped_variables__, __dev_stream__, __data_maps__);
+}
+
+
+
+
 /* version 1: use omp parallel, i.e. each host thread responsible for one dev */
 
 __global__ void OUT__1__5904__(double a,int partsize,double *_dev_lx,double *_dev_ly)

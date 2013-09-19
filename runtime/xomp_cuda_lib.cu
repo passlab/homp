@@ -147,6 +147,23 @@ void * xomp_memcpyHostToDevice (void *dest, const void * src, size_t n)
   }
 }
 
+void * xomp_memcpyHostToDeviceAsync (void *dest, const void * src, size_t n, void * extra)
+{
+  assert (dest != NULL);
+  assert (src != NULL);
+  if (xomp_verbose)
+    printf("xomp_memcpyHostToDevice(): dest=%p src =%p size=%d\n",dest, src, n);
+  cudaError_t rt = cudaMemcpyAsync (dest, src, n, cudaMemcpyHostToDevice, *(cudaStream_t*)(extra));    
+  if (rt == cudaSuccess)
+    return dest;
+  else
+  {
+    fprintf(stderr, "Error: cudaMemcpyAsync() failed to copy memory from Host %p to Device %p, for %d bytes!\n",src, dest, n);
+    assert (false);
+    return NULL; // it is a bad idea to silently return a NULL pointer
+  }
+}
+
 void * xomp_memcpyDeviceToHost (void *dest, const void * src, size_t n)
 {
   assert (dest != NULL);
@@ -154,6 +171,24 @@ void * xomp_memcpyDeviceToHost (void *dest, const void * src, size_t n)
   if (xomp_verbose)
     printf("xomp_memcpyDeviceToHost(): dest=%p src =%p size=%d\n",dest, src, n);
   cudaError_t rt = cudaMemcpy (dest, src, n, cudaMemcpyDeviceToHost);    
+  if (rt == cudaSuccess)
+    return dest;
+  else
+  {
+    fprintf(stderr, "Error: cudaMemcpy() failed to copy memory from Device %p to Host %p, for %d bytes!\n",src, dest, n);
+    fprintf(stderr, "Error message is =%s\n",cudaGetErrorString(rt));
+    assert (false);
+    return NULL; // it is a bad idea to silently return a NULL pointer
+  }
+}
+
+void * xomp_memcpyDeviceToHostAsync (void *dest, const void * src, size_t n, void * extra)
+{
+  assert (dest != NULL);
+  assert (src != NULL);
+  if (xomp_verbose)
+    printf("xomp_memcpyDeviceToHost(): dest=%p src =%p size=%d\n",dest, src, n);
+  cudaError_t rt = cudaMemcpyAsync (dest, src, n, cudaMemcpyDeviceToHost, *(cudaStream_t*)(extra));    
   if (rt == cudaSuccess)
     return dest;
   else
@@ -527,50 +562,4 @@ int omp_get_num_devices() {
   cudaGetDeviceCount(&deviceCount);
   return deviceCount;
 }
-
-/* the OMP_DEFAULT_DEVICE env variable is also defined in 4.0, which set the default-device-var icv */
-int default_device_var = -1; /* -1 means no device, the runtime should be initialized this to be 0 if there is at least one device */
-/* the following APIs are already in 4.0 standard */
-void omp_set_default_device(int device_num ) {
-  default_device_var = device_num;
-}
-int omp_get_default_device(void) {
-  return default_device_var;
-}
-
-/**
- * multiple device support from here 
- * the following should be a list of name agreed with vendors
-
- * NOTES: should we also have a device version number, e.g. a type of device
- * may have mulitple generations, thus versions. 
- */
-typedef enum omp_device_type {
-   OMP_DEVICE_NVGPU,      /* NVIDIA GPGPUs */
-   OMP_DEVICE_ITLMIC,     /* Intel MIC */
-   OMP_DEVICE_TIDSP,      /* TI DSP */
-   OMP_DEVICE_AMPU,       /* AMD APUs */
-   OMP_NUM_DEVICE_TYPES,  /* the total number of types of supported devices */
-} omp_device_type_t;
-
-/**
- ********************** Compiler notes *********************************************
- * The recommended compiler flag name to output the 
- * list of supported device is "-omp-device-types". The use of "-omp-device-types" 
- * could be also as follows to restrict the compiler to only support 
- * compilation for the listed device types: -omp-device-types="TYPE1,TYPE2,...,TYPE3"
- */
-
-/* APIs to support multiple devices: */
-char * omp_get_device_types( ); /* return a list of devices supported by the compiler in the format of TYPE1:TYPE2 */
-omp_device_type_t omp_get_device_type(int devid);
-char * omp_get_device_type_as_string(int devid);
-int omp_get_num_devices_of_type(omp_device_type_t type); /* current omp has omp_get_num_devices(); */
-void omp_get_devices(omp_device_type_t type, int *devnum_array, int *ndev); /* return a list of devices of the specified type */
-
-/**
- ********************* Runtime notes ***********************************************
- * runtime may want to have internal array to supports the programming APIs for mulitple devices, e.g.
- */
-char * omp_device_type_name[OMP_NUM_DEVICE_TYPES];
 
