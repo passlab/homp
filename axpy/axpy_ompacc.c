@@ -48,12 +48,10 @@ void axpy_ompacc_mdev_1(REAL* x, REAL* y, int n, REAL a) {
 }
 
 
-/* version 2: leveraging the omp worksharing */
 void axpy_mdev_v2(REAL* x, REAL* y, int n, REAL a) {
-  int ndev = omp_get_num_devices();
 
-#pragma omp target device (0:ndev) map(inout: y[0:n]>>(:)) map(in: x[0:n]>>(:),a,n)
-#pragma omp parallel for shared(x, y, n, a) private(i)
+#pragma omp target device (:) map(tofrom: y[0:n]>>(:)) map(to: x[0:n]>>(:),a,n)
+#pragma omp parallel for shared(x, y, n, a) private(i) map_range x[:]
 /* in this example, the y[0:n], and x[0:n] will be evenly distributed among the ndev devices, scalars such as a and n will each have a mapped copy in all the devices */
   for (i = 0; i < n; ++i)
     y[i] += a * x[i];
