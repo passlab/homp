@@ -79,10 +79,10 @@ typedef enum omp_map_type {
 #define OMP_NUM_ARRAY_DIMENSIONS 3
 typedef struct omp_data_map {
 	void * source_ptr;
-	int dim[OMP_NUM_ARRAY_DIMENSIONS]; /* dimensions for the original array */
-    int map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
+	long dim[OMP_NUM_ARRAY_DIMENSIONS]; /* dimensions for the original array */
+    long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
 	/* the offset of each dimension from the original array */
-	int map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
 
 	int sizeof_element;
 
@@ -94,7 +94,7 @@ typedef struct omp_data_map {
 	void * map_dev_ptr; /* the mapped buffer on device */
 	cudaStream_t * stream; /* the stream operations of this data map are registered with */
 
-	int mem_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
+	long mem_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
     int device_id;
 } omp_data_map_t;
 
@@ -120,7 +120,7 @@ extern void omp_map_buffer(omp_data_map_t * map, int marshal);
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
  */
-extern void omp_loop_map_range (omp_data_map_t * map, int dim, int start, int length, int * map_start, int * map_length);
+extern void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length);
 /*
  * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
  */

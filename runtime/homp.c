@@ -113,22 +113,22 @@ void omp_unmarshalArrayRegion(omp_data_map_t * dmap) {
 }
 
 void omp_print_data_map(omp_data_map_t * map) {
-	printf("MAP: %X, source ptr: %X, dim[0]: %d, dim[1]: %d, dim[2]: %d, map_dim[0]: %d, map_dim[1]: %d, map_dim[2]: %d, "
-				"map_offset[0]: %d, map_offset[1]: %d, map_offset[2]: %d, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
-				"map_dev_ptr: %d, stream: %X, mem_size: %d, device_id: %d\n\n", map, map->source_ptr, map->dim[0], map->dim[1], map->dim[2],
+	printf("MAP: %X, source ptr: %X, dim[0]: %ld, dim[1]: %ld, dim[2]: %ld, map_dim[0]: %ld, map_dim[1]: %ld, map_dim[2]: %ld, "
+				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
+				"map_dev_ptr: %X, stream: %X, mem_size: %ld, device_id: %d\n\n", map, map->source_ptr, map->dim[0], map->dim[1], map->dim[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
 				map->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->mem_size, map->device_id);
 }
 
 void omp_map_buffer(omp_data_map_t * map, int marshal) {
 	map->marshalled_or_not = marshal;
-	int mem_size = map->sizeof_element;
+	long mem_size = map->sizeof_element;
 	int i;
 	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
 		mem_size *= map->map_dim[i];
 	}
 	map->mem_size = mem_size;
-	if (!marshal) map->map_buffer = map->source_ptr + map->map_offset[0]; /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
+	if (!marshal) map->map_buffer = map->source_ptr + map->map_offset[0]*map->sizeof_element; /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
 	else omp_marshalArrayRegion(map);
 }
 
@@ -148,7 +148,7 @@ void omp_map_buffer(omp_data_map_t * map, int marshal) {
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
  */
-void omp_loop_map_range (omp_data_map_t * map, int dim, int start, int length, int * map_start, int * map_length) {
+void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length) {
 	if (start <=0) {
 		if (length < 0) {
 			*map_start = 0;
