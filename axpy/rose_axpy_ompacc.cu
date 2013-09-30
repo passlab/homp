@@ -5,7 +5,7 @@
 #include "homp.h"
 
 #if 0
-void axpy_mdev_v2(REAL* x, REAL* y, int n, REAL a) {
+void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
 
 #pragma omp target device (:) map(tofrom: y[0:n]>>(:)) map(to: x[0:n]>>(:),a,n)
 #pragma omp parallel for shared(x, y, n, a) private(i) map_range x[:]
@@ -24,16 +24,16 @@ void axpy_mdev_v2(REAL* x, REAL* y, int n, REAL a) {
  */
 #endif
 
-__global__ void OUT__3__5904__(int start_n, int len_n,double a,double *_dev_x,double *_dev_y)
+__global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_x,double *_dev_y)
 {
-  int _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
+   long _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
   if (_dev_i >= start_n && _dev_i <= start_n + len_n  - 1) {
     _dev_y[_dev_i] += (a * _dev_x[_dev_i]);
   }
 }
 
 
-void axpy_ompacc_mdev_v2(double *x, double *y, int n,double a)
+void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 {
     /* get number of target devices specified by the programmers */
     int __num_target_devices__ = 4; /*XXX: = runtime or compiler generated code */
@@ -103,18 +103,19 @@ void axpy_ompacc_mdev_v2(double *x, double *y, int n,double a)
         __dev_map_y__->stream = &__dev_stream__[__ndev_i__];
 
 		omp_deviceMalloc_memcpyHostToDeviceAsync(__dev_map_y__);
+        omp_print_data_map(__dev_map_y__);
 		/***************************************************************************************************************************************************************/
         /* Launch CUDA kernel ... */
         int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
         int _num_blocks_ = xomp_get_max1DBlock(n - 1 - 0 + 1);
         /* in this example, this information could be provided by compiler analysis, but we can also retrive this from runtime as a more
          * general solution */
-        int start_n, length_n;
-        omp_loop_map_range(__dev_map_x__, 1, -1, -1, &start_n, &length_n);
+         long start_n, length_n;
+        omp_loop_map_range(__dev_map_x__, 0, -1, -1, &start_n, &length_n);
         /* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
          * device map object
          */
-        omp_print_data_map(__dev_map_y__);
+        printf("device: %d, range: %d:%d\n", __ndev_i__, start_n, length_n);
 
         OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__ndev_i__]>>>(start_n, length_n,a,(double *)__dev_map_x__->map_dev_ptr, (double *)__dev_map_y__->map_dev_ptr);
 

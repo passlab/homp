@@ -11,9 +11,9 @@ struct OUT__1__5609___data
 ;
 static void OUT__1__5609__(void *__out_argv);
 
-void axpy_omp(double *x,double *y,int n,double a)
+void axpy_omp(double *x,double *y, long n,double a)
 {
-  int i;
+   long i;
   struct OUT__1__5609___data __out_argv1__5609__;
   __out_argv1__5609__.a_p = ((void *)(&a));
   __out_argv1__5609__.n_p = ((void *)(&n));
@@ -27,9 +27,9 @@ static void OUT__1__5609__(void *__out_argv)
 {
   double **x = (double **)(((struct OUT__1__5609___data *)__out_argv) -> x_p);
   double **y = (double **)(((struct OUT__1__5609___data *)__out_argv) -> y_p);
-  int *n = (int *)(((struct OUT__1__5609___data *)__out_argv) -> n_p);
+   long *n = ( long *)(((struct OUT__1__5609___data *)__out_argv) -> n_p);
   double *a = (double *)(((struct OUT__1__5609___data *)__out_argv) -> a_p);
-  int _p_i;
+   long _p_i;
   long p_index_;
   long p_lower_;
   long p_upper_;

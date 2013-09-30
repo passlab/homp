@@ -11,10 +11,10 @@ extern "C" {
 #endif
 
 /* both the omp version and ompacc version */
-extern void axpy_omp(REAL* x, REAL* y, int n, REAL a); 
-extern void axpy_ompacc(REAL* x, REAL* y, int n, REAL a); 
-extern void axpy_ompacc_mdev_1(REAL* x, REAL* y, int n, REAL a);
-extern void axpy_ompacc_mdev_v2(REAL* x, REAL* y, int n, REAL a);
+extern void axpy_omp(REAL* x, REAL* y,  long n, REAL a); 
+extern void axpy_ompacc(REAL* x, REAL* y,  long n, REAL a); 
+extern void axpy_ompacc_mdev_1(REAL* x, REAL* y,  long n, REAL a);
+extern void axpy_ompacc_mdev_v2(REAL* x, REAL* y,  long n, REAL a);
 extern double read_timer(); /* in second */
 extern double read_timer_ms(); /* in ms */
 #ifdef __cplusplus

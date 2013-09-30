@@ -11,26 +11,26 @@
 /* zero out the entire vector */
 #include "libxomp.h" 
 
-void zero(double *A,int n)
+void zero(double *A, long n)
 {
-  int i;
+   long i;
   for (i = 0; i < n; i++) {
     A[i] = 0.0;
   }
 }
 /* initialize a vector with random floating point numbers */
 
-void init(double *A,int n)
+void init(double *A, long n)
 {
-  int i;
+   long i;
   for (i = 0; i < n; i++) {
     A[i] = ((double )(drand48()));
   }
 }
 
-double check(double *A,double *B,int n)
+double check(double *A,double *B, long n)
 {
-  int i;
+   long i;
   double sum = 0.0;
   for (i = 0; i < n; i++) {
     sum += (A[i] - B[i]);
@@ -49,12 +49,12 @@ int main(int argc,char *argv[])
 {
   int status = 0;
   XOMP_init(argc,argv);
-  int n;
+   long n;
   double *y_omp;
   double *y_ompacc;
   double *x;
   double a = 123.456;
-  n = 1024000;
+  n = 1024*1024*1024;
   if (argc >= 2) 
     n = atoi(argv[1]);
   y_omp = ((double *)(malloc((n * sizeof(double )))));
