@@ -97,13 +97,45 @@ void ompacc_matmul(REAL *A, REAL *B, REAL *C, int n)
 
 #if 0
 /* multiple device */
-void ompacc_matmul_2(REAL *A, REAL *B, REAL *C, int n)
+
+/* A, C row-major partition */
+void ompacc_matmul_mdev_1(REAL *A, REAL *B, REAL *C, int n)
 {
     int i, j, k;
-    int ndev = omp_get_num_devices();
-#pragma omp target mdevices(ndev) map(out:C[0:n][0:n]), map(in:n,A[0:n][0:n],B[0:n][0:n])
-#pragma omp parallel for private(i,j,k)
+#pragma omp target device(*) map(from:C[0:n]{0:n}>>(*)), map(to:n,A[0:n]{0:n}>>(*),B[0:n][0:n])
+#pragma omp parallel for private(i,j,k) map_range C[:]
     for (i = 0; i < n; i++)
+        for (k = 0; k < n; k++) {
+            REAL c = 0.0;
+            for (j = 0; j < n; j++)
+                c += A[i * n + j] * B[j * n + k];
+            C[i * n + k] = c;
+        }
+}
+
+/* B, C column-major partition */
+void ompacc_matmul_mdev_2(REAL *A, REAL *B, REAL *C, int n)
+{
+    int i, j, k;
+#pragma omp target device(*) map(from:C{0:n}[0:n]>>(*)), map(to:n,A[0:n][0:n],B{0:n}[0:n]>>(*)
+    for (i = 0; i < n; i++)
+#pragma omp parallel for private(i,j,k) map_range C{}[]
+        for (k = 0; k < n; k++) {
+            REAL c = 0.0;
+            for (j = 0; j < n; j++)
+                c += A[i * n + j] * B[j * n + k];
+            C[i * n + k] = c;
+        }
+}
+
+/* A,B, C row-column partition */
+void ompacc_matmul_mdev_3(REAL *A, REAL *B, REAL *C, int n)
+{
+    int i, j, k;
+#pragma omp target device(*)=>(:)(:) map(from:C[0:n][0:n]>>(:)(:)), map(to:n,A[0:n]{0:n}>>(:){:},B{0:n}[0:n]>>{:}())
+#pragma omp parallel for private(i,j,k) map_range C[]{}
+    for (i = 0; i < n; i++)
+#pragma omp parallel for private(i,j,k) map_range C{}[]
         for (k = 0; k < n; k++) {
             REAL c = 0.0;
             for (j = 0; j < n; j++)
