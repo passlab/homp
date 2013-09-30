@@ -78,10 +78,11 @@ void axpy_ompacc_mdev_v2(double *x, double *y, int n,double a)
         __dev_map_x__->stream = &__dev_stream__[__ndev_i__];
 
         omp_deviceMalloc_memcpyHostToDeviceAsync(__dev_map_x__);
+        omp_print_data_map(__dev_map_x__);
         /*************************************************************************************************************************************************************/
 
 		/***************************************************************** for y *********************************************************************/
-        omp_data_map_t * __dev_map_y__ = &__data_maps__[__ndev_i__][0]; /* 0 is given by compiler here */
+        omp_data_map_t * __dev_map_y__ = &__data_maps__[__ndev_i__][1]; /* 1 is given by compiler here */
         __dev_map_y__->device_id = __ndev_i__; //omp_get_device(__ndev_i__)->sysid;
 		__dev_map_y__->map_type = OMP_MAP_TOFROM; /* from compiler */
 		__dev_map_y__->source_ptr = y;
@@ -113,6 +114,7 @@ void axpy_ompacc_mdev_v2(double *x, double *y, int n,double a)
         /* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
          * device map object
          */
+        omp_print_data_map(__dev_map_y__);
 
         OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__ndev_i__]>>>(start_n, length_n,a,(double *)__dev_map_x__->map_dev_ptr, (double *)__dev_map_y__->map_dev_ptr);
 

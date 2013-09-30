@@ -98,6 +98,8 @@ typedef struct omp_data_map {
     int device_id;
 } omp_data_map_t;
 
+extern void omp_print_data_map(omp_data_map_t * map);
+
 extern void omp_marshalArrayRegion (omp_data_map_t * dmap);
 extern void omp_unmarshalArrayRegion(omp_data_map_t * dmap);
 extern void omp_map_buffer(omp_data_map_t * map, int marshal);

@@ -112,6 +112,14 @@ void omp_marshalArrayRegion(omp_data_map_t * dmap) {
 void omp_unmarshalArrayRegion(omp_data_map_t * dmap) {
 }
 
+void omp_print_data_map(omp_data_map_t * map) {
+	printf("MAP: %X, source ptr: %X, dim[0]: %d, dim[1]: %d, dim[2]: %d, map_dim[0]: %d, map_dim[1]: %d, map_dim[2]: %d, "
+				"map_offset[0]: %d, map_offset[1]: %d, map_offset[2]: %d, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
+				"map_dev_ptr: %d, stream: %X, mem_size: %d, device_id: %d\n\n", map, map->source_ptr, map->dim[0], map->dim[1], map->dim[2],
+				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
+				map->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->mem_size, map->device_id);
+}
+
 void omp_map_buffer(omp_data_map_t * map, int marshal) {
 	map->marshalled_or_not = marshal;
 	int mem_size = map->sizeof_element;
@@ -194,6 +202,7 @@ void omp_postACCKernel(int num_devices, int num_maps, cudaStream_t dev_stream[nu
 	    cudaStreamSynchronize(dev_stream[i]);
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
+//	    	printf("postACCKernel map: %X\n", map);
 	    	omp_unmarshalArrayRegion(map);
 	    	cudaFree(map->map_dev_ptr);
 	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
