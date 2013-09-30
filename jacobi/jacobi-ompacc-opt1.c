@@ -188,7 +188,7 @@ void jacobi( )
 
 // An optimization on top of naive coding: promoting data handling outside the while loop
 // data properties may change since the scope is bigger:
-#pragma omp target data map(in:n, m, omega, ax, ay, b, f[0:n][0:m]) map(inout:u[0:n][0:m]) map(alloc:uold[0:n][0:m])
+#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n]{0:m}>>(:)) map(tofrom:u[0:n]{0:m}>>(:)) map(alloc:uold[0:n|1]{0:m}>>(:))
   while ((k<=mits)&&(error>tol)) 
   {
     error = 0.0;    
@@ -197,13 +197,15 @@ void jacobi( )
 //#pragma omp parallel
 //    {
 #pragma omp target //map(in:n, m, u[0:n][0:m]) map(out:uold[0:n][0:m])
-#pragma omp parallel for private(j,i)
+#pragma omp parallel for private(j,i) dist_iteration match_range u[0:n]{}
+/* #pragma omp parallel for private(j,i) dist_iteration >>(*) */
       for(i=0;i<n;i++)   
         for(j=0;j<m;j++)
           uold[i][j] = u[i][j]; 
+#pragma omp halo exchange uold[:]{:}
 
 #pragma omp target //map(in:n, m, omega, ax, ay, b, f[0:n][0:m], uold[0:n][0:m]) map(out:u[0:n][0:m])
-#pragma omp parallel for private(resid,j,i) reduction(+:error) // nowait
+#pragma omp parallel for private(resid,j,i) reduction(+:error) dist_iteration >>(*) // nowait
       for (i=1;i<(n-1);i++)  
         for (j=1;j<(m-1);j++)   
         { 

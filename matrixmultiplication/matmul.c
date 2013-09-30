@@ -103,7 +103,7 @@ void ompacc_matmul_mdev_1(REAL *A, REAL *B, REAL *C, int n)
 {
     int i, j, k;
 #pragma omp target device(*) map(from:C[0:n]{0:n}>>(*)), map(to:n,A[0:n]{0:n}>>(*),B[0:n][0:n])
-#pragma omp parallel for private(i,j,k) map_range C[:]
+#pragma omp parallel for private(i,j,k) dist_iteration match_range C[:]
     for (i = 0; i < n; i++)
         for (k = 0; k < n; k++) {
             REAL c = 0.0;
@@ -119,7 +119,7 @@ void ompacc_matmul_mdev_2(REAL *A, REAL *B, REAL *C, int n)
     int i, j, k;
 #pragma omp target device(*) map(from:C{0:n}[0:n]>>(*)), map(to:n,A[0:n][0:n],B{0:n}[0:n]>>(*)
     for (i = 0; i < n; i++)
-#pragma omp parallel for private(i,j,k) map_range C{}[]
+#pragma omp parallel for private(i,j,k) dist_iteration match_range C{}[]
         for (k = 0; k < n; k++) {
             REAL c = 0.0;
             for (j = 0; j < n; j++)
@@ -133,9 +133,9 @@ void ompacc_matmul_mdev_3(REAL *A, REAL *B, REAL *C, int n)
 {
     int i, j, k;
 #pragma omp target device(*)=>(:)(:) map(from:C[0:n][0:n]>>(:)(:)), map(to:n,A[0:n]{0:n}>>(:){:},B{0:n}[0:n]>>{:}())
-#pragma omp parallel for private(i,j,k) map_range C[]{}
+#pragma omp parallel for private(i,j,k) dist_iteration match_range C[]{}
     for (i = 0; i < n; i++)
-#pragma omp parallel for private(i,j,k) map_range C{}[]
+#pragma omp parallel for private(i,j,k) dist_iteration match_range C{}[]
         for (k = 0; k < n; k++) {
             REAL c = 0.0;
             for (j = 0; j < n; j++)
