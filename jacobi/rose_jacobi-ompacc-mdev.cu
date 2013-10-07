@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include "libxomp.h" 
 #include "xomp_cuda_lib_inlined.cu" 
+#include "homp.h"
 
 double time_stamp() {
 	struct timeval t;
@@ -76,6 +77,7 @@ int main() {
 	 printf("Input mits - Maximum iterations for solver\n");
 	 scanf("%d",&mits);
 	 */
+	omp_init_devices();
 	n = MSIZE;
 	m = MSIZE;
 	printf("Input n,m (< %d) - grid dimension in x,y direction.\n", MSIZE);
@@ -254,45 +256,116 @@ void jacobi() {
 	b = (((-2.0 / (dx * dx)) - (2.0 / (dy * dy))) - alpha);
 	error = (10.0 * tol);
 	k = 1;
-/*
-	#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n]{0:m}>>(:)) map(tofrom:u[0:n]{0:m}>>(:)) map(alloc:uold[0:n|1]{0:m}>>(:))
-*/
-	float *_dev_u;
-	int _dev_u_size = sizeof(float) * (n - 0) * (m - 0);
-	_dev_u = ((float *) (xomp_deviceMalloc(_dev_u_size)));
-	xomp_memcpyHostToDevice(((void *) _dev_u), ((const void *) u), _dev_u_size);
-	float *_dev_f;
-	int _dev_f_size = sizeof(float) * (n - 0) * (m - 0);
-	_dev_f = ((float *) (xomp_deviceMalloc(_dev_f_size)));
-	xomp_memcpyHostToDevice(((void *) _dev_f), ((const void *) f), _dev_f_size);
-	float *_dev_uold;
-	int _dev_uold_size = sizeof(float) * (n - 0) * (m - 0);
-	_dev_uold = ((float *) (xomp_deviceMalloc(_dev_uold_size)));
+	/*
+	 #pragma omp target data device(*)=>(*)(*) map(to:n, m, omega, ax, ay, b, f[0:n][0:m]>>(:)(:)) map(tofrom:u[0:n][0:m]>>(:)(:)) map(alloc:uold[0:n|1][0:m]>>(:)(:))
+	 */
+	/* there are three mapped array variables (f, u, and uold). all scalar variables will be as parameters */
+	int __num_target_devices__ = 4; /*XXX: = runtime call or compiler generated number */
+	omp_device_t *__target_devices__[__num_target_devices__];
+	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
+	int __ndev_i__;
+	for (__ndev_i__ = 0; __ndev_i__ < __num_target_devices__; __ndev_i__++) {
+		__target_devices__[__ndev_i__] = &omp_devices[__ndev_i__]; /* currently this is simple a copy of the pointer */
+	}
+	/**TODO: compiler generated code or runtime call to init the topology */
+	int __top_ndims__ = 2;
+	int __top_dims__[__top_ndims__];
+	omp_factor(__num_target_devices__, __top_dims__, __top_ndims__);
+	int __top_periodic__[__top_ndims__]; __top_periodic__[0] = 0;__top_periodic__[1] = 0; /* this is not used at all */
+	omp_grid_topology_t __topology__={__num_target_devices__, __top_ndims__, __top_dims__, NULL};
+	omp_grid_topology_t *__topp__ = &__topology__;
+
+	int __num_mapped_variables__ = 3; /* XXX: need compiler output */
+
+	omp_stream_t __dev_stream__[__num_target_devices__]; /* need to change later one for omp_stream_t struct */
+	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+	for (__ndev_i__ = 0; __ndev_i__ < __num_target_devices__; __ndev_i__++) {
+		omp_device_t * __dev__ = __target_devices__[__ndev_i__];
+		omp_set_current_device(__current_dev__);
+		omp_init_stream(__current_dev__, &__dev_stream__[__ndev_i__]);
+
+		/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
+		omp_data_map_t * __dev_map_f__ = &__data_maps__[__ndev_i__][0]; /* 0 is given by compiler here */
+		omp_data_map_init_source(__dev_map_f__, &f[0][0], sizeof(float), n, m, 1);
+		omp_data_map_init_map(__dev_map_f__, __ndev_i__, __dev__, __topp__, OMP_MAP_TO, &__dev_stream__[__ndev_i__]);
+		omp_data_map_do_even_map(__dev_map_f__, 0, __topp__, 0, __ndev_i__);
+		omp_data_map_do_even_map(__dev_map_f__, 1, __topp__, 1, __ndev_i__);
+
+		omp_map_buffer(__dev_map_f__, 0); /* even a 2-d array, but since we are doing row-major partition, no need to marshalled data */
+
+		omp_memcpyHostToDeviceAsync(__dev_map_f__);
+		omp_print_data_map(__dev_map_f__);
+		/*************************************************************************************************************************************************************/
+
+		/***************************************************************** for u *********************************************************************/
+		omp_data_map_t * __dev_map_u__ = &__data_maps__[__ndev_i__][1]; /* 1 is given by compiler here */
+		omp_data_map_init_source(__dev_map_u__, &u[0][0], sizeof(float), n, m, 1);
+		omp_data_map_init_map(__dev_map_u__, __ndev_i__, __dev__, __topp__, OMP_MAP_TOFROM, &__dev_stream__[__ndev_i__]);
+
+		omp_data_map_do_even_map(__dev_map_u__, 0, __topp__, 0, __ndev_i__);
+		omp_data_map_do_even_map(__dev_map_u__, 1, __topp__, 1, __ndev_i__);
+
+		omp_map_buffer(__dev_map_u__, 1); /* column major, marshalling needed */
+
+		omp_memcpyHostToDeviceAsync(__dev_map_u__);
+		omp_print_data_map(__dev_map_u__);
+
+		/******************************************** for uold ******************************************************************************/
+
+		omp_data_map_t * __dev_map_uold__ = &__data_maps__[__ndev_i__][2]; /* 2 is given by compiler here */
+		omp_data_map_init_source(__dev_map_uld__, &uold[0][0] /* NULL */, sizeof(float), n, m, 1);
+		omp_data_map_init_map(__dev_map_uold__, __ndev_i__, __dev__, __topp__, OMP_MAP_ALLOC, &__dev_stream__[__ndev_i__]);
+
+		omp_data_map_do_even_map(__dev_map_uold__, 0, __topp__, 0, __ndev_i__);
+		omp_data_map_do_even_map(__dev_map_uold__, 1, __topp__, 1, __ndev_i__);
+		/* handle halo region here */
+		omp_map_init_add_halo_region(__dev_map_uold__, 0, 1, 1, 0);
+		omp_map_init_add_halo_region(__dev_map_uold__, 1, 1, 1, 0);
+
+		omp_map_buffer(__dev_map_uold__, 0);
+
+		omp_print_data_map(__dev_map_uold__);
+	}
+
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
-		{
-			/* Launch CUDA kernel ... */
+		/* Launch CUDA kernel ... */
+		for (__ndev_i__ = 0; __ndev_i__ < __num_target_devices__;__ndev_i__++) {
+			cudaSetDevice(__ndev_i__);
+			omp_data_map_t * __dev_map_f__ = &__data_maps__[__ndev_i__][0];
+			omp_data_map_t * __dev_map_u__ = &__data_maps__[__ndev_i__][1];
+			omp_data_map_t * __dev_map_uold__ = &__data_maps__[__ndev_i__][2]; /* 2 is given by compiler here */
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock(n - 1 - 0 + 1);
-			OUT__2__10550__<<<_num_blocks_, _threads_per_block_>>>(n, m, _dev_u,
-					_dev_uold);
-		}
-		{
+			int _num_blocks_ = xomp_get_max1DBlock(n / __num_target_devices__ - 1 - 0 + 1);
+			OUT__2__10550__<<<_num_blocks_, _threads_per_block_, 0,
+					__dev_stream__[__ndev_i__]>>>(n / __num_target_devices__, m,
+					__dev_map_u__->map_dev_ptr, __dev_map_uold__->map_dev_ptr);
+
+			/* halo exchange here, we do a pull protocol, thus the receiver move data from the source */
+			omp_halo_region_pull_async(__ndev_i__, NULL, __dev_map_uold__,NULL);
+
 			/* Launch CUDA kernel ... */
-			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock((n - 1) - 1 - 1 + 1);
-			float *_dev_per_block_error = (float *) (xomp_deviceMalloc(
-					_num_blocks_ * sizeof(float)));
-			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,
-					(_threads_per_block_ * sizeof(float))>>>(n, m, omega, ax,
-					ay, b, _dev_per_block_error, _dev_u, _dev_f, _dev_uold);
-			error = xomp_beyond_block_reduction_float(_dev_per_block_error,
-					_num_blocks_, 6);
-			xomp_freeDevice(_dev_per_block_error);
+//			_threads_per_block_ = xomp_get_maxThreadsPerBlock();
+			_num_blocks_ = xomp_get_max1DBlock((n / __num_target_devices__ - 1) - 1 - 1 + 1);
+			float *_dev_per_block_error = (float *) (xomp_deviceMalloc(	_num_blocks_ * sizeof(float)));
+			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(float)),
+					__dev_stream__[__ndev_i__]>>>(n / __num_target_devices__, m,
+					omega, ax, ay, b, _dev_per_block_error,
+					__dev_map_u__->map_dev_ptr, __dev_map_f__->map_dev_ptr,__dev_map_uold__->map_dev_ptr);
+			/* copy back the results of reduction in blocks */
+			float * _host_per_block_error = (float*)(malloc(_num_blocks_*sizeof(float)));
+			cudaMemcpyAsync(_host_per_block_error, _dev_per_block_error, sizeof(float)*_num_blocks_, __dev_stream__[__ndev_i__]);
+			omp_reduction_t beyond_block_reduction = {_host_per_block_error, _num_blocks_, sizeof(float), 6};
+			cudaStreamAddCallback (__dev_stream__[__ndev_i__], xomp_beyond_block_reduction_float, &beyond_block_reduction, 0);
+			/* error = xomp_beyond_block_reduction_float(_dev_per_block_error, _num_blocks_, 6); */
+			//xomp_freeDevice(_dev_per_block_error);
 		}
-//    }
-		/*  omp end parallel */
+		/* here we sync the stream and make sure all are complete (including the per-device reduction)
+		 */
+		omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
+		/* then, we need the reduction from multi-devices */
+
 		/* Error check */
 		if ((k % 500) == 0)
 			printf("Finished %d iteration with error =%f\n", k, error);
@@ -301,13 +374,13 @@ void jacobi() {
 		/*  End iteration loop */
 	}
 	xomp_memcpyDeviceToHost(((void *) u), ((const void *) _dev_u), _dev_u_size);
-	xomp_freeDevice(_dev_u);
-	xomp_freeDevice(_dev_f);
-	xomp_freeDevice(_dev_uold);
+	xomp_freeDevice (_dev_u);
+	xomp_freeDevice (_dev_f);
+	xomp_freeDevice (_dev_uold);
 	printf("Total Number of Iterations:%d\n", k);
 	printf("Residual:%E\n", error);
 }
-/*      subroutine error_check (n,m,alpha,dx,dy,u,f) 
+/*      subroutine error_check (n,m,alpha,dx,dy,u,f)
  implicit none
  ************************************************************
  * Checks error between numerical and exact solution
