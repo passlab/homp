@@ -107,47 +107,63 @@ extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
  * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
  */
 typedef struct omp_data_map_halo_region {
-	int left;
-	int right;
+	int left; /* element size */
+	int right; /* element size */
+	/* the in/out pointer is the buffer for the halo regions.
+	 * The in ptr is the buffer for halo region that will be copied in,
+	 * and the out is for those that will be copied out.
+	 * In implementation, we put the in and out buffer into one mem space for each left and right halo region
+	 */
+	void * left_in_ptr;
+	void * left_out_ptr;
+	void * right_in_ptr;
+	void * right_out_ptr;
 	short cyclic;
+	int top_dim; /* which dimension of the device topology this halo region is related to */
 } omp_data_map_halo_region_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
-typedef struct omp_data_map {
+/* for each mapped host array, we have one such object */
+typedef struct omp_data_map_info {
+    omp_grid_topology * top;
 	void * source_ptr;
 	long dim[OMP_NUM_ARRAY_DIMENSIONS]; /* dimensions for the original array */
-    long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
-	/* the offset of each dimension from the original array */
-	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+	int sizeof_element;
+	omp_map_type_t map_type; /* the map type, to, from, or tofrom */
 
 	/* the halo region: halo region is considered out-of-bound access of the main array region,
 	 * thus the index could be -1, -2, or larger than the dimensions. Our memory allocation and pointer
-	 * arithmatic will make sure we do not go out of memory bound
+	 * arithmetic will make sure we do not go out of memory bound
 	 *
 	 * In each dimension, we may have halo region.
 	 */
 	omp_data_map_halo_region_t halo_region[OMP_NUM_ARRAY_DIMENSIONS];
 	/* a quick flag to tell whether this is halo region or not in this map,
 	 * otherwise, we have to iterate the halo_region array to see whether this is one or not */
-	short halo_region_or_not;
+	short has_halo_region;
 
-	int sizeof_element;
+	struct omp_data_map * maps; /* a list of data maps of this array */
+} omp_data_map_info_t;
 
-	omp_map_type_t map_type; /* the map type, to, from, or tofrom */
-	void * map_buffer; /* the mapped buffer on host. This pointer is either the
+/* for each device, we maintain such an object */
+typedef struct omp_data_map {
+	omp_data_map_info_t * info;
+    omp_device_t * dev;
+    int devsid; /* the linear id of this data environment mapping */
+
+	long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
+	long mem_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mem region for both mapped region and halo region */
+	/* the offset of each dimension from the original array for the mapped region (not the mem region)*/
+	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+
+    void * map_buffer; /* the mapped buffer on host. This pointer is either the
 	offsetted pointer from the source_ptr, or the pointer to the marshalled array subregions */
 	int marshalled_or_not;
 
 	void * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
 	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
 
-	void * mem_dev_ptr; /* the memory for the region (both halo and array region), used for malloc/free */
-	long mem_size; // = map_size + halo_region size;
 	omp_stream_t * stream; /* the stream operations of this data map are registered with */
-
-    omp_device_t * dev;
-    omp_grid_topology * top;
-    int local_devid; /* the linear id of this data environemnt mapping */
 } omp_data_map_t;
 
 extern void omp_print_data_map(omp_data_map_t * map);

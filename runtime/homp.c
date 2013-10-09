@@ -104,20 +104,36 @@ void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
 		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
 	}
 }
-void omp_data_map_init_source(omp_data_map_t *map, void * source_ptr, int sizeof_element, long dim0, long dim1, long dim2) {
-	map->source_ptr = source_ptr;
-	map->dim[0] = dim0;
-	map->dim[1] = dim1;
-	map->dim[2] = dim2;
-	map->sizeof_element = sizeof_element;
+
+void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
+		omp_map_type_t * map_type, long dim0, long dim1, long dim2) {
+	info->top = top;
+	info->source_ptr = source_ptr;
+	info->map_type = map_type;
+	info->dim[0] = dim0;
+	info->dim[1] = dim1;
+	info->dim[2] = dim2;
+	info->sizeof_element = sizeof_element;
+	int i;
+	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
+		omp_data_map_halo_region_t * halo = &info->halo_region[i];
+		halo->left = halo->right = halo->cyclic = 0;
+		halo->top_dim = -1;
+	}
+	info->has_halo_region = 0;
 }
-void omp_data_map_init_map(omp_data_map_t *map, int local_devid, omp_grid_topology_t * top,
-		omp_device_t * dev, omp_map_type_t type, omp_stream_t * stream) {
+
+void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int devsid, omp_device_t * dev,	omp_stream_t * stream) {
+	map->info = info;
 	map->dev = dev;
-	map->map_type = type;
 	map->stream = stream;
-	map->local_devid = local_devid;
-	map->top = top;
+	map->devsid = devsid;
+	info->maps[devsid] = map; /* link this map to the info object */
+	int i;
+	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
+		map->map_dim[i] = map->info->dim[i]; /* default, full mapping */
+		map->map_offset[i] = 0;
+	}
 }
 
 /**
@@ -142,6 +158,8 @@ int omp_get_coords_topology(omp_grid_topology_t * top, int sid, int ndims, int c
 /**
  * for a given device (with sequence id devsid in the target device list) who is part of the topology (top) of topdim dimension, apply
  * the even distribution of the dim of the source array in map
+ *
+ * if there is halo region in this dimension, this will also be taken into account
  */
 void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t *top, int topdim, int devsid) {
 	/* calculate the coordinates of id in the top */
@@ -151,22 +169,40 @@ void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t 
     int dimcoord = coords[topdim];
     int dimsize = top->dims[dim];
 
+    omp_data_map_info_t *info = map->info;
+
     /* partition the array region into subregion and save it to the map */
-    int n = map->dim[dim];
+    int n = info->dim[dim];
     int remaint = n % dimsize;
     int esize = n / dimsize;
+    int map_dim, map_offset;
     if (dimcoord < remaint) { /* each of the first remaint dev has one more element */
-    	map->map_dim[dim] = esize+1;
-        map->map_offset[dim] = (esize+1)*dimcoord;
+    	map_dim = esize+1;
+        map_offset = (esize+1)*dimcoord;
     } else {
-    	map->map_dim[dim] = esize;
-        map->map_offset[dim] = esize*dimcoord + remaint;
+    	map_dim = esize;
+        map_offset = esize*dimcoord + remaint;
     }
+   	map->map_dim[dim] = map_dim;
+    map->map_offset[dim] = map_offset;
+    omp_data_map_halo_region_t * halo = &info->halo_region[dim];
+    if (halo->top_dim == topdim) {
+    	map_dim += (halo->left + halo->right);
+    	/* allocate the halo region in contiguous memory space*/
+    }
+    map->mem_dim[dim] = map_dim;
 }
 
 void omp_data_map_do_fix_map(omp_data_map_t * map, int dim, int start, int length, int devsid) {
 	map->map_dim[dim] = length;
+	map->mem_dim[dim] = length;
 	map->map_offset[dim] = start;
+}
+
+void omp_data_map_do_full_map(omp_data_map_t * map, int dim, int devsid) {
+	map->map_dim[dim] = map->info->dim[dim];
+	map->mem_dim[dim] = map->info->dim[dim];
+	map->map_offset[dim] = map->info->dim[dim];
 }
 
 int linearize2D(int X, int Y, int i, int j) {
@@ -198,36 +234,57 @@ void omp_unmarshalArrayRegion(omp_data_map_t * dmap) {
 }
 
 void omp_print_data_map(omp_data_map_t * map) {
+	omp_data_map_info_t * info = map->info;
 	printf("MAP: %X, source ptr: %X, dim[0]: %ld, dim[1]: %ld, dim[2]: %ld, map_dim[0]: %ld, map_dim[1]: %ld, map_dim[2]: %ld, "
 				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
-				"map_dev_ptr: %X, stream: %X, mem_size: %ld, device_id: %d\n\n", map, map->source_ptr, map->dim[0], map->dim[1], map->dim[2],
+				"map_dev_ptr: %X, stream: %X, mem_size: %ld, device_id: %d\n\n", map, info->source_ptr, info->dim[0], info->dim[1], info->dim[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
-				map->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->mem_size, map->device_id);
+				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->mem_size, map->devsid);
 }
 
-void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic) {
-	int i;
-	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++)
-		map->halo_region[i].left = map->halo_region[i].right = map->halo_region[i].cyclic = 0;
-
-	map->halo_region[dim].left = left;
-	map->halo_region[dim].right = right;
-	map->halo_region[dim].cyclic = cyclic;
-}
-
-void omp_map_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic) {
-	map->halo_region[dim].left = left;
-	map->halo_region[dim].right = right;
-	map->halo_region[dim].cyclic = cyclic;
+void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim) {
+	info->halo_region[dim].left = left;
+	info->halo_region[dim].right = right;
+	info->halo_region[dim].cyclic = cyclic;
+	info->halo_region[dim].top_dim = top_dim;
+	info->has_halo_region = 1;
 }
 
 /* do a halo regin pull for data map of devid. If top is not NULL, devid will be translated to coordinate of the
- * virtual topology and the halo region pull will be based on this coordinate. the int dim[] array specify which dimensions
- * to do the halo region update. If dim == NULL, do all the update of dimensions that has halo region
+ * virtual topology and the halo region pull will be based on this coordinate.
+ * @param: int dim[ specify which dimension to do the halo region update.
+ *      If dim < 0, do all the update of map dimensions that has halo region
+ * @param: int from_left_right
+ * 		0: from both left and right
+ * 		1: from left only
+ * 		2: from right only
  *
  */
-void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim[]) {
+void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim, int from_left_right) {
+	omp_data_map_info_t * info = map->info;
+	/*FIXME: let us only handle 2-D array now */
+	if (info->dim[2] != 1) {
+		sprintf(stderr, "we only handle 2-d array so far!\n");
+	}
+
 	int i;
+	if (info->has_halo_region) { /* 2-d array */
+		omp_data_map_halo_region_t * halo = info->halo_region;
+		if (halo[0].left != 0 || halo[0].right != 0) { /* it is in contigunous space */
+
+
+
+		}
+
+
+	}
+	if (map->dim[1] == 1 && map->has_halo_region) {/* one dimension array */
+
+	}
+
+	if (dim == 0) {/* pull from upper and lower neighbors */
+
+	}
 	if (top == NULL && dim == NULL) {
 		for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
 
@@ -244,34 +301,40 @@ void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp_data_m
  *
  * it will also create device memory region (both the array region memory and halo region memory
  */
-void omp_map_buffer(omp_data_map_t * map, int marshal, short halo_region_or_not) {
+void omp_map_buffer(omp_data_map_t * map, int marshal) {
 	map->marshalled_or_not = marshal;
-	map->halo_region_or_not = halo_region_or_not;
+	omp_data_map_info_t * info = map->info;
+	int sizeof_element = info->sizeof_element;
 
-	long map_size = map->sizeof_element;
+	long map_size = sizeof_element;
 	int i;
 	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-		map_size *= map->map_dim[i];
+		map_size *= map->mem_dim[i];
 	}
 	map->map_size = map_size;
-	if (!marshal) map->map_buffer = map->source_ptr + map->map_offset[0]*map->sizeof_element; /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
+	if (!marshal) map->map_buffer = info->source_ptr + map->map_offset[0]*sizeof_element; /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
 	else omp_marshalArrayRegion(map);
 
 	/* we need to allocate device memory, including both the array region and halo region */
+	cudaMalloc(&map->map_dev_ptr, map_size);
+	omp_data_map_halo_region_t * halo = info->halo_region;
 
-	if (!halo_region_or_not) {
-		map->mem_size = map_size;
-		cudaMalloc(&map->mem_dev_ptr, map_size);
-		map->map_dev_ptr = map->mem_dev_ptr;
-	} else { /* halo region */
-		long mem_size = map->sizeof_element;
-		for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-			mem_size *= (map->map_dim[i]+map->halo_region[i][0]+map->halo_region[i][1]);
-		}
-		map->mem_size = mem_size;
-		cudaMalloc(&map->mem_dev_ptr, map_size);
-		map->map_dev_ptr = map->mem_dev_ptr + map->halo_region[0][0]*map->sizeof_element; /* TODO: only 1-D cases now */
+	/* TODO: so far only for two dimension array */
+	if (map->mem_dim[0] != map->map_dim[0]) { /* there is halo region */
+		halo = &halo[0];
+		halo->left_in_ptr = map->map_buffer;
+		halo->left_out_ptr = map->map_buffer+halo->left*map->mem_dim[1]*sizeof_element;
+		halo->right_in_ptr = map->map_buffer+(map->mem_dim[0]-halo->right)*sizeof_element;
+		halo->right_out_ptr = map->map_buffer+(map->mem_dim[0]-halo->right-halo->left)*sizeof_element;
 	}
+	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
+		halo = &halo[1];
+		halo->left_in_ptr = map->map_buffer;
+		halo->left_out_ptr = map->map_buffer+halo->left*map->mem_dim[1]*sizeof_element;
+		halo->right_in_ptr = map->map_buffer+(map->mem_dim[0]-halo->right)*sizeof_element;
+		halo->right_out_ptr = map->map_buffer+(map->mem_dim[0]-halo->right-halo->left)*sizeof_element;
+	}
+
 }
 
 /**
