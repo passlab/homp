@@ -272,7 +272,7 @@ void jacobi() {
 	int __top_dims__[__top_ndims__];
 	omp_factor(__num_target_devices__, __top_dims__, __top_ndims__);
 	int __top_periodic__[__top_ndims__]; __top_periodic__[0] = 0;__top_periodic__[1] = 0; /* this is not used at all */
-	omp_grid_topology_t __topology__={__num_target_devices__, __top_ndims__, __top_dims__, NULL};
+	omp_grid_topology_t __topology__={__num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__};
 	omp_grid_topology_t *__topp__ = &__topology__;
 
 	int __num_mapped_variables__ = 3; /* XXX: need compiler output */
@@ -294,7 +294,6 @@ void jacobi() {
 	/* fill in halo region info here for uold */
 	omp_map_add_halo_region(__info__, 0, 1, 1, 0);
 	omp_map_add_halo_region(__info__, 1, 1, 1, 0);
-
 
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {

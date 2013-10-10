@@ -100,9 +100,6 @@ typedef struct omp_stream {
 	} systream;
 } omp_stream_t;
 
-extern void omp_set_current_device(omp_device_t * d);
-extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
-
 /**
  * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
  */
@@ -124,8 +121,10 @@ typedef struct omp_data_map_halo_region {
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
 /* for each mapped host array, we have one such object */
+typedef struct omp_data_map omp_data_map_t;
+
 typedef struct omp_data_map_info {
-    omp_grid_topology * top;
+    omp_grid_topology_t * top;
 	void * source_ptr;
 	long dim[OMP_NUM_ARRAY_DIMENSIONS]; /* dimensions for the original array */
 	int sizeof_element;
@@ -142,11 +141,11 @@ typedef struct omp_data_map_info {
 	 * otherwise, we have to iterate the halo_region array to see whether this is one or not */
 	short has_halo_region;
 
-	struct omp_data_map * maps; /* a list of data maps of this array */
+	omp_data_map_t ** maps; /* a list of data maps of this array */
 } omp_data_map_info_t;
 
 /* for each device, we maintain such an object */
-typedef struct omp_data_map {
+struct omp_data_map {
 	omp_data_map_info_t * info;
     omp_device_t * dev;
     int devsid; /* the linear id of this data environment mapping */
@@ -164,19 +163,28 @@ typedef struct omp_data_map {
 	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
 
 	omp_stream_t * stream; /* the stream operations of this data map are registered with */
-} omp_data_map_t;
+};
 
+extern void omp_init_devices();
+extern void omp_set_current_device(omp_device_t * d);
+extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
+
+extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
+		omp_map_type_t map_type, long dim0, long dim1, long dim2);
+extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int devsid, omp_device_t * dev,	omp_stream_t * stream);
+extern void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t *top, int topdim, int devsid);
 extern void omp_print_data_map(omp_data_map_t * map);
 
 extern void omp_marshalArrayRegion (omp_data_map_t * dmap);
 extern void omp_unmarshalArrayRegion(omp_data_map_t * dmap);
-extern void omp_map_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
+extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim);
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
-extern void omp_halo_region_pull(int devid, omp_grid_topology * top, omp_data_map_t * map, int dim[]);
-extern void omp_halo_region_pull_async(int devid, omp_grid_topology * top, omp_data_map_t * map, int dim[]);
+extern void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim, int from_left_right);
+extern void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim[]);
 extern void omp_map_buffer(omp_data_map_t * map, int marshal);
 
-extern void omp_sync_stream(int num_devices, cudaStream_t dev_stream[num_devices], int destroy_stream);
+extern void omp_sync_stream(int num_devices, omp_stream_t dev_stream[], int destroy_stream);
+extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[], omp_data_map_t *data_map);
 
 /**
  * return the mapped range index from the iteration range of the original array
@@ -203,7 +211,6 @@ extern void omp_memcpyHostToDeviceAsync(omp_data_map_t * map);
 extern void omp_memcpyDeviceToHostAsync(omp_data_map_t * map);
 /* extern void omp_postACCKernel(int num_devices, int num_maps, cudaStream_t dev_stream[num_devices], omp_data_map_t data_map[num_devices][num_maps]);
 */
-extern void omp_postACCKernel(int num_devices, int num_maps, cudaStream_t dev_stream[], omp_data_map_t *data_map);
 extern void omp_factor(int n, int factor[], int dims);
 #ifdef __cplusplus
  }

@@ -37,92 +37,83 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 {
     /* get number of target devices specified by the programmers */
     int __num_target_devices__ = 4; /*XXX: = runtime or compiler generated code */
-    int __num_mapped_variables__ = 2; /* XXX: need compiler output */
-     
-    /* declare the streams used for the async launching
-     * For each device, there is one stream
-     */
-    cudaStream_t __dev_stream__[__num_target_devices__];
 
-    /* for each mapped variables on each device, we need a data_map for this,
-     * our compiler should help to create an unique id for each of the mapped variables, which will
-     * be used to access the map array
-     *
-     * in this example, x is 0, y is 1;
-     */
-    omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
-    int __ndev_i__;
-    for (__ndev_i__ = 0; __ndev_i__<__num_target_devices__; __ndev_i__++) {
-        cudaSetDevice(__ndev_i__);
-        cudaStreamCreate(&__dev_stream__[__ndev_i__]);
+	omp_device_t *__target_devices__[__num_target_devices__];
+	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
+	int __i__;
+	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+		__target_devices__[__i__] = &omp_devices[__i__]; /* currently this is simple a copy of the pointer */
+	}
+	/**TODO: compiler generated code or runtime call to init the topology */
+	int __top_ndims__ = 1;
+	int __top_dims__[__top_ndims__];
+	omp_factor(__num_target_devices__, __top_dims__, __top_ndims__);
+	int __top_periodic__[__top_ndims__]; __top_periodic__[0] = 0;
+	omp_grid_topology_t __topology__={__num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__};
+	omp_grid_topology_t *__topp__ = &__topology__;
 
-        /***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-        omp_data_map_t * __dev_map_x__ = &__data_maps__[__ndev_i__][0]; /* 0 is given by compiler here */
-        __dev_map_x__->device_id = __ndev_i__; //omp_get_device(__ndev_i__)->sysid;
-        __dev_map_x__->map_type = OMP_MAP_TO;  /* from compiler */
-        __dev_map_x__->source_ptr = x;
-        __dev_map_x__->dim[0] = n;
-        __dev_map_x__->dim[1] = 1;
-        __dev_map_x__->dim[2] = 1;
-        __dev_map_x__->sizeof_element = sizeof(double);
+	int __num_mapped_variables__ = 2; /* XXX: need compiler output */
 
-        __dev_map_x__->map_offset[0] = __ndev_i__ * n/__num_target_devices__; /* chunking n into __ndev_i__ pieces, from compiler */
-        __dev_map_x__->map_offset[1] = 0;/* from compiler */
-        __dev_map_x__->map_offset[2] = 0;/* from compiler */
+	omp_stream_t __dev_stream__[__num_target_devices__]; /* need to change later one for omp_stream_t struct */
+	omp_data_map_info_t __data_map_infos__[__num_mapped_variables__];
 
-        __dev_map_x__->map_dim[0] = n/__num_target_devices__;/* from compiler */
-        __dev_map_x__->map_dim[1] = 1;
-        __dev_map_x__->map_dim[2] = 1;
+	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
+	omp_data_map_init_info(__info__, __topp__, x, sizeof(float), OMP_MAP_TO, n, 1, 1);
+	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
-        omp_map_buffer(__dev_map_x__, 0);
-        __dev_map_x__->stream = &__dev_stream__[__ndev_i__];
+	__info__ = &__data_map_infos__[1];
+	omp_data_map_init_info(__info__, __topp__, y, sizeof(float), OMP_MAP_TOFROM, n, 1, 1);
+	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
-        omp_deviceMalloc_memcpyHostToDeviceAsync(__dev_map_x__);
-        omp_print_data_map(__dev_map_x__);
-        /*************************************************************************************************************************************************************/
+	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+		omp_device_t * __dev__ = __target_devices__[__i__];
+		omp_set_current_device(__dev__);
+		omp_init_stream(__dev__, &__dev_stream__[__i__]);
 
-		/***************************************************************** for y *********************************************************************/
-        omp_data_map_t * __dev_map_y__ = &__data_maps__[__ndev_i__][1]; /* 1 is given by compiler here */
-        __dev_map_y__->device_id = __ndev_i__; //omp_get_device(__ndev_i__)->sysid;
-		__dev_map_y__->map_type = OMP_MAP_TOFROM; /* from compiler */
-		__dev_map_y__->source_ptr = y;
-		__dev_map_y__->dim[0] = n;
-		__dev_map_y__->dim[1] = 1;
-		__dev_map_y__->dim[2] = 1;
-		__dev_map_y__->sizeof_element = sizeof(double);
+		/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
+		omp_data_map_t * __dev_map_x__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
+		omp_data_map_init_map(__dev_map_x__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
+		omp_data_map_do_even_map(__dev_map_x__, 0, __topp__, 0, __i__);
 
-		__dev_map_y__->map_offset[0] = __ndev_i__ * n / __num_target_devices__; /* chunking n into __ndev_i__ pieces, from compiler */
-		__dev_map_y__->map_offset[1] = 0;/* from compiler */
-		__dev_map_y__->map_offset[2] = 0;/* from compiler */
+		omp_map_buffer(__dev_map_x__, 0); /* even a 2-d array, but since we are doing row-major partition, no need to marshalled data */
 
-		__dev_map_y__->map_dim[0] = n / __num_target_devices__;/* from compiler */
-		__dev_map_y__->map_dim[1] = 1;
-		__dev_map_y__->map_dim[2] = 1;
+		omp_memcpyHostToDeviceAsync(__dev_map_x__);
+		omp_print_data_map(__dev_map_x__);
+		/*************************************************************************************************************************************************************/
 
-		omp_map_buffer(__dev_map_y__, 0);
-        __dev_map_y__->stream = &__dev_stream__[__ndev_i__];
+		/***************************************************************** for u *********************************************************************/
+		omp_data_map_t * __dev_map_y__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
+		omp_data_map_init_map(__dev_map_y__, &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
 
-		omp_deviceMalloc_memcpyHostToDeviceAsync(__dev_map_y__);
-        omp_print_data_map(__dev_map_y__);
+		omp_data_map_do_even_map(__dev_map_y__, 0, __topp__, 0, __i__);
+
+		omp_map_buffer(__dev_map_y__, 0); /* column major, marshalling needed */
+
+		omp_memcpyHostToDeviceAsync(__dev_map_y__);
+		omp_print_data_map(__dev_map_y__);
+
 		/***************************************************************************************************************************************************************/
         /* Launch CUDA kernel ... */
         int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
         int _num_blocks_ = xomp_get_max1DBlock(n - 1 - 0 + 1);
         /* in this example, this information could be provided by compiler analysis, but we can also retrive this from runtime as a more
          * general solution */
-         long start_n, length_n;
+        long start_n, length_n;
         omp_loop_map_range(__dev_map_x__, 0, -1, -1, &start_n, &length_n);
         /* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
          * device map object
          */
-        printf("device: %d, range: %d:%d\n", __ndev_i__, start_n, length_n);
+        printf("device: %d, range: %d:%d\n", __i__, start_n, length_n);
 
-        OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__ndev_i__]>>>(start_n, length_n,a,(double *)__dev_map_x__->map_dev_ptr, (double *)__dev_map_y__->map_dev_ptr);
+        OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n,a,(double *)__dev_map_x__->map_dev_ptr, (double *)__dev_map_y__->map_dev_ptr);
 
         /***************************************************************************************************************************************************/
         /****************** for each from and tofrom, we need call to DeviceToHost memcpy */
         omp_memcpyDeviceToHostAsync(__dev_map_y__);
     }
 
-    omp_postACCKernel(__num_target_devices__, __num_mapped_variables__, __dev_stream__, (omp_data_map_t*)__data_maps__);
+
+	omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
+
 }

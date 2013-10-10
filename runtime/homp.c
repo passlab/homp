@@ -4,7 +4,7 @@
  *  Created on: Sep 16, 2013
  *      Author: yy8
  */
-
+#include <stdio.h>
 #include "homp.h"
 
 /* OpenMP 4.0 support */
@@ -106,7 +106,7 @@ void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
 }
 
 void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
-		omp_map_type_t * map_type, long dim0, long dim1, long dim2) {
+		omp_map_type_t map_type, long dim0, long dim1, long dim2) {
 	info->top = top;
 	info->source_ptr = source_ptr;
 	info->map_type = map_type;
@@ -142,7 +142,7 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int 
  */
 int omp_get_coords_topology(omp_grid_topology_t * top, int sid, int ndims, int coords[]) {
 	if (top->ndims > ndims) {
-		sprintf(stderr, "the given ndims and array are too small\n");
+		fprintf(stderr, "the given ndims and array are too small\n");
 		return -1;
 	}
 	int i, nnodes;
@@ -239,7 +239,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
 				"map_dev_ptr: %X, stream: %X, mem_size: %ld, device_id: %d\n\n", map, info->source_ptr, info->dim[0], info->dim[1], info->dim[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
-				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->mem_size, map->devsid);
+				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->map_size, map->devsid);
 }
 
 void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim) {
@@ -264,7 +264,7 @@ void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t *
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
 	if (info->dim[2] != 1) {
-		sprintf(stderr, "we only handle 2-d array so far!\n");
+		fprintf(stderr, "we only handle 2-d array so far!\n");
 	}
 
 	int i;
@@ -278,19 +278,6 @@ void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t *
 
 
 	}
-	if (map->dim[1] == 1 && map->has_halo_region) {/* one dimension array */
-
-	}
-
-	if (dim == 0) {/* pull from upper and lower neighbors */
-
-	}
-	if (top == NULL && dim == NULL) {
-		for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-
-		}
-	}
-
 
 }
 
@@ -329,10 +316,11 @@ void omp_map_buffer(omp_data_map_t * map, int marshal) {
 	}
 	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
 		halo = &halo[1];
-		halo->left_in_ptr = map->map_buffer;
-		halo->left_out_ptr = map->map_buffer+halo->left*map->mem_dim[1]*sizeof_element;
-		halo->right_in_ptr = map->map_buffer+(map->mem_dim[0]-halo->right)*sizeof_element;
-		halo->right_out_ptr = map->map_buffer+(map->mem_dim[0]-halo->right-halo->left)*sizeof_element;
+		int buffer_size = sizeof_element*map->mem_dim[0]*(halo->left+halo->right);
+		cudaMalloc(&halo->left_in_ptr, buffer_size);
+		halo->left_out_ptr = halo->left_in_ptr + sizeof_element*halo->left*map->mem_dim[0];
+		cudaMalloc(&halo->right_out_ptr, buffer_size);
+		halo->right_in_ptr = halo->right_out_ptr + sizeof_element*halo->left*map->mem_dim[0];
 	}
 
 }
@@ -388,16 +376,16 @@ void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
  * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
  */
 void omp_memcpyHostToDeviceAsync(omp_data_map_t * map) {
-	cudaMalloc(&map->map_dev_ptr, map->mem_size);
-	cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->mem_size, cudaMemcpyHostToDevice, *map->stream);
+	cudaMalloc(&map->map_dev_ptr, map->map_size);
+	cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream);
 }
 
 void omp_memcpyDeviceToHostAsync(omp_data_map_t * map) {
-    cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->mem_size, cudaMemcpyDeviceToHost, *map->stream);
+    cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream);
 }
 
 void omp_memcpyDeviceToHost(omp_data_map_t * map) {
-    cudaMemcpy((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->mem_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost);
 }
 
 /**
@@ -405,25 +393,49 @@ void omp_memcpyDeviceToHost(omp_data_map_t * map) {
  *
  * if destroy_stream != 0; the stream will be destroyed.
  */
-void omp_sync_stream(int num_devices, cudaStream_t dev_stream[num_devices], int destroy_stream) {
+void omp_sync_stream(int num_devices, omp_stream_t dev_stream[num_devices], int destroy_stream) {
 	int i;
+	omp_stream_t * st;
 
 	if (destroy_stream){
 		for (i=0; i<num_devices; i++) {
-			cudaSetDevice(i);
+			st = &dev_stream[i];
+			cudaSetDevice(st->dev->sysid);
 			//Wait for all operations to finish
-			cudaStreamSynchronize(dev_stream[i]);
-			cudaStreamDestroy(dev_stream[i]);
+			cudaStreamSynchronize(st->systream.cudaStream);
+			cudaStreamDestroy(st->systream.cudaStream);
 		}
 	} else {
 		for (i=0; i<num_devices; i++) {
-			cudaSetDevice(i);
+			st = &dev_stream[i];
+			cudaSetDevice(st->dev->sysid);
 			//Wait for all operations to finish
-			cudaStreamSynchronize(dev_stream[i]);
+			cudaStreamSynchronize(st->systream.cudaStream);
 		}
 	}
 }
 
+void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num_devices], omp_data_map_t *data_map) {
+	int i, j;
+	omp_stream_t * st;
+
+	for (i=0; i<num_devices; i++) {
+		st = &dev_stream[i];
+		cudaSetDevice(st->dev->sysid);
+		cudaStreamSynchronize(st->systream.cudaStream);
+		cudaStreamDestroy(st->systream.cudaStream);
+		cudaStreamDestroy(st->systream.cudaStream);
+	    for (j=0; j<num_maps; j++) {
+	    	omp_data_map_t * map = &data_map[i*num_maps+j];
+//	    	printf("postACCKernel map: %X\n", map);
+	    	omp_unmarshalArrayRegion(map);
+	    	cudaFree(map->map_dev_ptr);
+	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
+	    		free(map->map_buffer);
+	    	}
+	    }
+	}
+}
 /*
  * When call this function, the stream should already synced
  */
@@ -445,25 +457,6 @@ void omp_map_device2host(int num_devices, int num_maps, omp_data_map_t *data_map
 	}
 }
 
-void omp_postACCKernel(int num_devices, int num_maps, cudaStream_t dev_stream[num_devices], omp_data_map_t *data_map) {
-	int i, j;
-
-	for (i=0; i<num_devices; i++) {
-		cudaSetDevice(i);
-	    //Wait for all operations to finish
-	    cudaStreamSynchronize(dev_stream[i]);
-	    for (j=0; j<num_maps; j++) {
-	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-//	    	printf("postACCKernel map: %X\n", map);
-	    	omp_unmarshalArrayRegion(map);
-	    	cudaFree(map->map_dev_ptr);
-	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
-	    		free(map->map_buffer);
-	    	}
-	    }
-	    cudaStreamDestroy(dev_stream[i]);
-	}
-}
 
 size_t xomp_get_maxThreadsPerBlock()
 {
@@ -569,9 +562,11 @@ void omp_factor(int n, int factor[], int dims) {
 		}
 		default: break;
 		}
+		break;
 	}
 	default:
-		fprintf(stderr, 'more than 3 dimensions are not supported\n');
+		fprintf(stderr, "more than 3 dimensions are not supported\n");
+		break;
 	}
 }
 

@@ -47,7 +47,6 @@ void axpy_ompacc_mdev_1(REAL* x, REAL* y, int n, REAL a) {
   }
 }
 
-
 void axpy_mdev_v2(REAL* x, REAL* y, int n, REAL a) {
 
 #pragma omp target device (:) map(tofrom: y[0:n]>>(:)) map(to: x[0:n]>>(:),a,n)
