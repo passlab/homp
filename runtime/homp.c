@@ -90,7 +90,7 @@ void omp_init_devices() {
 	printf("System has total %d GPU devices\n", omp_num_devices);
 }
 
-int omp_get_active_devices() {
+int omp_get_num_active_devices() {
 	 int num_dev;
 	 char * ndev = getenv("OMP_NUM_ACTIVE_DEVICES");
 	 if (ndev != NULL) {

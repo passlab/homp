@@ -36,7 +36,7 @@ __global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_
 void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 {
     /* get number of target devices specified by the programmers */
-    int __num_target_devices__ = 4; /*XXX: = runtime or compiler generated code */
+    int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
     
     printf("use %d target devices\n", __num_target_devices__);
 

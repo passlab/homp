@@ -166,6 +166,7 @@ struct omp_data_map {
 };
 
 extern void omp_init_devices();
+extern int omp_get_num_active_devices();
 extern void omp_set_current_device(omp_device_t * d);
 extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
 
