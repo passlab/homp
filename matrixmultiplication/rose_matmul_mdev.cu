@@ -187,6 +187,7 @@ int main(int argc,char *argv[])
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 #ifndef OPENACC
 /* openmp acc version */
+  omp_init_devices();
   acc_elapsed = omp_get_wtime();
   matmul_ompacc_mdev_v1(A,B,C_acc,n);
   acc_elapsed = (omp_get_wtime() - acc_elapsed);
@@ -332,6 +333,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 
 		omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+	    		printf("=========================================== device %d ==========================================\n", __i__);
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
