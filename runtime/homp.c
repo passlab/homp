@@ -90,6 +90,18 @@ void omp_init_devices() {
 	printf("System has total %d GPU devices\n", omp_num_devices);
 }
 
+int omp_get_active_devices() {
+	 int num_dev;
+	 char * ndev = getenv("OMP_NUM_ACTIVE_DEVICES");
+	 if (ndev != NULL) {
+		 num_dev = atoi(ndev);
+	     if (num_dev == 0 || num_dev > omp_num_devices) num_dev = omp_num_devices;
+	 } else {
+		 num_dev = omp_num_devices;
+	 }
+	 return num_dev;
+}
+
 void omp_set_current_device(omp_device_t * d) {
 	if (d->type == OMP_DEVICE_NVGPU) {
 		cudaSetDevice(d->sysid);
@@ -140,7 +152,7 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int 
 }
 
 /**
- * given a sqeuence id, return the top coordinates
+ * given a sequence id, return the top coordinates
  * the function return the actual number of dimensions
  */
 int omp_get_coords_topology(omp_grid_topology_t * top, int sid, int ndims, int coords[]) {
@@ -328,7 +340,6 @@ void omp_map_buffer(omp_data_map_t * map, int marshal) {
 		cudaMalloc(&halo->right_out_ptr, buffer_size);
 		halo->right_in_ptr = halo->right_out_ptr + sizeof_element*halo->left*map->mem_dim[0];
 	}
-
 }
 
 /**
