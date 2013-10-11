@@ -25,7 +25,7 @@ void zero(float *A,int n)
     XOMP_loop_default(0,n - 1,1,&p_lower_,&p_upper_);
     for (p_index_ = p_lower_; p_index_ <= p_upper_; p_index_ += 1) {
       for (_p_j = 0; _p_j < n; _p_j++) {
-        A[(p_index_ * n) + _p_j] = 0.0;
+        A[p_index_ * n + _p_j] = 0.0;
       }
     }
     XOMP_barrier();
@@ -45,7 +45,7 @@ void init(float *A,int n)
     XOMP_loop_default(0,n - 1,1,&p_lower_,&p_upper_);
     for (p_index_ = p_lower_; p_index_ <= p_upper_; p_index_ += 1) {
       for (_p_j = 0; _p_j < n; _p_j++) {
-        A[(p_index_ * n) + _p_j] = (drand48());
+        A[p_index_ * n + _p_j] = ((double )(drand48()));
       }
     }
     XOMP_barrier();
@@ -59,12 +59,14 @@ double maxerror(float *A,float *B,int n)
   double error = 0.0;
   for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
-      double diff = ((A[(i * n) + j] - B[(i * n) + j]) / A[(i * n) + j]);
+      double diff = ((A[i * n + j] - B[i * n + j]) / A[i * n + j]);
 //        printf("%4f -- %4f\n", A[i*n+j], B[i*n+j]);
-      if (diff < 0) 
+      if (diff < 0) {
         diff = -diff;
-      if (diff > error) 
+      }
+      if (diff > error) {
         error = diff;
+      }
     }
   }
   return error;
@@ -79,12 +81,12 @@ void iter_matmul(float *A,float *B,float *C,int n)
     for (k = 0; k < n; k++) {
       float c = 0.0;
       for (j = 0; j < n; j++) 
-        c += (A[(i * n) + j] * B[(j * n) + k]);
-      C[(i * n) + k] = c;
+        c += A[i * n + j] * B[j * n + k];
+      C[i * n + k] = c;
     }
 }
 
-struct OUT__3__7117___data 
+struct OUT__3__7132___data 
 {
   void *A_p;
   void *B_p;
@@ -92,24 +94,24 @@ struct OUT__3__7117___data
   void *n_p;
 }
 ;
-static void OUT__3__7117__(void *__out_argv);
+static void OUT__3__7132__(void *__out_argv);
 
 void omp_matmul(float *A,float *B,float *C,int n)
 {
   int i;
   int j;
   int k;
-  struct OUT__3__7117___data __out_argv2__7117__;
-  __out_argv2__7117__.n_p = ((void *)(&n));
-  __out_argv2__7117__.C_p = ((void *)(&C));
-  __out_argv2__7117__.B_p = ((void *)(&B));
-  __out_argv2__7117__.A_p = ((void *)(&A));
-  XOMP_parallel_start(OUT__3__7117__,&__out_argv2__7117__,1,0,"/data/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",73);
-  XOMP_parallel_end("/data/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",80);
+  struct OUT__3__7132___data __out_argv2__7132__;
+  __out_argv2__7132__ . n_p = ((void *)(&n));
+  __out_argv2__7132__ . C_p = ((void *)(&C));
+  __out_argv2__7132__ . B_p = ((void *)(&B));
+  __out_argv2__7132__ . A_p = ((void *)(&A));
+  XOMP_parallel_start(OUT__3__7132__,&__out_argv2__7132__,1,0,"/home/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",73);
+  XOMP_parallel_end("/home/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",80);
 }
 /* one device */
 
-__global__ void OUT__2__7117__(int n,float *_dev_A,float *_dev_B,float *_dev_C)
+__global__ void OUT__2__7132__(int n,float *_dev_A,float *_dev_B,float *_dev_C)
 {
   int _p_i;
   int _p_j;
@@ -119,8 +121,8 @@ __global__ void OUT__2__7117__(int n,float *_dev_A,float *_dev_B,float *_dev_C)
     for (_p_k = 0; _p_k < n; _p_k++) {
       float c = 0.0;
       for (_p_j = 0; _p_j < n; _p_j++) 
-        c += (_dev_A[(_dev_i * n) + _p_j] * _dev_B[(_p_j * n) + _p_k]);
-      _dev_C[(_dev_i * n) + _p_k] = c;
+        c += _dev_A[_dev_i * n + _p_j] * _dev_B[_p_j * n + _p_k];
+      _dev_C[_dev_i * n + _p_k] = c;
     }
   }
 }
@@ -145,7 +147,7 @@ void ompacc_matmul(float *A,float *B,float *C,int n)
 /* Launch CUDA kernel ... */
     int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
     int _num_blocks_ = xomp_get_max1DBlock(n - 1 - 0 + 1);
-    OUT__2__7117__<<<_num_blocks_,_threads_per_block_>>>(n,_dev_A,_dev_B,_dev_C);
+    OUT__2__7132__<<<_num_blocks_,_threads_per_block_>>>(n,_dev_A,_dev_B,_dev_C);
     xomp_freeDevice(_dev_A);
     xomp_freeDevice(_dev_B);
     xomp_memcpyDeviceToHost(((void *)C),((const void *)_dev_C),_dev_C_size);
@@ -154,6 +156,9 @@ void ompacc_matmul(float *A,float *B,float *C,int n)
 }
 #if 0
 /* multiple device */
+/* A, C row-major partition */
+/* B, C column-major partition */
+/* A,B, C row-column partition */
 #endif
 
 void openacc_matmul(float *A,float *B,float *C,int n)
@@ -164,17 +169,17 @@ void openacc_matmul(float *A,float *B,float *C,int n)
 /* #pragma acc kernels copyin(A[0:n][0:n],B[0:n][0:n]) copyout(C[0:n][0:n]) */
 //#pragma acc kernels loop copyin(A[0:n*n],B[0:n*n]) copyout(C[0:n*n])
   
-#pragma acc parallel loop copyin ( A [ 0 : n * n ], B [ 0 : n * n ] ) copyout ( C [ 0 : n * n ] ) collapse ( 2 )
+#pragma acc parallel loop copyin(A[0:n*n],B[0:n*n]) copyout(C[0:n*n]) collapse(2)
   for (i = 0; i < n; i++) 
     for (k = 0; k < n; k++) {
       float c = 0.0;
       for (j = 0; j < n; j++) 
-        c += (A[(i * n) + j] * B[(j * n) + k]);
-      C[(i * n) + k] = c;
+        c += A[i * n + j] * B[j * n + k];
+      C[i * n + k] = c;
     }
 }
 
-struct OUT__1__7117___data 
+struct OUT__1__7132___data 
 {
   void *n_p;
   void *num_threads_p;
@@ -185,7 +190,7 @@ struct OUT__1__7117___data
   void *C_acc_p;
 }
 ;
-static void OUT__1__7117__(void *__out_argv);
+static void OUT__1__7132__(void *__out_argv);
 
 int main(int argc,char *argv[])
 {
@@ -204,36 +209,36 @@ int main(int argc,char *argv[])
     exit(1);
   }
   n = atoi(argv[1]);
-  A = ((float *)(malloc(((n * n) * sizeof(float )))));
-  B = ((float *)(malloc(((n * n) * sizeof(float )))));
-  C_seq = ((float *)(malloc(((n * n) * sizeof(float )))));
-  C_omp_for = ((float *)(malloc(((n * n) * sizeof(float )))));
-  C_acc = ((float *)(malloc(((n * n) * sizeof(float )))));
+  A = ((float *)(malloc((n * n) * sizeof(float ))));
+  B = ((float *)(malloc((n * n) * sizeof(float ))));
+  C_seq = ((float *)(malloc((n * n) * sizeof(float ))));
+  C_omp_for = ((float *)(malloc((n * n) * sizeof(float ))));
+  C_acc = ((float *)(malloc((n * n) * sizeof(float ))));
   srand48((1 << 12));
-  struct OUT__1__7117___data __out_argv1__7117__;
-  __out_argv1__7117__.C_acc_p = ((void *)(&C_acc));
-  __out_argv1__7117__.C_omp_for_p = ((void *)(&C_omp_for));
-  __out_argv1__7117__.C_seq_p = ((void *)(&C_seq));
-  __out_argv1__7117__.B_p = ((void *)(&B));
-  __out_argv1__7117__.A_p = ((void *)(&A));
-  __out_argv1__7117__.num_threads_p = ((void *)(&num_threads));
-  __out_argv1__7117__.n_p = ((void *)(&n));
-  XOMP_parallel_start(OUT__1__7117__,&__out_argv1__7117__,1,0,"/data/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",152);
-  XOMP_parallel_end("/data/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",163);
+  struct OUT__1__7132___data __out_argv1__7132__;
+  __out_argv1__7132__ . C_acc_p = ((void *)(&C_acc));
+  __out_argv1__7132__ . C_omp_for_p = ((void *)(&C_omp_for));
+  __out_argv1__7132__ . C_seq_p = ((void *)(&C_seq));
+  __out_argv1__7132__ . B_p = ((void *)(&B));
+  __out_argv1__7132__ . A_p = ((void *)(&A));
+  __out_argv1__7132__ . num_threads_p = ((void *)(&num_threads));
+  __out_argv1__7132__ . n_p = ((void *)(&n));
+  XOMP_parallel_start(OUT__1__7132__,&__out_argv1__7132__,1,0,"/home/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",184);
+  XOMP_parallel_end("/home/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",195);
 /* sequential run */
   seq_elapsed = omp_get_wtime();
 //    iter_matmul(A, B, C_seq, n);
-  seq_elapsed = (omp_get_wtime() - seq_elapsed);
+  seq_elapsed = omp_get_wtime() - seq_elapsed;
 /* openmp parallel for version */
   omp_for_elapsed = omp_get_wtime();
 //    omp_matmul(A, B, C_omp_for, n);
-  omp_for_elapsed = (omp_get_wtime() - omp_for_elapsed);
+  omp_for_elapsed = omp_get_wtime() - omp_for_elapsed;
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 #ifndef OPENACC
 /* openmp acc version */
   acc_elapsed = omp_get_wtime();
   ompacc_matmul(A,B,C_acc,n);
-  acc_elapsed = (omp_get_wtime() - acc_elapsed);
+  acc_elapsed = omp_get_wtime() - acc_elapsed;
 #else
 #endif
   printf("=======================================================================\n");
@@ -241,10 +246,10 @@ int main(int argc,char *argv[])
   printf("-----------------------------------------------------------------------\n");
   printf("Performance:  Runtime (s)\t MFLOPS\t\t\t Error\n");
   printf("-----------------------------------------------------------------------\n");
-  printf("Sequential      :  %4f \t\t %4f\t\t%g\n",seq_elapsed,((((2.0 * n) * n) * n) / (1.0e6 * seq_elapsed)),maxerror(C_seq,C_seq,n));
-  printf("OMP For         :  %4f \t\t %4f\t\t%g\n",omp_for_elapsed,((((2.0 * n) * n) * n) / (1.0e6 * omp_for_elapsed)),maxerror(C_seq,C_omp_for,n));
+  printf("Sequential      :  %4f \t\t %4f\t\t%g\n",seq_elapsed,2.0 * n * n * n / (1.0e6 * seq_elapsed),maxerror(C_seq,C_seq,n));
+  printf("OMP For         :  %4f \t\t %4f\t\t%g\n",omp_for_elapsed,2.0 * n * n * n / (1.0e6 * omp_for_elapsed),maxerror(C_seq,C_omp_for,n));
 #ifndef OPENACC
-  printf("OMP ACC         :  %4f \t\t %4f\t\t%g\n",acc_elapsed,((((2.0 * n) * n) * n) / (1.0e6 * acc_elapsed)),maxerror(C_seq,C_acc,n));
+  printf("OMP ACC         :  %4f \t\t %4f\t\t%g\n",acc_elapsed,2.0 * n * n * n / (1.0e6 * acc_elapsed),maxerror(C_seq,C_acc,n));
 #else
 #endif
   free(C_acc);
@@ -255,15 +260,15 @@ int main(int argc,char *argv[])
   return 0;
 }
 
-static void OUT__1__7117__(void *__out_argv)
+static void OUT__1__7132__(void *__out_argv)
 {
-  int *n = (int *)(((struct OUT__1__7117___data *)__out_argv) -> n_p);
-  int *num_threads = (int *)(((struct OUT__1__7117___data *)__out_argv) -> num_threads_p);
-  float **A = (float **)(((struct OUT__1__7117___data *)__out_argv) -> A_p);
-  float **B = (float **)(((struct OUT__1__7117___data *)__out_argv) -> B_p);
-  float **C_seq = (float **)(((struct OUT__1__7117___data *)__out_argv) -> C_seq_p);
-  float **C_omp_for = (float **)(((struct OUT__1__7117___data *)__out_argv) -> C_omp_for_p);
-  float **C_acc = (float **)(((struct OUT__1__7117___data *)__out_argv) -> C_acc_p);
+  int *n = (int *)(((struct OUT__1__7132___data *)__out_argv) -> n_p);
+  int *num_threads = (int *)(((struct OUT__1__7132___data *)__out_argv) -> num_threads_p);
+  float **A = (float **)(((struct OUT__1__7132___data *)__out_argv) -> A_p);
+  float **B = (float **)(((struct OUT__1__7132___data *)__out_argv) -> B_p);
+  float **C_seq = (float **)(((struct OUT__1__7132___data *)__out_argv) -> C_seq_p);
+  float **C_omp_for = (float **)(((struct OUT__1__7132___data *)__out_argv) -> C_omp_for_p);
+  float **C_acc = (float **)(((struct OUT__1__7132___data *)__out_argv) -> C_acc_p);
   if (XOMP_master()) {
      *num_threads = omp_get_num_threads();
   }
@@ -274,12 +279,12 @@ static void OUT__1__7117__(void *__out_argv)
   zero( *C_acc, *n);
 }
 
-static void OUT__3__7117__(void *__out_argv)
+static void OUT__3__7132__(void *__out_argv)
 {
-  float **A = (float **)(((struct OUT__3__7117___data *)__out_argv) -> A_p);
-  float **B = (float **)(((struct OUT__3__7117___data *)__out_argv) -> B_p);
-  float **C = (float **)(((struct OUT__3__7117___data *)__out_argv) -> C_p);
-  int *n = (int *)(((struct OUT__3__7117___data *)__out_argv) -> n_p);
+  float **A = (float **)(((struct OUT__3__7132___data *)__out_argv) -> A_p);
+  float **B = (float **)(((struct OUT__3__7132___data *)__out_argv) -> B_p);
+  float **C = (float **)(((struct OUT__3__7132___data *)__out_argv) -> C_p);
+  int *n = (int *)(((struct OUT__3__7132___data *)__out_argv) -> n_p);
   int _p_i;
   int _p_j;
   int _p_k;
@@ -291,8 +296,8 @@ static void OUT__3__7117__(void *__out_argv)
     for (_p_k = 0; _p_k <  *n; _p_k++) {
       float c = 0.0;
       for (_p_j = 0; _p_j <  *n; _p_j++) 
-        c += (( *A)[(p_index_ *  *n) + _p_j] * ( *B)[(_p_j *  *n) + _p_k]);
-      ( *C)[(p_index_ *  *n) + _p_k] = c;
+        c += ( *A)[p_index_ *  *n + _p_j] * ( *B)[_p_j *  *n + _p_k];
+      ( *C)[p_index_ *  *n + _p_k] = c;
     }
   }
   XOMP_barrier();

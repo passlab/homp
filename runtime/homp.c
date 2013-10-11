@@ -137,6 +137,9 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->has_halo_region = 0;
 }
 
+/**
+ * after initialization, by default, it will perform full map of the original array
+ */
 void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int devsid, omp_device_t * dev,	omp_stream_t * stream) {
 	map->info = info;
 	map->dev = dev;

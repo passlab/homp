@@ -97,15 +97,13 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 
 		/***************************************************************************************************************************************************************/
         /* Launch CUDA kernel ... */
-        int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-        int _num_blocks_ = xomp_get_max1DBlock(n - 1 - 0 + 1);
-        /* in this example, this information could be provided by compiler analysis, but we can also retrive this from runtime as a more
-         * general solution */
         long start_n, length_n;
         omp_loop_map_range(__dev_map_x__, 0, -1, -1, &start_n, &length_n);
         /* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
          * device map object
          */
+        int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
+        int _num_blocks_ = xomp_get_max1DBlock(length_n - 1 - 0 + 1);
         printf("device: %d, range: %d:%d\n", __i__, start_n, length_n);
 
         OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n,a,(double *)__dev_map_x__->map_dev_ptr, (double *)__dev_map_y__->map_dev_ptr);
