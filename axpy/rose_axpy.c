@@ -49,7 +49,8 @@ int main(int argc,char *argv[])
 {
   int status = 0;
   XOMP_init(argc,argv);
-   long n;
+  omp_init_devices(); 
+  long n;
   double *y_omp;
   double *y_ompacc;
   double *x;

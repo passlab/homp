@@ -80,12 +80,14 @@ void omp_init_devices() {
 		omp_devices[i].id = i;
 		omp_devices[i].type = OMP_DEVICE_NVGPU;
 		omp_devices[i].status = 1;
+		omp_devices[i].sysid = i;
 		omp_devices[i].next = &omp_devices[i+1];
 	}
 	if (omp_num_devices) {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
+	printf("System has total %d GPU devices\n", omp_num_devices);
 }
 
 void omp_set_current_device(omp_device_t * d) {
@@ -132,6 +134,7 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int 
 	int i;
 	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
 		map->map_dim[i] = map->info->dim[i]; /* default, full mapping */
+		map->mem_dim[i] = map->info->dim[i]; /* default, full mapping */
 		map->map_offset[i] = 0;
 	}
 }
@@ -237,7 +240,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
 	printf("MAP: %X, source ptr: %X, dim[0]: %ld, dim[1]: %ld, dim[2]: %ld, map_dim[0]: %ld, map_dim[1]: %ld, map_dim[2]: %ld, "
 				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
-				"map_dev_ptr: %X, stream: %X, mem_size: %ld, device_id: %d\n\n", map, info->source_ptr, info->dim[0], info->dim[1], info->dim[2],
+				"map_dev_ptr: %X, stream: %X, map_size: %ld, device_id: %d\n\n", map, info->source_ptr, info->dim[0], info->dim[1], info->dim[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
 				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->map_size, map->devsid);
 }
@@ -303,7 +306,10 @@ void omp_map_buffer(omp_data_map_t * map, int marshal) {
 	else omp_marshalArrayRegion(map);
 
 	/* we need to allocate device memory, including both the array region and halo region */
-	cudaMalloc(&map->map_dev_ptr, map_size);
+	if (cudaErrorMemoryAllocation == cudaMalloc(&map->map_dev_ptr, map_size)) {
+		fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+	} else {
+	}
 	omp_data_map_halo_region_t * halo = info->halo_region;
 
 	/* TODO: so far only for two dimension array */
@@ -376,7 +382,6 @@ void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
  * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
  */
 void omp_memcpyHostToDeviceAsync(omp_data_map_t * map) {
-	cudaMalloc(&map->map_dev_ptr, map->map_size);
 	cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream);
 }
 
