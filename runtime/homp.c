@@ -326,7 +326,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 	map->map_size = map_size;
 	if (!marshal) {
 		/* TODO: only for 2D */
-		map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*map->map_dim[1]*sizeof_element); /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
+		map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*map->map_dim[1]*sizeof_element);
 	} else omp_marshalArrayRegion(map);
 
 	/* we need to allocate device memory, including both the array region and halo region */

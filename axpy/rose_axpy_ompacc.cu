@@ -103,7 +103,7 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
          * device map object
          */
         int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-        int _num_blocks_ = xomp_get_max1DBlock(length_n - 1 - 0 + 1);
+        int _num_blocks_ = xomp_get_max1DBlock(length_n);
         printf("device: %d, range: %d:%d\n", __i__, start_n, length_n);
 
         OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n,a,(double *)__dev_map_x__->map_dev_ptr, (double *)__dev_map_y__->map_dev_ptr);
