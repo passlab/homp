@@ -343,7 +343,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			omp_data_map_init_map(__dev_map_A__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
 			omp_data_map_do_even_map(__dev_map_A__, 0, __topp__, 0, __i__);
 
-			omp_map_buffer(__dev_map_A__, 0); /* even a 2-d array, but since we are doing row-major partition, no need to marshalled data */
+			omp_map_buffer_malloc(__dev_map_A__);
 
 			omp_memcpyHostToDeviceAsync(__dev_map_A__);
 			omp_print_data_map(__dev_map_A__);
@@ -352,7 +352,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			/***************************************************************** for B *********************************************************************/
 			omp_data_map_t * __dev_map_B__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
 			omp_data_map_init_map(__dev_map_B__, &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_map_buffer(__dev_map_B__, 0); /* column major, marshalling needed */
+			omp_map_buffer_malloc(__dev_map_B__); /* column major, marshalling needed */
 
 			omp_memcpyHostToDeviceAsync(__dev_map_B__);
 			omp_print_data_map(__dev_map_B__);
@@ -361,7 +361,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			omp_data_map_t * __dev_map_C__ = &__data_maps__[__i__][2]; /* 1 is given by compiler here */
 			omp_data_map_init_map(__dev_map_C__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
 			omp_data_map_do_even_map(__dev_map_C__, 0, __topp__, 0, __i__);
-			omp_map_buffer(__dev_map_C__, 0); /* column major, marshalling needed */
+			omp_map_buffer_malloc(__dev_map_C__);
 			omp_print_data_map(__dev_map_C__);
 
 			/***************************************************************************************************************************************************************/

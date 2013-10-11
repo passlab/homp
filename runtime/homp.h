@@ -182,7 +182,7 @@ extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int lef
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
 extern void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim, int from_left_right);
 extern void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim[]);
-extern void omp_map_buffer(omp_data_map_t * map, int marshal);
+extern void omp_map_buffer_malloc(omp_data_map_t * map);
 
 extern void omp_sync_stream(int num_devices, omp_stream_t dev_stream[], int destroy_stream);
 extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[], omp_data_map_t data_map[]);

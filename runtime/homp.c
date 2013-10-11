@@ -152,6 +152,7 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int 
 		map->mem_dim[i] = map->info->dim[i]; /* default, full mapping */
 		map->map_offset[i] = 0;
 	}
+	map->marshalled_or_not = 0;
 }
 
 /**
@@ -209,18 +210,24 @@ void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t 
     	/* allocate the halo region in contiguous memory space*/
     }
     map->mem_dim[dim] = map_dim;
+
+    if (dim != 0) { /* need to do marshalling for the data when mapping to remote or devices of a non-zero dimension (first one) */
+    	/** TODO: only working for 2D */
+    	map->marshalled_or_not = 1;
+    }
 }
 
 void omp_data_map_do_fix_map(omp_data_map_t * map, int dim, int start, int length, int devsid) {
 	map->map_dim[dim] = length;
 	map->mem_dim[dim] = length;
 	map->map_offset[dim] = start;
-}
+	if (dim != 0 && start != 0 && length != map->info->dim[dim]) {
+		/* if this is not using the full range of the non-zeor dimension (the first dim),
+		marshalling will be needed when mapping the data */
 
-void omp_data_map_do_full_map(omp_data_map_t * map, int dim, int devsid) {
-	map->map_dim[dim] = map->info->dim[dim];
-	map->mem_dim[dim] = map->info->dim[dim];
-	map->map_offset[dim] = map->info->dim[dim];
+		/* TODO: only for 2D */
+		map->marshalled_or_not = 1;
+	}
 }
 
 int linearize2D(int X, int Y, int i, int j) {
@@ -306,8 +313,8 @@ void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp_data_m
  *
  * it will also create device memory region (both the array region memory and halo region memory
  */
-void omp_map_buffer(omp_data_map_t * map, int marshal) {
-	map->marshalled_or_not = marshal;
+void omp_map_buffer_malloc(omp_data_map_t * map) {
+	int marshal = map->marshalled_or_not;
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 
@@ -317,8 +324,10 @@ void omp_map_buffer(omp_data_map_t * map, int marshal) {
 		map_size *= map->mem_dim[i];
 	}
 	map->map_size = map_size;
-	if (!marshal) map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*sizeof_element); /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
-	else omp_marshalArrayRegion(map);
+	if (!marshal) {
+		/* TODO: only for 2D */
+		map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*map->map_dim[1]*sizeof_element); /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
+	} else omp_marshalArrayRegion(map);
 
 	/* we need to allocate device memory, including both the array region and halo region */
 	if (cudaErrorMemoryAllocation == cudaMalloc(&map->map_dev_ptr, map_size)) {

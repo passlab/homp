@@ -78,7 +78,7 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		omp_data_map_init_map(__dev_map_x__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
 		omp_data_map_do_even_map(__dev_map_x__, 0, __topp__, 0, __i__);
 
-		omp_map_buffer(__dev_map_x__, 0); /* even a 2-d array, but since we are doing row-major partition, no need to marshalled data */
+		omp_map_buffer_malloc(__dev_map_x__);
 
 		omp_memcpyHostToDeviceAsync(__dev_map_x__);
 		omp_print_data_map(__dev_map_x__);
@@ -90,7 +90,7 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 
 		omp_data_map_do_even_map(__dev_map_y__, 0, __topp__, 0, __i__);
 
-		omp_map_buffer(__dev_map_y__, 0); /* column major, marshalling needed */
+		omp_map_buffer_malloc(__dev_map_y__); /* column major, marshalling will be needed */
 
 		omp_memcpyHostToDeviceAsync(__dev_map_y__);
 		omp_print_data_map(__dev_map_y__);
