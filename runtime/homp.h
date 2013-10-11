@@ -184,7 +184,7 @@ extern void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp
 extern void omp_map_buffer(omp_data_map_t * map, int marshal);
 
 extern void omp_sync_stream(int num_devices, omp_stream_t dev_stream[], int destroy_stream);
-extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[], omp_data_map_t *data_map);
+extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[], omp_data_map_t data_map[]);
 
 /**
  * return the mapped range index from the iteration range of the original array

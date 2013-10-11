@@ -113,7 +113,6 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
         omp_memcpyDeviceToHostAsync(__dev_map_y__);
     }
 
-
-	omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
+    omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, __data_maps__[0]);
 
 }

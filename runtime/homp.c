@@ -420,7 +420,7 @@ void omp_sync_stream(int num_devices, omp_stream_t dev_stream[num_devices], int 
 	}
 }
 
-void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num_devices], omp_data_map_t *data_map) {
+void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num_devices], omp_data_map_t data_map[]) {
 	int i, j;
 	omp_stream_t * st;
 
