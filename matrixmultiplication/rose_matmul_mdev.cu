@@ -178,11 +178,11 @@ int main(int argc,char *argv[])
   XOMP_parallel_end("/data/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",163);
 /* sequential run */
   seq_elapsed = omp_get_wtime();
-//    iter_matmul(A, B, C_seq, n);
+  iter_matmul(A, B, C_seq, n);
   seq_elapsed = (omp_get_wtime() - seq_elapsed);
 /* openmp parallel for version */
   omp_for_elapsed = omp_get_wtime();
-//    omp_matmul(A, B, C_omp_for, n);
+  omp_matmul(A, B, C_omp_for, n);
   omp_for_elapsed = (omp_get_wtime() - omp_for_elapsed);
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 #ifndef OPENACC
@@ -362,6 +362,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			omp_data_map_init_map(__dev_map_C__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
 			omp_data_map_do_even_map(__dev_map_C__, 0, __topp__, 0, __i__);
 			omp_map_buffer(__dev_map_C__, 0); /* column major, marshalling needed */
+			omp_print_data_map(__dev_map_C__);
 
 			/***************************************************************************************************************************************************************/
 			/*************************************************************************************************************************************************************/
