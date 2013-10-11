@@ -33,7 +33,7 @@ double check(double *A,double *B, long n)
    long i;
   double sum = 0.0;
   for (i = 0; i < n; i++) {
-    sum += (A[i] - B[i]);
+    sum += fabs(A[i] - B[i]);
   }
   return sum;
 }
