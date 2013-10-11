@@ -37,6 +37,8 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 {
     /* get number of target devices specified by the programmers */
     int __num_target_devices__ = 4; /*XXX: = runtime or compiler generated code */
+    
+    printf("use %d target devices\n", __num_target_devices__);
 
 	omp_device_t *__target_devices__[__num_target_devices__];
 	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
@@ -58,11 +60,11 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	omp_data_map_info_t __data_map_infos__[__num_mapped_variables__];
 
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	omp_data_map_init_info(__info__, __topp__, x, sizeof(float), OMP_MAP_TO, n, 1, 1);
+	omp_data_map_init_info(__info__, __topp__, x, sizeof(double), OMP_MAP_TO, n, 1, 1);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	__info__ = &__data_map_infos__[1];
-	omp_data_map_init_info(__info__, __topp__, y, sizeof(float), OMP_MAP_TOFROM, n, 1, 1);
+	omp_data_map_init_info(__info__, __topp__, y, sizeof(double), OMP_MAP_TOFROM, n, 1, 1);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
@@ -113,6 +115,6 @@ void axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
         omp_memcpyDeviceToHostAsync(__dev_map_y__);
     }
 
-    omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, __data_maps__[0]);
+    omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
 
 }

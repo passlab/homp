@@ -23,7 +23,7 @@ axpy:
 #	${ROSE_OMPTEST}/roseomp ${TEST_INCLUDES} ${TEST_FLAGS} -rose:skipfinalCompileStep axpy_omp.c
 #	${ROSE_OMPTEST}/roseomp ${TEST_INCLUDES} ${TEST_FLAGS} -rose:skipfinalCompileStep axpy.c
 #	nvcc $(TEST_INCLUDES) ${TEST_LINK}  -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c $(ROSE_XOMPSRC)/xomp_cuda_lib.cu rose_axpy_omp.c rose_axpy_ompacc.cu rose_axpy.c timer.c -c
-	nvcc $(TEST_INCLUDES) ${TEST_LINK}  -g -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c rose_axpy_omp.c rose_axpy_ompacc.cu rose_axpy.c timer.c -c
+	nvcc $(TEST_INCLUDES) ${TEST_LINK} -arch sm_20 -g -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c rose_axpy_omp.c rose_axpy_ompacc.cu rose_axpy.c timer.c -c
 	nvcc $(TEST_INCLUDES) ${TEST_LINK}  *.o -o $@
 
 clean:

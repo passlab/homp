@@ -314,7 +314,7 @@ void omp_map_buffer(omp_data_map_t * map, int marshal) {
 		map_size *= map->mem_dim[i];
 	}
 	map->map_size = map_size;
-	if (!marshal) map->map_buffer = info->source_ptr + map->map_offset[0]*sizeof_element; /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
+	if (!marshal) map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*sizeof_element); /* TODO: if it is 1-dimension, or two-dimension with contigunous memory, etc */
 	else omp_marshalArrayRegion(map);
 
 	/* we need to allocate device memory, including both the array region and halo region */
@@ -439,7 +439,6 @@ void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num
 		st = &dev_stream[i];
 		cudaSetDevice(st->dev->sysid);
 		cudaStreamSynchronize(st->systream.cudaStream);
-		cudaStreamDestroy(st->systream.cudaStream);
 		cudaStreamDestroy(st->systream.cudaStream);
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
