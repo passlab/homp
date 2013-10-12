@@ -402,18 +402,29 @@ void ompacc_matmul_mdev_v2(REAL *A, REAL *B, REAL *C, int n)
 }
 #endif
 
-__global__ void OUT__2__7117_mdev_v2__(int start_j, int length_j, int n,float *_dev_A,float *_dev_B,float *_dev_C)
+/**
+ * A, B and C should be reshaped in this call becasue they are a mapped subregion of the original array,
+ * for originally A, B, C are all [n][n] array, now they are
+ *
+ * A[n][n]
+ * B[n][length_j]
+ * C[n][length_j]
+ *
+ * TODO this is a tough task for compiler to use length_j as dim[1]
+ *
+ * */
+__global__ void OUT__2__7117_mdev_v2__(int start_k, int length_k, int n,float *_dev_A,float *_dev_B,float *_dev_C)
 {
   int _p_i;
   int _p_j;
   int _p_k;
-  int _dev_j = blockDim.x * blockIdx.x + threadIdx.x;
-  if (_dev_j >= start_j && _dev_j <= length_j - 1) {
+  int _dev_k = blockDim.x * blockIdx.x + threadIdx.x;
+  if (_dev_k >= start_k && _dev_k <= length_k - 1) {
 	for (_p_i=0; _p_i<n; _p_i++) {
       float c = 0.0;
       for (_p_j = 0; _p_j < n; _p_j++)
-        c += (_dev_A[(_p_i * n) + _dev_j] * _dev_B[(_dev_j * length_j) + _p_k]);
-      _dev_C[(_p_i * n) + _p_k] = c;
+        c += (_dev_A[(_p_i * n) + _p_j] * _dev_B[(_p_j * length_k) + _dev_k]);
+      _dev_C[(_p_i * n) + _dev_k] = c;
     }
   }
 }
@@ -492,16 +503,16 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			/***************************************************************************************************************************************************************/
 			/*************************************************************************************************************************************************************/
 			/* Launch CUDA kernel ... */
-			long start_j, length_j;
-			omp_loop_map_range(__dev_map_C__, 0, -1, -1, &start_j, &length_j);
+			long start_k, length_k;
+			omp_loop_map_range(__dev_map_C__, 0, -1, -1, &start_k, &length_k);
 			/* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
 			 * device map object
 			*/
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock(length_j);
-			printf("device: %d, range: %d:%d\n", __i__, start_j, length_j);
+			int _num_blocks_ = xomp_get_max1DBlock(length_k);
+			printf("device: %d, range: %d:%d\n", __i__, start_k, length_k);
 
-			OUT__2__7117_mdev_v2__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(start_j, length_j, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+			OUT__2__7117_mdev_v2__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(start_k, length_k, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 
 			omp_memcpyDeviceToHostAsync(__dev_map_C__);
 	    }

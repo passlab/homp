@@ -176,8 +176,8 @@ extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * inf
 extern void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t *top, int topdim, int devsid);
 extern void omp_print_data_map(omp_data_map_t * map);
 
-extern void omp_marshalArrayRegion (omp_data_map_t * dmap);
-extern void omp_unmarshalArrayRegion(omp_data_map_t * dmap);
+extern void omp_data_map_marshal(omp_data_map_t * map);
+extern void omp_data_map_unmarshal(omp_data_map_t * map);
 extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim);
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
 extern void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim, int from_left_right);

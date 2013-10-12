@@ -210,52 +210,49 @@ void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t 
     	/* allocate the halo region in contiguous memory space*/
     }
     map->mem_dim[dim] = map_dim;
-
-    if (dim != 0) { /* need to do marshalling for the data when mapping to remote or devices of a non-zero dimension (first one) */
-    	/** TODO: only working for 2D */
-    	map->marshalled_or_not = 1;
-    }
 }
 
 void omp_data_map_do_fix_map(omp_data_map_t * map, int dim, int start, int length, int devsid) {
 	map->map_dim[dim] = length;
 	map->mem_dim[dim] = length;
 	map->map_offset[dim] = start;
-	if (dim != 0 && start != 0 && length != map->info->dim[dim]) {
-		/* if this is not using the full range of the non-zeor dimension (the first dim),
-		marshalling will be needed when mapping the data */
+}
 
-		/* TODO: only for 2D */
-		map->marshalled_or_not = 1;
+void omp_data_map_unmarshal(omp_data_map_t * map) {
+	if (!map->marshalled_or_not) return;
+	omp_data_map_info_t * info = map->info;
+	int sizeof_element = info->sizeof_element;
+	int i;
+	int region_line_size = map->map_dim[1]*sizeof_element;
+	int full_line_size = info->dim[1]*sizeof_element;
+	int region_off = 0;
+	int full_off = 0;
+	void * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
+	for (i=0; i<map->map_dim[0]; i++) {
+		memcpy(src_ptr+full_off, map->map_buffer+region_off, region_line_size);
+		region_off += region_line_size;
+		full_off += full_line_size;
 	}
 }
 
-int linearize2D(int X, int Y, int i, int j) {
-	return i*Y+j;
-}
-
-void cartize2D(int X, int Y, int num, int *i, int *j) {
-	*i = num/Y;
-	*j = num%Y;
-}
-
-int linearize3D(int X, int Y, int Z, int i, int j, int k) {
-	return 0;
-}
-
-void cartize3D(int X, int Y, int Z, int num, int *i, int *j, int *k) {
-}
-
-void map3D(int X, int Y, int Z, int startX, int subX, int startY, int subY, int startZ, int subZ, int i, int j, int k, int *subi, int *subj, int *subk) {
-}
-
-void rev_map3D(int X, int Y, int Z, int startX, int subX, int startY, int subY, int startZ, int subZ, int *i, int *j, int *k, int subi, int subj, int subk) {
-}
-
-void omp_marshalArrayRegion(omp_data_map_t * dmap) {
-}
-
-void omp_unmarshalArrayRegion(omp_data_map_t * dmap) {
+/**
+ *  so far works for at most 2D
+ */
+void omp_data_map_marshal(omp_data_map_t * map) {
+	omp_data_map_info_t * info = map->info;
+	int sizeof_element = info->sizeof_element;
+	int i;
+	map->map_buffer = (void*) malloc(sizeof_element*map->map_dim[0]*map->map_dim[1]*map->map_dim[2]);
+	int region_line_size = map->map_dim[1]*sizeof_element;
+	int full_line_size = info->dim[1]*sizeof_element;
+	int region_off = 0;
+	int full_off = 0;
+	void * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
+	for (i=0; i<map->map_dim[0]; i++) {
+		memcpy(map->map_buffer+region_off,src_ptr+full_off, region_line_size);
+		region_off += region_line_size;
+		full_off += full_line_size;
+	}
 }
 
 void omp_print_data_map(omp_data_map_t * map) {
@@ -314,7 +311,6 @@ void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp_data_m
  * it will also create device memory region (both the array region memory and halo region memory
  */
 void omp_map_buffer_malloc(omp_data_map_t * map) {
-	int marshal = map->marshalled_or_not;
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 
@@ -324,10 +320,14 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 		map_size *= map->mem_dim[i];
 	}
 	map->map_size = map_size;
-	if (!marshal) {
-		/* TODO: only for 2D */
-		map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*map->map_dim[1]*sizeof_element);
-	} else omp_marshalArrayRegion(map);
+
+	if (map->map_dim[1] == info->dim[1] && map->map_dim[2] == info->dim[2]) {
+		map->map_buffer = info->source_ptr + map->map_offset[0]*map->map_dim[1]*map->map_dim[2]*sizeof_element;
+//		map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*map->map_dim[1]*sizeof_element);
+	} else {
+		map->marshalled_or_not = 1;
+		omp_data_map_marshal(map);
+	}
 
 	/* we need to allocate device memory, including both the array region and halo region */
 	if (cudaErrorMemoryAllocation == cudaMalloc(&map->map_dev_ptr, map_size)) {
@@ -454,10 +454,9 @@ void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num
 		cudaStreamDestroy(st->systream.cudaStream);
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-//	    	printf("postACCKernel map: %X\n", map);
-	    	omp_unmarshalArrayRegion(map);
 	    	cudaFree(map->map_dev_ptr);
 	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
+	    		omp_data_map_unmarshal(map);
 	    		free(map->map_buffer);
 	    	}
 	    }
@@ -474,10 +473,9 @@ void omp_map_device2host(int num_devices, int num_maps, omp_data_map_t *data_map
 	    //Wait for all operations to finish
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-//	    	printf("postACCKernel map: %X\n", map);
-	    	omp_unmarshalArrayRegion(map);
 	    	cudaFree(map->map_dev_ptr);
 	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
+	    		omp_data_map_unmarshal(map);
 	    		free(map->map_buffer);
 	    	}
 	    }
