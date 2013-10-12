@@ -5,6 +5,7 @@
  *      Author: yy8
  */
 #include <stdio.h>
+#include <string.h>
 #include "homp.h"
 
 /* OpenMP 4.0 support */
@@ -186,7 +187,7 @@ void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t 
 	omp_get_coords_topology(top, devsid, top->ndims, coords);
 
     int dimcoord = coords[topdim];
-    int dimsize = top->dims[dim];
+    int dimsize = top->dims[topdim];
 
     omp_data_map_info_t *info = map->info;
 
@@ -227,12 +228,13 @@ void omp_data_map_unmarshal(omp_data_map_t * map) {
 	int full_line_size = info->dim[1]*sizeof_element;
 	int region_off = 0;
 	int full_off = 0;
-	void * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
+	char * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
 	for (i=0; i<map->map_dim[0]; i++) {
 		memcpy(src_ptr+full_off, map->map_buffer+region_off, region_line_size);
 		region_off += region_line_size;
 		full_off += full_line_size;
 	}
+	printf("total %ld bytes of data unmarshalled\n", region_off);
 }
 
 /**
@@ -247,12 +249,13 @@ void omp_data_map_marshal(omp_data_map_t * map) {
 	int full_line_size = info->dim[1]*sizeof_element;
 	int region_off = 0;
 	int full_off = 0;
-	void * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
+	char * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
 	for (i=0; i<map->map_dim[0]; i++) {
 		memcpy(map->map_buffer+region_off,src_ptr+full_off, region_line_size);
 		region_off += region_line_size;
 		full_off += full_line_size;
 	}
+	printf("total %ld bytes of data marshalled\n", region_off);
 }
 
 void omp_print_data_map(omp_data_map_t * map) {

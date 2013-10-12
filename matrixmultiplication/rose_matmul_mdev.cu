@@ -189,7 +189,7 @@ int main(int argc,char *argv[])
 /* openmp acc version */
   omp_init_devices();
   acc_elapsed = omp_get_wtime();
-  matmul_ompacc_mdev_v1(A,B,C_acc,n);
+  matmul_ompacc_mdev_v2(A,B,C_acc,n);
   acc_elapsed = (omp_get_wtime() - acc_elapsed);
 #else
 #endif
@@ -424,7 +424,7 @@ __global__ void OUT__2__7117_mdev_v2__(int start_k, int length_k, int n,float *_
       float c = 0.0;
       for (_p_j = 0; _p_j < n; _p_j++)
         c += (_dev_A[(_p_i * n) + _p_j] * _dev_B[(_p_j * length_k) + _dev_k]);
-      _dev_C[(_p_i * n) + _dev_k] = c;
+      _dev_C[(_p_i * length_k) + _dev_k] = c;
     }
   }
 }
@@ -504,7 +504,7 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			/*************************************************************************************************************************************************************/
 			/* Launch CUDA kernel ... */
 			long start_k, length_k;
-			omp_loop_map_range(__dev_map_C__, 0, -1, -1, &start_k, &length_k);
+			omp_loop_map_range(__dev_map_C__, 1, -1, -1, &start_k, &length_k);
 			/* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
 			 * device map object
 			*/
