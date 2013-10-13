@@ -156,10 +156,13 @@ int main(int argc,char *argv[])
   double omp_for_elapsed;
   double acc_elapsed;
   if (argc != 2) {
-    fprintf(stderr,"Usage: matmul <n>\n");
+    fprintf(stderr,"Usage: matmul <n> [<1|2|3>]\n");
+    fprintf(stderr,"\t 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
     exit(1);
   }
   n = atoi(argv[1]);
+  int dist = 1;
+  if (argc == 3) dist = atoi(argv[2]);
   A = ((float *)(malloc(((n * n) * sizeof(float )))));
   B = ((float *)(malloc(((n * n) * sizeof(float )))));
   C_seq = ((float *)(malloc(((n * n) * sizeof(float )))));
@@ -189,7 +192,12 @@ int main(int argc,char *argv[])
 /* openmp acc version */
   omp_init_devices();
   acc_elapsed = omp_get_wtime();
-  matmul_ompacc_mdev_v2(A,B,C_acc,n);
+  if (dist == 2)
+	  matmul_ompacc_mdev_v2(A,B,C_acc,n);
+  else if (dist == 3)
+	  matmul_ompacc_mdev_v3(A,B,C_acc,n);
+  else
+	  matmul_ompacc_mdev_v1(A,B,C_acc,n);
   acc_elapsed = (omp_get_wtime() - acc_elapsed);
 #else
 #endif
