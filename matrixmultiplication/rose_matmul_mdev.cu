@@ -409,7 +409,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			*/
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			int _num_blocks_ = xomp_get_max1DBlock(length_i);
-			printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
+		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
 
 			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 
@@ -518,7 +518,7 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			*/
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			int _num_blocks_ = xomp_get_max1DBlock(length_k);
-			printf("device: %d, range: %d:%d\n", __i__, start_k, length_k);
+	//		printf("device: %d, range: %d:%d\n", __i__, start_k, length_k);
 
 			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 			omp_memcpyDeviceToHostAsync(__dev_map_C__);
@@ -635,7 +635,7 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 			*/
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			int _num_blocks_ = xomp_get_max1DBlock(length_i);
-			printf("device: %d, C region: %d X %d\n", __i__, length_i, length_k);
+	//		printf("device: %d, C region: %d X %d\n", __i__, length_i, length_k);
 
 			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 

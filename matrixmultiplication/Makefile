@@ -22,7 +22,8 @@ matmul:
 #	${ROSE_OMPTEST}/roseompacc ${TEST_INCLUDES} ${TEST_FLAGS} -rose:skipfinalCompileStep matmul.c
 #	${ROSE_OMPTEST}/roseomp ${TEST_INCLUDES} ${TEST_FLAGS} -rose:skipfinalCompileStep matmul_omp.c
 #	${ROSE_OMPTEST}/roseomp ${TEST_INCLUDES} ${TEST_FLAGS} -rose:skipfinalCompileStep matmul.c
-	nvcc $(TEST_INCLUDES) ${TEST_LINK} -arch sm_20 -g -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c rose_matmul_mdev.cu ../runtime/timer.c -c
+#	nvcc $(TEST_INCLUDES) ${TEST_LINK} -arch sm_20 -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c rose_matmul_mdev.cu ../runtime/timer.c -c
+	nvcc $(TEST_INCLUDES) ${TEST_LINK} -arch sm_20 -g -DDEBUG_MSG=1 -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c rose_matmul_mdev.cu ../runtime/timer.c -c
 	nvcc $(TEST_INCLUDES) ${TEST_LINK}  *.o -o $@
 
 matmul_time:

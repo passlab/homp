@@ -234,7 +234,7 @@ void omp_data_map_unmarshal(omp_data_map_t * map) {
 		region_off += region_line_size;
 		full_off += full_line_size;
 	}
-	printf("total %ld bytes of data unmarshalled\n", region_off);
+//	printf("total %ld bytes of data unmarshalled\n", region_off);
 }
 
 /**
@@ -255,16 +255,18 @@ void omp_data_map_marshal(omp_data_map_t * map) {
 		region_off += region_line_size;
 		full_off += full_line_size;
 	}
-	printf("total %ld bytes of data marshalled\n", region_off);
+//	printf("total %ld bytes of data marshalled\n", region_off);
 }
 
 void omp_print_data_map(omp_data_map_t * map) {
+#ifdef DEBUG_MSG
 	omp_data_map_info_t * info = map->info;
 	printf("MAP: %X, source ptr: %X, dim[0]: %ld, dim[1]: %ld, dim[2]: %ld, map_dim[0]: %ld, map_dim[1]: %ld, map_dim[2]: %ld, "
 				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
 				"map_dev_ptr: %X, stream: %X, map_size: %ld, device_id: %d\n\n", map, info->source_ptr, info->dim[0], info->dim[1], info->dim[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
 				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->map_size, map->devsid);
+#endif
 }
 
 void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim) {
