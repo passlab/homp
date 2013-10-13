@@ -158,6 +158,7 @@ int main(int argc,char *argv[])
   if (argc != 2) {
     fprintf(stderr,"Usage: matmul <n> [<1|2|3>]\n");
     fprintf(stderr,"\t 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
+    fprintf(stderr,"\t num of active devices can be controlled by OMP_NUM_ACTIVE_DEVICES variable\n");
     exit(1);
   }
   n = atoi(argv[1]);
@@ -196,8 +197,10 @@ int main(int argc,char *argv[])
 	  matmul_ompacc_mdev_v2(A,B,C_acc,n);
   else if (dist == 3)
 	  matmul_ompacc_mdev_v3(A,B,C_acc,n);
-  else
+  else {
+	  dist = 1;
 	  matmul_ompacc_mdev_v1(A,B,C_acc,n);
+  }
   acc_elapsed = (omp_get_wtime() - acc_elapsed);
 #else
 #endif
@@ -210,6 +213,7 @@ int main(int argc,char *argv[])
   printf("OMP For         :  %4f \t\t %4f\t\t%g\n",omp_for_elapsed,((((2.0 * n) * n) * n) / (1.0e6 * omp_for_elapsed)),maxerror(C_seq,C_omp_for,n));
 #ifndef OPENACC
   printf("OMP ACC         :  %4f \t\t %4f\t\t%g\n",acc_elapsed,((((2.0 * n) * n) * n) / (1.0e6 * acc_elapsed)),maxerror(C_seq,C_acc,n));
+  printf("\t%d devices, dist policy: %d. 1: row; 2: column; 3: row-column\n", omp_get_num_active_devices(), dist);
 #else
 #endif
   free(C_acc);
@@ -333,8 +337,6 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 	   /* get number of target devices specified by the programmers */
 	    int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
 
-	    printf("use %d target devices\n", __num_target_devices__);
-
 		omp_device_t *__target_devices__[__num_target_devices__];
 		/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
 		int __i__;
@@ -368,7 +370,9 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 
 		omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-	    		printf("=========================================== device %d ==========================================\n", __i__);
+#if DEBUG_MSG
+	    	printf("=========================================== device %d ==========================================\n", __i__);
+#endif
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
@@ -442,8 +446,6 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 	   /* get number of target devices specified by the programmers */
 	    int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
 
-	    printf("use %d target devices\n", __num_target_devices__);
-
 		omp_device_t *__target_devices__[__num_target_devices__];
 		/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
 		int __i__;
@@ -477,7 +479,9 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 
 		omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-	    		printf("=========================================== device %d ==========================================\n", __i__);
+#if DEBUG_MSG
+	    	printf("=========================================== device %d ==========================================\n", __i__);
+#endif
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
@@ -554,8 +558,6 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 	   /* get number of target devices specified by the programmers */
 	    int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
 
-	    printf("use %d target devices\n", __num_target_devices__);
-
 		omp_device_t *__target_devices__[__num_target_devices__];
 		/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
 		int __i__;
@@ -589,7 +591,9 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 
 		omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-	    		printf("=========================================== device %d ==========================================\n", __i__);
+#if DEBUG_MSG
+	    	printf("=========================================== device %d ==========================================\n", __i__);
+#endif
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);

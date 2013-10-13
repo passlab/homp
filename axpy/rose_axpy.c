@@ -58,6 +58,7 @@ int main(int argc,char *argv[])
   n = 1024*1024*1024;
   if (argc >= 2) 
     n = atoi(argv[1]);
+  fprintf(stderr,"num of active devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n");
   y_omp = ((double *)(malloc((n * sizeof(double )))));
   y_ompacc = ((double *)(malloc((n * sizeof(double )))));
   x = ((double *)(malloc((n * sizeof(double )))));
@@ -77,7 +78,7 @@ int main(int argc,char *argv[])
   axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
   ompacc_time = (read_timer() - ompacc_time);
   printf("axpy(%d): checksum: %g; time(s):\tOMP(%d threads)\tOMPACC\n",n,check(y_omp,y_ompacc,n),num_threads);
-  printf("\t\t\t\t\t\t%4f\t%4f\n",omp_time,ompacc_time);
+  printf("\t\t\t\t\t\t%4f\t%4f, %d devices\n",omp_time,ompacc_time, omp_get_num_active_devices());
   free(y_omp);
   free(y_ompacc);
   free(x);
