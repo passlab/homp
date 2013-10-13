@@ -88,7 +88,7 @@ void omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
-	printf("System has total %d GPU devices\n", omp_num_devices);
+	printf("System has total %d GPU devices, and the number of active (enabled) devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n", omp_num_devices);
 }
 
 int omp_get_num_active_devices() {

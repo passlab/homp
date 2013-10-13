@@ -58,7 +58,6 @@ int main(int argc,char *argv[])
   n = 1024*1024*1024;
   if (argc >= 2) 
     n = atoi(argv[1]);
-  fprintf(stderr,"num of active devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n");
   y_omp = ((double *)(malloc((n * sizeof(double )))));
   y_ompacc = ((double *)(malloc((n * sizeof(double )))));
   x = ((double *)(malloc((n * sizeof(double )))));

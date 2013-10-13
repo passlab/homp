@@ -213,7 +213,7 @@ int main(int argc,char *argv[])
   printf("OMP For         :  %4f \t\t %4f\t\t%g\n",omp_for_elapsed,((((2.0 * n) * n) * n) / (1.0e6 * omp_for_elapsed)),maxerror(C_seq,C_omp_for,n));
 #ifndef OPENACC
   printf("OMP ACC         :  %4f \t\t %4f\t\t%g\n",acc_elapsed,((((2.0 * n) * n) * n) / (1.0e6 * acc_elapsed)),maxerror(C_seq,C_acc,n));
-  printf("\t%d devices, dist policy: %d. 1: row; 2: column; 3: row-column\n", omp_get_num_active_devices(), dist);
+  printf("\t%d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n", omp_get_num_active_devices(), dist);
 #else
 #endif
   free(C_acc);
