@@ -131,11 +131,26 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->sizeof_element = sizeof_element;
 	int i;
 	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-		omp_data_map_halo_region_t * halo = &info->halo_region[i];
+		omp_data_map_halo_region_info_t * halo = &info->halo_region[i];
 		halo->left = halo->right = halo->cyclic = 0;
 		halo->top_dim = -1;
 	}
 	info->has_halo_region = 0;
+}
+
+void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim) {
+	omp_grid_topology_t * top = info->top;
+	/* calculate the coordinates of id in the top */
+	int dimsize = top->dims[top_dim];
+	if (dimsize == 1) { /* no need to do halo region at all */
+		return;
+	} else {
+		info->halo_region[dim].left = left;
+		info->halo_region[dim].right = right;
+		info->halo_region[dim].cyclic = cyclic;
+		info->halo_region[dim].top_dim = top_dim;
+		info->has_halo_region = 1;
+	}
 }
 
 /**
@@ -152,6 +167,7 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int 
 		map->map_dim[i] = map->info->dim[i]; /* default, full mapping */
 		map->mem_dim[i] = map->info->dim[i]; /* default, full mapping */
 		map->map_offset[i] = 0;
+		map->halo_mem[i].left_map = map->halo_mem[i].right_map = NULL;
 	}
 	map->marshalled_or_not = 0;
 }
@@ -160,7 +176,7 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int 
  * given a sequence id, return the top coordinates
  * the function return the actual number of dimensions
  */
-int omp_get_coords_topology(omp_grid_topology_t * top, int sid, int ndims, int coords[]) {
+int omp_topology_get_coords(omp_grid_topology_t * top, int sid, int ndims, int coords[]) {
 	if (top->ndims > ndims) {
 		fprintf(stderr, "the given ndims and array are too small\n");
 		return -1;
@@ -175,6 +191,65 @@ int omp_get_coords_topology(omp_grid_topology_t * top, int sid, int ndims, int c
     return i;
 }
 
+/* return the sequence id of the coord
+ */
+int omp_topology_get_devsid(omp_grid_topology_t * top, int coords[]) {
+	int i;
+	int devsid = 0;
+	/* TODO: currently only for 2D */
+	return coords[0]*top->dims[1] + coords[1];
+}
+
+void omp_topology_get_neighbors(omp_grid_topology_t * top, int devsid, int topdim, int cyclic, int* left, int* right) {
+	if (devsid < 0 || devsid > top->nnodes) {
+		*left = -1;
+		*right = -1;
+		return;
+	}
+	int coords[top->ndims];
+	omp_topology_get_coords(top, devsid, top->ndims, coords);
+
+    int dimcoord = coords[topdim];
+    int dimsize = top->dims[topdim];
+
+    int leftdimcoord = dimcoord - 1;
+    int rightdimcoord = dimcoord + 1;
+    if (cyclic) {
+    	if (leftdimcoord < 0)
+    		leftdimcoord = dimsize - 1;
+    	if (rightdimcoord == dimsize)
+    		rightdimcoord = 0;
+    	coords[topdim] = leftdimcoord;
+    	*left = omp_topology_get_devsid(top, coords);
+    	coords[topdim] = rightdimcoord;
+    	*right = omp_topology_get_devsid(top, coords);
+    	return;
+    } else {
+    	if (leftdimcoord < 0) {
+    		*left = -1;
+    		if (rightdimcoord == dimsize) {
+    			*right = -1;
+    			return;
+    		} else {
+    			coords[topdim] = rightdimcoord;
+    			*right = omp_topology_get_devsid(top, coords);
+    			return;
+    		}
+    	} else {
+    		coords[topdim] = leftdimcoord;
+    		*left = omp_topology_get_devsid(top, coords);
+    		if (rightdimcoord == dimsize) {
+    			*right = -1;
+    			return;
+    		} else {
+    			coords[topdim] = rightdimcoord;
+    			*right = omp_topology_get_devsid(top, coords);
+    			return;
+    		}
+    	}
+    }
+}
+
 /**
  * for a given device (with sequence id devsid in the target device list) who is part of the topology (top) of topdim dimension, apply
  * the even distribution of the dim of the source array in map
@@ -184,7 +259,7 @@ int omp_get_coords_topology(omp_grid_topology_t * top, int sid, int ndims, int c
 void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t *top, int topdim, int devsid) {
 	/* calculate the coordinates of id in the top */
 	int coords[top->ndims];
-	omp_get_coords_topology(top, devsid, top->ndims, coords);
+	omp_topology_get_coords(top, devsid, top->ndims, coords);
 
     int dimcoord = coords[topdim];
     int dimsize = top->dims[topdim];
@@ -205,7 +280,7 @@ void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t 
     }
    	map->map_dim[dim] = map_dim;
     map->map_offset[dim] = map_offset;
-    omp_data_map_halo_region_t * halo = &info->halo_region[dim];
+    omp_data_map_halo_region_info_t * halo = &info->halo_region[dim];
     if (halo->top_dim == topdim) {
     	map_dim += (halo->left + halo->right);
     	/* allocate the halo region in contiguous memory space*/
@@ -269,14 +344,6 @@ void omp_print_data_map(omp_data_map_t * map) {
 #endif
 }
 
-void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim) {
-	info->halo_region[dim].left = left;
-	info->halo_region[dim].right = right;
-	info->halo_region[dim].cyclic = cyclic;
-	info->halo_region[dim].top_dim = top_dim;
-	info->has_halo_region = 1;
-}
-
 /* do a halo regin pull for data map of devid. If top is not NULL, devid will be translated to coordinate of the
  * virtual topology and the halo region pull will be based on this coordinate.
  * @param: int dim[ specify which dimension to do the halo region update.
@@ -287,28 +354,55 @@ void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int 
  * 		2: from right only
  *
  */
-void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim, int from_left_right) {
+void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right) {
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
 	if (info->dim[2] != 1) {
 		fprintf(stderr, "we only handle 2-d array so far!\n");
+		return;
 	}
 
-	int i;
-	if (info->has_halo_region) { /* 2-d array */
-		omp_data_map_halo_region_t * halo = info->halo_region;
-		if (halo[0].left != 0 || halo[0].right != 0) { /* it is in contigunous space */
-
-
-
-		}
-
-
+	if (dim != 0) {
+		fprintf(stderr, "we only handle 0-dim halo region so far \n");
+		return;
 	}
 
+	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[0];
+	omp_data_map_t * left_map = halo_mem->left_map;
+	omp_data_map_t * right_map = halo_mem->left_map;
+	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) {
+//		cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream.systream.cudaStream);
+		cudaMemcpyPeer(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size);
+	}
+	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
+//		cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream.systream.cudaStream);
+		cudaMemcpyPeer(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size);
+	}
+	return;
 }
 
-void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim[]) {
+void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right) {
+	omp_data_map_info_t * info = map->info;
+	/*FIXME: let us only handle 2-D array now */
+	if (info->dim[2] != 1) {
+		fprintf(stderr, "we only handle 2-d array so far!\n");
+		return;
+	}
+
+	if (dim != 0) {
+		fprintf(stderr, "we only handle 0-dim halo region so far \n");
+		return;
+	}
+
+	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[0];
+	omp_data_map_t * left_map = halo_mem->left_map;
+	omp_data_map_t * right_map = halo_mem->left_map;
+	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) {
+		cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream->systream.cudaStream);
+	}
+	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
+		cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream->systream.cudaStream);
+	}
 }
 /**
  * this function creates host buffer, if needed, and marshall data to the host buffer,
@@ -339,23 +433,48 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 		fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
 	} else {
 	}
-	omp_data_map_halo_region_t * halo = info->halo_region;
+	omp_data_map_halo_region_info_t * halo_info = info->halo_region;
+	omp_data_map_halo_region_mem_t * halo_mem = map->halo_mem;
 
+	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
+		if (map->mem_dim[i] != map->map_dim[i]) { /* there is halo region */
+			/* enable CUDA peer memcpy */
+			halo_info = &halo_info[i];
+			halo_mem = &halo_mem[i];
+			int left, right;
+			omp_topology_get_neighbors(info->top, map->devsid, halo_info->top_dim , halo_info->cyclic, &left, &right);
+
+			int can_access = 0;
+			if (left >=0 ) {
+				cudaDeviceCanAccessPeer(&can_access, map->devsid, left);
+				if (!can_access) cudaDeviceEnablePeerAccess(left, 0);
+				halo_mem->left_map = info->maps[left];
+			}
+			if (right >=0 ) {
+				can_access = 0;
+				cudaDeviceCanAccessPeer(&can_access, map->devsid, right);
+				if (!can_access) cudaDeviceEnablePeerAccess(right, 0);
+				halo_mem->right_map = info->maps[right];
+			}
+		}
+	}
 	/* TODO: so far only for two dimension array */
 	if (map->mem_dim[0] != map->map_dim[0]) { /* there is halo region */
-		halo = &halo[0];
-		halo->left_in_ptr = map->map_buffer;
-		halo->left_out_ptr = map->map_buffer+halo->left*map->mem_dim[1]*sizeof_element;
-		halo->right_in_ptr = map->map_buffer+(map->mem_dim[0]-halo->right)*sizeof_element;
-		halo->right_out_ptr = map->map_buffer+(map->mem_dim[0]-halo->right-halo->left)*sizeof_element;
+		halo_mem = &halo_mem[0];
+		halo_mem->left_in_ptr = map->map_buffer;
+		halo_mem->left_in_size = halo_info->left*map->mem_dim[1]*sizeof_element;
+		halo_mem->left_out_ptr = map->map_buffer + halo_mem->left_in_size;
+		halo_mem->right_in_ptr = map->map_buffer+(map->mem_dim[0]-halo_info->right)*map->mem_dim[1]*sizeof_element;
+		halo_mem->right_in_size = halo_info->right*map->mem_dim[1]*sizeof_element;
+		halo_mem->right_out_ptr = map->map_buffer+(map->mem_dim[0]-halo_info->right-halo_info->left)*map->mem_dim[1]*sizeof_element;
 	}
 	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
-		halo = &halo[1];
-		int buffer_size = sizeof_element*map->mem_dim[0]*(halo->left+halo->right);
-		cudaMalloc(&halo->left_in_ptr, buffer_size);
-		halo->left_out_ptr = halo->left_in_ptr + sizeof_element*halo->left*map->mem_dim[0];
-		cudaMalloc(&halo->right_out_ptr, buffer_size);
-		halo->right_in_ptr = halo->right_out_ptr + sizeof_element*halo->left*map->mem_dim[0];
+		halo_info = &halo_info[1];
+		int buffer_size = sizeof_element*map->mem_dim[0]*(halo_info->left+halo_info->right);
+		cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
+		halo_mem->left_out_ptr = halo_mem->left_in_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
+		cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
+		halo_mem->right_in_ptr = halo_mem->right_out_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
 	}
 }
 
@@ -501,6 +620,14 @@ size_t xomp_get_max1DBlock(size_t s)
   if (s % xomp_get_maxThreadsPerBlock()!= 0)
      block_num ++;
   return block_num;
+}
+
+void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
+	omp_reduction_float_t * rdata = (omp_reduction_float_t*)userData;
+	float result = 0.0;
+	int i;
+	for (i=0; i<rdata->num; i++)
+		result += rdata->input[i];
 }
 
 /**

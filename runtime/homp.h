@@ -99,29 +99,36 @@ typedef struct omp_stream {
 		void * myStream;
 	} systream;
 } omp_stream_t;
+typedef struct omp_data_map omp_data_map_t;
 
 /**
  * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
  */
-typedef struct omp_data_map_halo_region {
+typedef struct omp_data_map_halo_region_info {
 	int left; /* element size */
 	int right; /* element size */
+	short cyclic;
+	int top_dim; /* which dimension of the device topology this halo region is related to */
+} omp_data_map_halo_region_info_t;
+
+typedef struct omp_data_map_halo_region_mem {
 	/* the in/out pointer is the buffer for the halo regions.
 	 * The in ptr is the buffer for halo region that will be copied in,
 	 * and the out is for those that will be copied out.
 	 * In implementation, we put the in and out buffer into one mem space for each left and right halo region
 	 */
+	omp_data_map_t *left_map; /* left data map */
+	omp_data_map_t *right_map; /* left data map */
 	void * left_in_ptr;
+	long left_in_size; /* for pull update, == right_out_size if push protocol is used */
 	void * left_out_ptr;
 	void * right_in_ptr;
+	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
 	void * right_out_ptr;
-	short cyclic;
-	int top_dim; /* which dimension of the device topology this halo region is related to */
-} omp_data_map_halo_region_t;
+} omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
 /* for each mapped host array, we have one such object */
-typedef struct omp_data_map omp_data_map_t;
 
 typedef struct omp_data_map_info {
     omp_grid_topology_t * top;
@@ -136,7 +143,7 @@ typedef struct omp_data_map_info {
 	 *
 	 * In each dimension, we may have halo region.
 	 */
-	omp_data_map_halo_region_t halo_region[OMP_NUM_ARRAY_DIMENSIONS];
+	omp_data_map_halo_region_info_t halo_region[OMP_NUM_ARRAY_DIMENSIONS];
 	/* a quick flag to tell whether this is halo region or not in this map,
 	 * otherwise, we have to iterate the halo_region array to see whether this is one or not */
 	short has_halo_region;
@@ -151,9 +158,11 @@ struct omp_data_map {
     int devsid; /* the linear id of this data environment mapping */
 
 	long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
+	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+
 	long mem_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mem region for both mapped region and halo region */
 	/* the offset of each dimension from the original array for the mapped region (not the mem region)*/
-	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
 
     void * map_buffer; /* the mapped buffer on host. This pointer is either the
 	offsetted pointer from the source_ptr, or the pointer to the marshalled array subregions */
@@ -164,6 +173,14 @@ struct omp_data_map {
 
 	omp_stream_t * stream; /* the stream operations of this data map are registered with */
 };
+
+/** temp solution */
+typedef struct omp_reduction_float {
+				float * result;
+				float *input;
+				int num;
+				int opers;
+} omp_reduction_float_t;
 
 extern void omp_init_devices();
 extern int omp_get_num_active_devices();
@@ -180,8 +197,8 @@ extern void omp_data_map_marshal(omp_data_map_t * map);
 extern void omp_data_map_unmarshal(omp_data_map_t * map);
 extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim);
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
-extern void omp_halo_region_pull(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim, int from_left_right);
-extern void omp_halo_region_pull_async(int devid, omp_grid_topology_t * top, omp_data_map_t * map, int dim[]);
+extern void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right);
+extern void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right);
 extern void omp_map_buffer_malloc(omp_data_map_t * map);
 
 extern void omp_sync_stream(int num_devices, omp_stream_t dev_stream[], int destroy_stream);
@@ -203,6 +220,7 @@ extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_str
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
  */
+extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );
 extern void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length);
 extern void omp_deviceMalloc(omp_data_map_t * map);
 /*
