@@ -5,7 +5,7 @@
 # rose-omp-accelerator/tests/roseTests/ompLoweringTests/Makefile.am
 ROSE_DIR=/home/yy8/ROSE/rexc
 # on shark node (crill-102)
-#ROSE_DIR=/data/yy8/ROSE/rose-omp-accelerator
+#ROSE_DIR=/data/yy8/ROSE/edg4x-rose
 top_srcdir=${ROSE_DIR}
 top_builddir=$(ROSE_DIR)-build
 GOMP_PATH=/usr/lib/gcc/x86_64-linux-gnu/4.4.7/
