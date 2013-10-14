@@ -155,7 +155,7 @@ int main(int argc,char *argv[])
   double seq_elapsed;
   double omp_for_elapsed;
   double acc_elapsed;
-  if (argc != 2) {
+  if (argc < 2) {
     fprintf(stderr,"Usage: matmul <n> [<1|2|3>]\n");
     fprintf(stderr,"\t 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
     fprintf(stderr,"\t num of active devices can be controlled by OMP_NUM_ACTIVE_DEVICES variable\n");
@@ -521,7 +521,7 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			 * device map object
 			*/
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock(length_k);
+			int _num_blocks_ = xomp_get_max1DBlock(n);
 	//		printf("device: %d, range: %d:%d\n", __i__, start_k, length_k);
 
 			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
