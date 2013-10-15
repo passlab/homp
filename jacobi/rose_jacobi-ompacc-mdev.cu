@@ -387,6 +387,9 @@ void jacobi_v1() {
 
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+#if DEBUG_MSG
+	    	printf("=========================================== device %d ==========================================\n", __i__);
+#endif
 		omp_device_t * __dev__ = __target_devices__[__i__];
 		omp_set_current_device(__dev__);
 		omp_init_stream(__dev__, &__dev_stream__[__i__]);
