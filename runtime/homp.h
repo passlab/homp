@@ -158,18 +158,19 @@ struct omp_data_map {
     int devsid; /* the linear id of this data environment mapping */
 
 	long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
-	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
-
-	long mem_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mem region for both mapped region and halo region */
 	/* the offset of each dimension from the original array for the mapped region (not the mem region)*/
+	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+	void * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
+	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
+
 	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
+	long mem_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mem region for both mapped region and halo region */
+	void * mem_dev_ptr; /* the mapped buffer on device, for the mapped array region plus halo region */
+	long mem_size; // = mem_dim[0] * mem_dim[1] * mem_dim[2] * sizeof_element;
 
     void * map_buffer; /* the mapped buffer on host. This pointer is either the
 	offsetted pointer from the source_ptr, or the pointer to the marshalled array subregions */
 	int marshalled_or_not;
-
-	void * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
-	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
 
 	omp_stream_t * stream; /* the stream operations of this data map are registered with */
 };

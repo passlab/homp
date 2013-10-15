@@ -295,7 +295,6 @@ void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t 
     omp_data_map_halo_region_info_t * halo = &info->halo_region[dim];
     if (halo->top_dim == topdim) {
     	map_dim += (halo->left + halo->right);
-    	/* allocate the halo region in contiguous memory space*/
     }
     map->mem_dim[dim] = map_dim;
 }
@@ -343,6 +342,93 @@ void omp_data_map_marshal(omp_data_map_t * map) {
 		full_off += full_line_size;
 	}
 //	printf("total %ld bytes of data marshalled\n", region_off);
+}
+/**
+ * this function creates host buffer, if needed, and marshall data to the host buffer,
+ *
+ * it will also create device memory region (both the array region memory and halo region memory
+ */
+void omp_map_buffer_malloc(omp_data_map_t * map) {
+	omp_data_map_info_t * info = map->info;
+	int sizeof_element = info->sizeof_element;
+
+	long mem_size = sizeof_element;
+	long map_size = sizeof_element;
+	int i;
+	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
+		mem_size *= map->mem_dim[i];
+		map_size *= map->map_dim[i];
+	}
+	map->map_size = map_size;
+	map->mem_size = mem_size;
+
+	if (info->source_ptr == NULL) map->map_buffer = NULL;
+	else {
+		if (map->map_dim[1] == info->dim[1] && map->map_dim[2] == info->dim[2]) {
+			map->map_buffer = info->source_ptr + map->map_offset[0]*map->map_dim[1]*map->map_dim[2]*sizeof_element;
+			/* TODO: should we separate map_buffer and mem_buffer (includes map and halo_region) */
+		} else {
+			map->marshalled_or_not = 1;
+			omp_data_map_marshal(map);
+		}
+	}
+
+	/* we need to allocate device memory, including both the array region and halo region */
+	if (cudaErrorMemoryAllocation == cudaMalloc(&map->mem_dev_ptr, mem_size)) {
+		fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+	} else {
+	}
+	if (!info->has_halo_region) {
+		map->map_dev_ptr = map->mem_dev_ptr;
+		return;
+	}
+	omp_data_map_halo_region_info_t * halo_info = info->halo_region;
+	omp_data_map_halo_region_mem_t * halo_mem = map->halo_mem;
+
+	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
+		if (map->mem_dim[i] != map->map_dim[i]) { /* there is halo region */
+			/* enable CUDA peer memcpy */
+			halo_info = &halo_info[i];
+			halo_mem = &halo_mem[i];
+			int left, right;
+			omp_topology_get_neighbors(info->top, map->devsid, halo_info->top_dim , halo_info->cyclic, &left, &right);
+#if DEBUG_MSG
+			printf("%d neighbors in dim %d: left: %d, right: %d\n", map->devsid, halo_info->top_dim, left, right);
+#endif
+			int can_access = 0;
+			if (left >=0 ) {
+				cudaDeviceCanAccessPeer(&can_access, map->devsid, left);
+				if (!can_access) cudaDeviceEnablePeerAccess(left, 0);
+				halo_mem->left_map = info->maps[left];
+			}
+			if (right >=0 ) {
+				can_access = 0;
+				cudaDeviceCanAccessPeer(&can_access, map->devsid, right);
+				if (!can_access) cudaDeviceEnablePeerAccess(right, 0);
+				halo_mem->right_map = info->maps[right];
+			}
+		}
+	}
+	/* TODO: so far only for two dimension array */
+	if (map->mem_dim[0] != map->map_dim[0]) { /* there is halo region */
+		halo_mem = &halo_mem[0];
+		halo_mem->left_in_ptr = map->mem_dev_ptr;
+		halo_mem->left_in_size = halo_info->left*map->mem_dim[1]*sizeof_element;
+		halo_mem->left_out_ptr = map->mem_dev_ptr + halo_mem->left_in_size;
+		halo_mem->right_in_ptr = map->mem_dev_ptr+(map->mem_dim[0]-halo_info->right)*map->mem_dim[1]*sizeof_element;
+		halo_mem->right_in_size = halo_info->right*map->mem_dim[1]*sizeof_element;
+		halo_mem->right_out_ptr = map->mem_dev_ptr+(map->mem_dim[0]-halo_info->right-halo_info->left)*map->mem_dim[1]*sizeof_element;
+
+		map->map_dev_ptr = halo_mem->left_out_ptr;
+	}
+	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
+		halo_info = &halo_info[1];
+		int buffer_size = sizeof_element*map->mem_dim[0]*(halo_info->left+halo_info->right);
+		cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
+		halo_mem->left_out_ptr = halo_mem->left_in_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
+		cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
+		halo_mem->right_in_ptr = halo_mem->right_out_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
+	}
 }
 
 void omp_print_data_map(omp_data_map_t * map) {
@@ -416,82 +502,6 @@ void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_rig
 		cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream->systream.cudaStream);
 	}
 }
-/**
- * this function creates host buffer, if needed, and marshall data to the host buffer,
- *
- * it will also create device memory region (both the array region memory and halo region memory
- */
-void omp_map_buffer_malloc(omp_data_map_t * map) {
-	omp_data_map_info_t * info = map->info;
-	int sizeof_element = info->sizeof_element;
-
-	long map_size = sizeof_element;
-	int i;
-	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-		map_size *= map->mem_dim[i];
-	}
-	map->map_size = map_size;
-
-	if (map->map_dim[1] == info->dim[1] && map->map_dim[2] == info->dim[2]) {
-		map->map_buffer = info->source_ptr + map->map_offset[0]*map->map_dim[1]*map->map_dim[2]*sizeof_element;
-//		map->map_buffer = (void*)((long)info->source_ptr + map->map_offset[0]*map->map_dim[1]*sizeof_element);
-	} else {
-		map->marshalled_or_not = 1;
-		omp_data_map_marshal(map);
-	}
-
-	/* we need to allocate device memory, including both the array region and halo region */
-	if (cudaErrorMemoryAllocation == cudaMalloc(&map->map_dev_ptr, map_size)) {
-		fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-	} else {
-	}
-	omp_data_map_halo_region_info_t * halo_info = info->halo_region;
-	omp_data_map_halo_region_mem_t * halo_mem = map->halo_mem;
-
-	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-		if (map->mem_dim[i] != map->map_dim[i]) { /* there is halo region */
-			/* enable CUDA peer memcpy */
-			halo_info = &halo_info[i];
-			halo_mem = &halo_mem[i];
-			int left, right;
-			omp_topology_get_neighbors(info->top, map->devsid, halo_info->top_dim , halo_info->cyclic, &left, &right);
-#if DEBUG_MSG
-			printf("%d neighbors in dim %d: left: %d, right: %d\n", map->devsid, halo_info->top_dim, left, right);
-#endif
-			int can_access = 0;
-			if (left >=0 ) {
-				cudaDeviceCanAccessPeer(&can_access, map->devsid, left);
-				if (!can_access) cudaDeviceEnablePeerAccess(left, 0);
-				halo_mem->left_map = info->maps[left];
-			}
-			if (right >=0 ) {
-				can_access = 0;
-				cudaDeviceCanAccessPeer(&can_access, map->devsid, right);
-				if (!can_access) cudaDeviceEnablePeerAccess(right, 0);
-				halo_mem->right_map = info->maps[right];
-			}
-		}
-	}
-	/* TODO: so far only for two dimension array */
-	if (map->mem_dim[0] != map->map_dim[0]) { /* there is halo region */
-		halo_mem = &halo_mem[0];
-		halo_mem->left_in_ptr = map->map_buffer;
-		halo_mem->left_in_size = halo_info->left*map->mem_dim[1]*sizeof_element;
-		halo_mem->left_out_ptr = map->map_buffer + halo_mem->left_in_size;
-		halo_mem->right_in_ptr = map->map_buffer+(map->mem_dim[0]-halo_info->right)*map->mem_dim[1]*sizeof_element;
-		halo_mem->right_in_size = halo_info->right*map->mem_dim[1]*sizeof_element;
-		halo_mem->right_out_ptr = map->map_buffer+(map->mem_dim[0]-halo_info->right-halo_info->left)*map->mem_dim[1]*sizeof_element;
-	}
-	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
-		halo_info = &halo_info[1];
-		int buffer_size = sizeof_element*map->mem_dim[0]*(halo_info->left+halo_info->right);
-		cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
-		halo_mem->left_out_ptr = halo_mem->left_in_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
-		cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
-		halo_mem->right_in_ptr = halo_mem->right_out_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
-	}
-}
-
 /**
  * return the mapped range index from the iteration range of the original array
  * e.g. A[128], when being mapped to a device for A[64:64] (from 64 to 128), then, the range 100 to 128 in the original A will be
@@ -592,7 +602,7 @@ void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num
 		cudaStreamDestroy(st->systream.cudaStream);
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-	    	cudaFree(map->map_dev_ptr);
+	    	cudaFree(map->mem_dev_ptr);
 	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
 	    		omp_data_map_unmarshal(map);
 	    		free(map->map_buffer);
@@ -611,7 +621,7 @@ void omp_map_device2host(int num_devices, int num_maps, omp_data_map_t *data_map
 	    //Wait for all operations to finish
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-	    	cudaFree(map->map_dev_ptr);
+	    	cudaFree(map->mem_dev_ptr);
 	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
 	    		omp_data_map_unmarshal(map);
 	    		free(map->map_buffer);
