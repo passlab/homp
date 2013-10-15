@@ -303,7 +303,7 @@ void jacobi_v1() {
 
 #endif
 	/* there are three mapped array variables (f, u, and uold). all scalar variables will be as parameters */
-	int __num_target_devices__ = 4; //omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
+	int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
 	omp_device_t *__target_devices__[__num_target_devices__];
 	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
 	int __i__;
