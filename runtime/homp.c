@@ -190,10 +190,6 @@ int omp_topology_get_coords(omp_grid_topology_t * top, int sid, int ndims, int c
     }
 
     ndims = i;
-    printf("sid %d coords: ", sid);
-    for (i=0; i<ndims; i++)
-	    printf("%d ", coords[i]);
-    printf("\n");
     return i;
 }
 
@@ -203,7 +199,9 @@ int omp_topology_get_devsid(omp_grid_topology_t * top, int coords[]) {
 	int i;
 	int devsid = 0;
 	/* TODO: currently only for 2D */
-	return coords[0]*top->dims[1] + coords[1];
+	if (top->ndims == 1) return coords[0];
+	else if (top->ndims == 2) return coords[0]*top->dims[1] + coords[1];
+	else return -1;
 }
 
 void omp_topology_print(omp_grid_topology_t * top) {
@@ -457,7 +455,9 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 			halo_mem = &halo_mem[i];
 			int left, right;
 			omp_topology_get_neighbors(info->top, map->devsid, halo_info->top_dim , halo_info->cyclic, &left, &right);
+#if DEBUG_MSG
 			printf("%d neighbors in dim %d: left: %d, right: %d\n", map->devsid, halo_info->top_dim, left, right);
+#endif
 			int can_access = 0;
 			if (left >=0 ) {
 				cudaDeviceCanAccessPeer(&can_access, map->devsid, left);
