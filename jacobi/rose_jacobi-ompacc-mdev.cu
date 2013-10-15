@@ -317,7 +317,7 @@ void jacobi_v1() {
 	int __top_periodic__[__top_ndims__]; __top_periodic__[0] = 0;
 	omp_grid_topology_t __topology__={__num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__};
 	omp_grid_topology_t *__topp__ = &__topology__;
-
+	omp_topology_print(__topp__);
 	int __num_mapped_variables__ = 3; /* XXX: need compiler output */
 
 	omp_stream_t __dev_stream__[__num_target_devices__]; /* need to change later one for omp_stream_t struct */

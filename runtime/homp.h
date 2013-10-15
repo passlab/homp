@@ -186,7 +186,7 @@ extern void omp_init_devices();
 extern int omp_get_num_active_devices();
 extern void omp_set_current_device(omp_device_t * d);
 extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
-
+extern void omp_topology_print(omp_grid_topology_t * top);
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
 		omp_map_type_t map_type, long dim0, long dim1, long dim2);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int devsid, omp_device_t * dev,	omp_stream_t * stream);
