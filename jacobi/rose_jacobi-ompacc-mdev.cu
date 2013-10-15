@@ -157,84 +157,131 @@ void initialize() {
  *
  * Output : u(n,m) - Solution
  *****************************************************************/
-#if 1 
-__global__ void OUT__1__10550__(int n, int m, float omega, float ax, float ay,
-		float b, float *_dev_per_block_error, float *_dev_u, float *_dev_f,
-		float *_dev_uold) {
-	int _dev_i;
-	int _p_j;
 
-	float _p_error;
-	_p_error = 0;
-	float _p_resid;
-
-	long _dev_lower, _dev_upper;
-	XOMP_accelerator_loop_default(1, n - 2, 1, &_dev_lower, &_dev_upper);
-
-	for (_dev_i = _dev_lower; _dev_i <= _dev_upper; _dev_i++) {
-		for (_p_j = 1; _p_j < (m - 1); _p_j++) {
-			_p_resid = (((((ax
-					* (_dev_uold[(_dev_i - 1) * MSIZE + _p_j]
-							+ _dev_uold[(_dev_i + 1) * MSIZE + _p_j]))
-					+ (ay
-							* (_dev_uold[_dev_i * MSIZE + (_p_j - 1)]
-									+ _dev_uold[_dev_i * MSIZE + (_p_j + 1)])))
-					+ (b * _dev_uold[_dev_i * MSIZE + _p_j]))
-					- _dev_f[_dev_i * MSIZE + _p_j]) / b);
-			_dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j]
-					- (omega * _p_resid));
-			_p_error = (_p_error + (_p_resid * _p_resid));
-		}
-	}
-	xomp_inner_block_reduction_float(_p_error, _dev_per_block_error, 6);
+#if !LOOP_COLLAPSE
+__global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
+{
+  int _p_j;
+  float _p_error;
+  _p_error = 0;
+  float _p_resid;
+  long _dev_lower, _dev_upper;
+  XOMP_accelerator_loop_default (1, n-2, 1, &_dev_lower, &_dev_upper);
+  int _dev_i;
+  for (_dev_i = _dev_lower; _dev_i<= _dev_upper; _dev_i ++) {
+    for (_p_j = 1; _p_j < (m - 1); _p_j++) {
+      _p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
+      _dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
+      _p_error = (_p_error + (_p_resid * _p_resid));
+    }
+  }
+  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
 }
 
 #else
 __global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
 {
-	int _p_i;
-	int _p_j;
-	float _p_error;
-	_p_error = 0;
-	float _p_resid;
-	int _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
-	if (_dev_i >= 1 && _dev_i <= (n - 1) - 1) {
-		for (_p_j = 1; _p_j < (m - 1); _p_j++) {
-			_p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
-			_dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
-			_p_error = (_p_error + (_p_resid * _p_resid));
-		}
-	}
-	xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
+  int _dev_i;
+  int ij;
+  int _p_j;
+  int _dev_lower, _dev_upper;
+
+  float _p_error;
+  _p_error = 0;
+  float _p_resid;
+
+  // variables for adjusted loop info considering both original chunk size and step(strip)
+  int _dev_loop_chunk_size;
+  int _dev_loop_sched_index;
+  int _dev_loop_stride;
+
+  // 1-D thread block:
+  int _dev_thread_num = gridDim.x * blockDim.x;
+  int _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+
+  //TODO: adjust bound to be inclusive later
+  int orig_start =1;
+  int orig_end = (n-1)*(m-1)-1;
+  int orig_step = 1;
+  int orig_chunk_size = 1;
+
+  XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
+      & _dev_loop_chunk_size , & _dev_loop_sched_index, & _dev_loop_stride);
+
+  //XOMP_accelerator_loop_default (1, (n-1)*(m-1)-1, 1, &_dev_lower, &_dev_upper);
+  while (XOMP_static_sched_next (&_dev_loop_sched_index, orig_end,orig_step, _dev_loop_stride, _dev_loop_chunk_size, _dev_thread_num, _dev_thread_id, & _dev_lower, & _dev_upper))
+  {
+    for (ij = _dev_lower; ij <= _dev_upper; ij ++) {
+      _dev_i = ij/(m-1);
+      _p_j = ij%(m-1);
+
+      if (_dev_i>=1 && _dev_i< (n-1) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
+      {
+	_p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
+	_dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
+	_p_error = (_p_error + (_p_resid * _p_resid));
+      }
+    }
+  }
+
+  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
 }
+
 #endif
 
-#if 1
-__global__ void OUT__2__10550__(int n, int m, float *_dev_u, float *_dev_uold) {
-	int _p_j;
-	int _dev_i;
-	long _dev_lower, _dev_upper;
-	XOMP_accelerator_loop_default(0, n - 1, 1, &_dev_lower, &_dev_upper);
-	for (_dev_i = _dev_lower; _dev_i <= _dev_upper; _dev_i++) {
-		for (_p_j = 0; _p_j < m; _p_j++)
-			_dev_uold[_dev_i * MSIZE + _p_j] = _dev_u[_dev_i * MSIZE + _p_j];
-	}
+#if !LOOP_COLLAPSE
+__global__ void OUT__2__10550__(int n,int m,float *_dev_u,float *_dev_uold)
+{
+  int _p_j;
+  int _dev_i ;
+  long _dev_lower, _dev_upper;
+  XOMP_accelerator_loop_default (0, n-1, 1, &_dev_lower, &_dev_upper);
+  for (_dev_i = _dev_lower ; _dev_i <= _dev_upper; _dev_i++) {
+    for (_p_j = 0; _p_j < m; _p_j++)
+      _dev_uold[_dev_i * MSIZE + _p_j] = _dev_u[_dev_i * MSIZE + _p_j];
+  }
 }
 
 #else
 __global__ void OUT__2__10550__(int n,int m,float *_dev_u,float *_dev_uold)
-
 {
-	int _p_i;
-	int _p_j;
-	int _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
-	if (_dev_i >= 0 && _dev_i <= n - 1) {
-		for (_p_j = 0; _p_j < m; _p_j++)
-		_dev_uold[_dev_i * MSIZE + _p_j] = _dev_u[_dev_i * MSIZE + _p_j];
-	}
-}
+  int _p_j;
+  int ij;
+  int _dev_lower, _dev_upper;
 
-#endif 
+  int _dev_i ;
+
+ // variables for adjusted loop info considering both original chunk size and step(strip)
+ int _dev_loop_chunk_size;
+ int _dev_loop_sched_index;
+ int _dev_loop_stride;
+
+// 1-D thread block:
+int _dev_thread_num = gridDim.x * blockDim.x;
+int _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+
+int orig_start =0;
+int orig_end = n*m-1; // inclusive upper bound
+int orig_step = 1;
+int orig_chunk_size = 1;
+
+ XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
+                         & _dev_loop_chunk_size , & _dev_loop_sched_index, & _dev_loop_stride);
+
+ //XOMP_accelerator_loop_default (1, (n-1)*(m-1)-1, 1, &_dev_lower, &_dev_upper);
+ while (XOMP_static_sched_next (&_dev_loop_sched_index, orig_end, orig_step,_dev_loop_stride, _dev_loop_chunk_size, _dev_thread_num, _dev_thread_id, & _dev_lower
+, & _dev_upper))
+ {
+   for (ij = _dev_lower ; ij <= _dev_upper; ij ++) {
+     //  for (_dev_i = _dev_lower ; _dev_i <= _dev_upper; _dev_i++) {
+     //    for (_p_j = 0; _p_j < m; _p_j++)
+     _dev_i = ij/m;
+     _p_j = ij%m;
+     _dev_uold[_dev_i * MSIZE + _p_j] = _dev_u[_dev_i * MSIZE + _p_j];
+   }
+  }
+ }
+#endif
 
 /**
  * array dist according to row halo region
