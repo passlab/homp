@@ -308,7 +308,7 @@ void jacobi_v1() {
 	error = (10.0 * tol);
 	k = 1;
 #if 0
-#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n]{0:m}>>(:)) map(tofrom:u[0:n]{0:m}>>(:)) map(alloc:uold[0:n|1]{0:m}>>(:))
+#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n|1]{0:m}>>(:)) map(tofrom:u[0:n]{0:m}>>(:)) map(alloc:uold[0:n|1]{0:m}>>(:))
   while ((k<=mits)&&(error>tol))
   {
     error = 0.0;
@@ -377,6 +377,7 @@ void jacobi_v1() {
 	__info__ = &__data_map_infos__[1];
 	omp_data_map_init_info(__info__, __topp__, &u[0][0], sizeof(float), OMP_MAP_TOFROM, n, m, 1);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
+	omp_map_add_halo_region(__info__, 0, 1, 1, 0, 0);
 
 	__info__ = &__data_map_infos__[2];
 	omp_data_map_init_info(__info__, __topp__, (void*)NULL, sizeof(float), OMP_MAP_ALLOC, n, m, 1);
