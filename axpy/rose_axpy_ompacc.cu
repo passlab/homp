@@ -155,7 +155,8 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
 	printf("\t\tbreakdown: x map_to: %4f, y map_t: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated/__num_target_devices__, y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
 
-	printf("Total time measured from CPU: %4f, CPU overhead: %4f\n", ompacc_time*1000.0, ompacc_time*1000.0 - total);
+	double cpu_total = ompacc_time*1000.0;
+	printf("Total time measured from CPU: %4f, Total CPU overhead: %4f, CPU overhead per GPU: %4f \n", cpu_total, cpu_total - total, (cpu_total-total)/__num_target_devices__);
 	printf("==========================================================================================================================================\n");
 
 	return ompacc_time;
