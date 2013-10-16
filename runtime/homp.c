@@ -455,11 +455,14 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 		halo_mem->left_in_ptr = map->mem_dev_ptr;
 		halo_mem->left_in_size = halo_info->left*map->mem_dim[1]*sizeof_element;
 		halo_mem->left_out_ptr = map->mem_dev_ptr + halo_mem->left_in_size;
-		halo_mem->right_in_ptr = map->mem_dev_ptr+(map->mem_dim[0]-halo_info->right)*map->mem_dim[1]*sizeof_element;
+		/* we calculate from the end of the address */
+		halo_mem->right_in_ptr = map->mem_dev_ptr + map->mem_size - halo_info->right*map->mem_dim[1]*sizeof_element;
 		halo_mem->right_in_size = halo_info->right*map->mem_dim[1]*sizeof_element;
-		halo_mem->right_out_ptr = map->mem_dev_ptr+(map->mem_dim[0]-halo_info->right-halo_info->left)*map->mem_dim[1]*sizeof_element;
+		halo_mem->right_out_ptr = halo_mem->right_in_ptr - halo_info->left*map->mem_dim[1]*sizeof_element;
 
-		map->map_dev_ptr = halo_mem->left_out_ptr;
+		if (halo_mem->left_map)
+			map->map_dev_ptr = halo_mem->left_out_ptr;
+		else map->map_dev_ptr = map->mem_dev_ptr;
 	}
 	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
 		halo_info = &halo_info[1];
