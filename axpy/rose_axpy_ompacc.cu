@@ -90,7 +90,6 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		omp_stream_start_event_record(&__dev_stream__[__i__], 0);
 		omp_memcpyHostToDeviceAsync(__dev_map_x__);
 		omp_stream_stop_event_record(&__dev_stream__[__i__], 0);
-		x_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
 
 		omp_print_data_map(__dev_map_x__);
 		/*************************************************************************************************************************************************************/
@@ -106,7 +105,6 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		omp_stream_start_event_record(&__dev_stream__[__i__], 1);
 		omp_memcpyHostToDeviceAsync(__dev_map_y__);
 		omp_stream_stop_event_record(&__dev_stream__[__i__], 1);
-		y_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
 		omp_print_data_map(__dev_map_y__);
 
 		/***************************************************************************************************************************************************************/
@@ -123,13 +121,11 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		omp_stream_start_event_record(&__dev_stream__[__i__], 2);
         OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n,a,(double *)__dev_map_x__->map_dev_ptr, (double *)__dev_map_y__->map_dev_ptr);
 		omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
-		kernel_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 2);
         /***************************************************************************************************************************************************/
         /****************** for each from and tofrom, we need call to DeviceToHost memcpy */
 		omp_stream_start_event_record(&__dev_stream__[__i__], 3);
         omp_memcpyDeviceToHostAsync(__dev_map_y__);
 		omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
-		y_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 3);
     }
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
 	ompacc_time = (read_timer() - ompacc_time);
@@ -140,6 +136,10 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	float kernel_accumulated = 0.0;
 	float y_map_from_accumulated = 0.0;
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+		x_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
+		y_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
+		kernel_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 2);
+		y_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 3);
 		float total = x_map_to_elapsed[__i__] + y_map_to_elapsed[__i__] + kernel_elapsed[__i__] + y_map_from_elapsed[__i__];
 		printf("device: %d, total: %4f\n", __i__, total);
 		printf("\t\tbreakdown: x map_to: %4f; y map_to: %4f; kernel: %4f; y map_from: %f\n", x_map_to_elapsed[__i__], y_map_to_elapsed[__i__], kernel_elapsed[__i__], y_map_from_elapsed[__i__]);
@@ -151,6 +151,6 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	float total = x_map_to_accumulated + y_map_to_accumulated + kernel_accumulated + y_map_from_accumulated;
 	printf("ACCUMULATED total GPU time: %4f\n", total);
 	printf("\t\t breakdown: x map_to: %4f, y map_t: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated, y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
-	printf("Total time measured from CPU: %4f, CPU overhead: %4f\n", ompacc_time, ompacc_time - total);
+	printf("Total time measured from CPU: %4f, CPU overhead: %4f\n", ompacc_time*1000.0, ompacc_time*1000.0 - total);
 	return ompacc_time;
 }

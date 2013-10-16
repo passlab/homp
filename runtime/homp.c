@@ -125,25 +125,39 @@ void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
 	}
 }
 
-/**
- * @param event: the index to the stream event array
- */
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
+	float * time = (float*)userData;
+	*time = read_timer_ms();
+}
+#endif
+
 void omp_stream_start_event_record(omp_stream_t * stream, int event) {
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+	cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->start_time[event], 0);
+#else
 	cudaEventRecord(stream->start_event[event], stream->systream.cudaStream);
+#endif
 }
 
 void omp_stream_stop_event_record(omp_stream_t * stream, int event) {
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+	cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->stop_time[event], 0);
+#else
 	cudaEventRecord(stream->stop_event[event], stream->systream.cudaStream);
+#endif
 }
 
 /**
  * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
  */
 float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event) {
-	float elapsed;
-	cudaEventElapsedTime(&elapsed, stream->start_event[event], stream->stop_event[event]);
-	stream->elapsed[event] = elapsed;
-	return elapsed;
+	float elapse;
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+	elapse = stream->stop_time[event] - stream->start_time[event];
+#else
+	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
+#endif
 }
 
 void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,

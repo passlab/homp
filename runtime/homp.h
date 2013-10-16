@@ -107,6 +107,10 @@ typedef struct omp_stream {
 	/* we orgainze them as set of events */
 	cudaEvent_t start_event[OMP_STREAM_NUM_EVENTS];
 	cudaEvent_t stop_event[OMP_STREAM_NUM_EVENTS];
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+	float start_time[OMP_STREAM_NUM_EVENTS];
+	float stop_time[OMP_STREAM_NUM_EVENTS];
+#endif
 	float elapsed[OMP_STREAM_NUM_EVENTS];
 } omp_stream_t;
 typedef struct omp_data_map omp_data_map_t;
