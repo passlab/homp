@@ -580,7 +580,6 @@ long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
 			*map_length = -1;
 			return -1;
 		} else if (length <= *map_length) {
-			*map_length = length;
 			return start;
 		}
 	}
