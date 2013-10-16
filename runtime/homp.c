@@ -158,6 +158,7 @@ float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event) {
 #else
 	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
 #endif
+        return elapse;
 }
 
 void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
@@ -600,6 +601,10 @@ void omp_memcpyHostToDeviceAsync(omp_data_map_t * map) {
 
 void omp_memcpyDeviceToHostAsync(omp_data_map_t * map) {
     cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream);
+}
+
+void omp_memcpyHostToDevice(omp_data_map_t * map) {
+    cudaMemcpy((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice);
 }
 
 void omp_memcpyDeviceToHost(omp_data_map_t * map) {
