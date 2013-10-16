@@ -130,7 +130,8 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
 	ompacc_time = (read_timer() - ompacc_time);
 
-	printf("=================================================== GPU Results (%d GPUs) for y[] = a*x[] + y[] ===========================================\n", __num_target_devices__);
+	printf("=============================================================================================================================================\n");
+	printf("=========================== GPU Results (%d GPUs) for y[] = a*x[] + y[], x|y size: %d, time in ms (s/1000) ===============================\n", __num_target_devices__, n);
 	float x_map_to_accumulated = 0.0;
 	float y_map_to_accumulated = 0.0;
 	float kernel_accumulated = 0.0;
