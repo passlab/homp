@@ -115,9 +115,35 @@ void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
 	stream->dev = d;
 	if (d->type == OMP_DEVICE_NVGPU) {
 		cudaStreamCreate(&stream->systream.cudaStream);
+		int i;
+		for (i=0; i<OMP_STREAM_NUM_EVENTS; i++) {
+			cudaEventCreateWithFlags(&stream->start_event[i], cudaEventBlockingSync);
+			cudaEventCreateWithFlags(&stream->stop_event[i], cudaEventBlockingSync);
+		}
 	} else {
 		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
 	}
+}
+
+/**
+ * @param event: the index to the stream event array
+ */
+void omp_stream_start_event_record(omp_stream_t * stream, int event) {
+	cudaEventRecord(stream->start_event[event], stream->systream.cudaStream);
+}
+
+void omp_stream_stop_event_record(omp_stream_t * stream, int event) {
+	cudaEventRecord(stream->stop_event[event], stream->systream.cudaStream);
+}
+
+/**
+ * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
+ */
+float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event) {
+	float elapsed;
+	cudaEventElapsedTime(&elapsed, stream->start_event[event], stream->stop_event[event]);
+	stream->elapsed[event] = elapsed;
+	return elapsed;
 }
 
 void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
@@ -515,19 +541,21 @@ void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_rig
  * @param: int * map_start: the mapped start index in the mapped range, if return <0 value, wrong input
  * @param: int * map_length: normally just the length, if lenght == -1, use the map_dim[dim]
  *
+ * @return: return the offset in the original iteration range
+ *
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
  */
-void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length) {
+long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length) {
 	if (start <=0) {
 		if (length < 0) {
 			*map_start = 0;
 			*map_length = map->map_dim[dim];
-			return;
+			return map->map_offset[dim];
 		} else if (length <= map->map_dim[dim]) {
 			*map_start = 0;
 			*map_length = length;
-			return;
+			return map->map_offset[dim];
 		} else {
 			/* error */
 		}
@@ -536,17 +564,17 @@ void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
 		*map_length = map->map_dim[dim] - *map_start; /* the max length */
 		if (*map_start < 0) { /* out of the range */
 			*map_length = -1;
-			return;
+			return -1;
 		} else if (length <= *map_length) {
 			*map_length = length;
-			return;
+			return map->map_offset[dim]+start;
 		}
 	}
 
 	/* out of range */
 	*map_start = -1;
 	*map_length = -1;
-	return;
+	return -1;
 }
 
 /*

@@ -73,9 +73,7 @@ int main(int argc,char *argv[])
   double omp_time = read_timer();
   axpy_omp(x,y_omp,n,a);
   omp_time = (read_timer() - omp_time);
-  double ompacc_time = read_timer();
-  axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
-  ompacc_time = (read_timer() - ompacc_time);
+  double ompacc_time = axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
   printf("axpy(%d): checksum: %g; time(s):\tOMP(%d threads)\tOMPACC\n",n,check(y_omp,y_ompacc,n),num_threads);
   printf("\t\t\t\t\t\t%4f\t%4f, %d devices\n",omp_time,ompacc_time, omp_get_num_active_devices());
   free(y_omp);

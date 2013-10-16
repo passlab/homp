@@ -92,12 +92,22 @@ typedef struct omp_grid_topology {
 	 int *periodic;
 } omp_grid_topology_t;
 
+#define OMP_STREAM_NUM_EVENTS 6
+/**
+ * each stream also provide a limited number of event objects for collecting timing
+ * information.
+ */
 typedef struct omp_stream {
 	omp_device_t * dev;
 	union {
 		cudaStream_t cudaStream;
 		void * myStream;
 	} systream;
+
+	/* we orgainze them as set of events */
+	cudaEvent_t start_event[OMP_STREAM_NUM_EVENTS];
+	cudaEvent_t stop_event[OMP_STREAM_NUM_EVENTS];
+	float elapsed[OMP_STREAM_NUM_EVENTS];
 } omp_stream_t;
 typedef struct omp_data_map omp_data_map_t;
 
@@ -186,7 +196,12 @@ typedef struct omp_reduction_float {
 extern void omp_init_devices();
 extern int omp_get_num_active_devices();
 extern void omp_set_current_device(omp_device_t * d);
+
 extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
+extern void omp_stream_start_event_record(omp_stream_t * stream, int event);
+extern void omp_stream_stop_event_record(omp_stream_t * stream, int event);
+extern float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event);
+
 extern void omp_topology_print(omp_grid_topology_t * top);
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
 		omp_map_type_t map_type, long dim0, long dim1, long dim2);
@@ -222,7 +237,7 @@ extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_str
  *
  */
 extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );
-extern void omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length);
+extern long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length);
 extern void omp_deviceMalloc(omp_data_map_t * map);
 /*
  * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
