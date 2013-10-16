@@ -157,9 +157,10 @@ void initialize() {
  *
  * Output : u(n,m) - Solution
  *****************************************************************/
+#define LOOP_COLLAPSE 1
 
 #if !LOOP_COLLAPSE
-__global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
+__global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
 {
   int _p_j;
   float _p_error;
@@ -169,7 +170,7 @@ __global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float 
   XOMP_accelerator_loop_default (1, n-2, 1, &_dev_lower, &_dev_upper);
   int _dev_i;
   for (_dev_i = _dev_lower; _dev_i<= _dev_upper; _dev_i ++) {
-    for (_p_j = 1; _p_j < (m - 1); _p_j++) {
+    for (_p_j = start_n; _p_j < (m - 1); _p_j++) {
       _p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
       _dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
       _p_error = (_p_error + (_p_resid * _p_resid));
@@ -179,7 +180,7 @@ __global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float 
 }
 
 #else
-__global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
+__global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
 {
   int _dev_i;
   int ij;
@@ -201,7 +202,7 @@ __global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float 
 
   //TODO: adjust bound to be inclusive later
   int orig_start =1;
-  int orig_end = (n-1)*(m-1)-1;
+  int orig_end = (n)*m-1;
   int orig_step = 1;
   int orig_chunk_size = 1;
 
@@ -215,7 +216,7 @@ __global__ void OUT__1__10550__(int n,int m,float omega,float ax,float ay,float 
       _dev_i = ij/(m-1);
       _p_j = ij%(m-1);
 
-      if (_dev_i>=1 && _dev_i< (n-1) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
+      if (_dev_i>=start_n && _dev_i< (n-1) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
       {
 	_p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
 	_dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
@@ -308,7 +309,7 @@ void jacobi_v1() {
 	error = (10.0 * tol);
 	k = 1;
 #if 0
-#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n|1]{0:m}>>(:)) map(tofrom:u[0:n]{0:m}>>(:)) map(alloc:uold[0:n|1]{0:m}>>(:))
+#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f{0:n|1}[0:m]>>{:}) map(tofrom:u{0:n}[0:m]>>{:}) map(alloc:uold{0:n|1}[0:m]>>{:})
   while ((k<=mits)&&(error>tol))
   {
     error = 0.0;
@@ -325,7 +326,7 @@ void jacobi_v1() {
 #pragma omp halo exchange uold[:]{:}
 
 #pragma omp target device(*)//map(in:n, m, omega, ax, ay, b, f[0:n][0:m], uold[0:n][0:m]) map(out:u[0:n][0:m])
-#pragma omp parallel for private(resid,j,i) reduction(+:error) dist_iteration >>(*) // nowait
+#pragma omp parallel for private(resid,j,i) reduction(+:error) dist_iteration match_range u[]{}// nowait
       for (i=1;i<(n-1);i++)
         for (j=1;j<(m-1);j++)
         {
@@ -417,7 +418,6 @@ void jacobi_v1() {
 		omp_print_data_map(__dev_map_u__);
 
 		/******************************************** for uold ******************************************************************************/
-
 		omp_data_map_t * __dev_map_uold__ = &__data_maps__[__i__][2]; /* 2 is given by compiler here */
 		omp_data_map_init_map(__dev_map_uold__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
 
@@ -439,7 +439,7 @@ void jacobi_v1() {
 			long start_n, length_n;
 			omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock(length_n);
+			int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
 			OUT__2__10550__<<<_num_blocks_, _threads_per_block_, 0,__dev_stream__[__i__].systream.cudaStream>>>
 					(length_n, m,(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_uold__->map_dev_ptr);
 		}
@@ -463,17 +463,20 @@ void jacobi_v1() {
 			omp_data_map_t * __dev_map_f__ = &__data_maps__[__i__][0];
 			omp_data_map_t * __dev_map_u__ = &__data_maps__[__i__][1];
 			omp_data_map_t * __dev_map_uold__ = &__data_maps__[__i__][2]; /* 2 is given by compiler here */
-			long start_n, length_n;
-			omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
+			long start_n, length_n, offset_n;
+			if (__i__== 0) offset_n = omp_loop_map_range(__dev_map_u__, 0, 1, -1, &start_n, &length_n);
+			else if (__i__ == __num_target_devices__-1) offset_n = omp_loop_map_range(__dev_map_u__, 0, -1, __dev_map_u__->map_dim[0]-1, &start_n, &length_n);
+			else offset_n = omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock(length_n);
+			int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
+			printf("%d device: original offset: %d, mapped_offset: %d, length: %d", __i__, offset_n, start_n, length_n);
 
 			/* Launch CUDA kernel ... */
 			/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
 			float *_dev_per_block_error;
 			cudaMalloc(&_dev_per_block_error, _num_blocks_ * sizeof(float));
 			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(float)),
-					__dev_stream__[__i__].systream.cudaStream>>>(length_n, m,
+					__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
 					omega, ax, ay, b, _dev_per_block_error,
 					(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_f__->map_dev_ptr,(float*)__dev_map_uold__->map_dev_ptr);
 			/* copy back the results of reduction in blocks */

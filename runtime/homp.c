@@ -456,11 +456,14 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 		halo_mem->left_in_ptr = map->mem_dev_ptr;
 		halo_mem->left_in_size = halo_info->left*map->mem_dim[1]*sizeof_element;
 		halo_mem->left_out_ptr = map->mem_dev_ptr + halo_mem->left_in_size;
-		halo_mem->right_in_ptr = map->mem_dev_ptr+(map->mem_dim[0]-halo_info->right)*map->mem_dim[1]*sizeof_element;
+		/* we calculate from the end of the address */
+		halo_mem->right_in_ptr = map->mem_dev_ptr + map->mem_size - halo_info->right*map->mem_dim[1]*sizeof_element;
 		halo_mem->right_in_size = halo_info->right*map->mem_dim[1]*sizeof_element;
-		halo_mem->right_out_ptr = map->mem_dev_ptr+(map->mem_dim[0]-halo_info->right-halo_info->left)*map->mem_dim[1]*sizeof_element;
+		halo_mem->right_out_ptr = halo_mem->right_in_ptr - halo_info->left*map->mem_dim[1]*sizeof_element;
 
-		map->map_dev_ptr = halo_mem->left_out_ptr;
+		if (halo_mem->left_map)
+			map->map_dev_ptr = halo_mem->left_out_ptr;
+		else map->map_dev_ptr = map->mem_dev_ptr;
 	}
 	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
 		halo_info = &halo_info[1];
@@ -550,13 +553,13 @@ void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_rig
  *
  * @param: omp_data_map_t * map: the mapped variable, we should use the original pointer and let the runtime retrieve the map
  * @param: int dim: which dimension to retrieve the range
- * @param: int start: the start index from the original array, if start is -1, use the map_offset_<dim>, which will simply cause
- * 					the function return 0 for obvious reasons
+ * @param: int start: the start index from the original array, if start is -1, use the map_offset_<dim>, which will simply set
+ * 		map_start = 0 for obvious reasons
  * @param: int length: the length of the range, if -1, use the mapped dim from the start
  * @param: int * map_start: the mapped start index in the mapped range, if return <0 value, wrong input
  * @param: int * map_length: normally just the length, if lenght == -1, use the map_dim[dim]
  *
- * @return: return the offset in the original iteration range
+ * @return: return the actual offset for map_start from the original iteration range
  *
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
@@ -581,8 +584,7 @@ long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
 			*map_length = -1;
 			return -1;
 		} else if (length <= *map_length) {
-			*map_length = length;
-			return map->map_offset[dim]+start;
+			return start;
 		}
 	}
 
