@@ -191,7 +191,7 @@ struct omp_data_map {
 
 /** temp solution */
 typedef struct omp_reduction_float {
-				float * result;
+				float result;
 				float *input;
 				int num;
 				int opers;
