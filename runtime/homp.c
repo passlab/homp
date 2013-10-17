@@ -156,6 +156,8 @@ float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event) {
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
 	elapse = stream->stop_time[event] - stream->start_time[event];
 #else
+	cudaEventSynchronize(stream->start_event[event]);
+	cudaEventSynchronize(stream->stop_event[event]);
 	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
 #endif
         return elapse;
