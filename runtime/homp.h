@@ -253,6 +253,7 @@ extern void omp_memcpyHostToDevice(omp_data_map_t * map);
 extern void omp_memcpyDeviceToHost(omp_data_map_t * map);
 /* extern void omp_postACCKernel(int num_devices, int num_maps, cudaStream_t dev_stream[num_devices], omp_data_map_t data_map[num_devices][num_maps]);
 */
+/*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
 extern void omp_factor(int n, int factor[], int dims);
 
 #ifdef __cplusplus
