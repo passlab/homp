@@ -456,9 +456,10 @@ void jacobi_v1() {
 		}
 		omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
 
-		float __host_per_device_error [__num_target_devices__];
 		float *_dev_per_block_error[__num_target_devices__];
 		float *_host_per_block_error[__num_target_devices__];
+		omp_reduction_float_t *reduction_callback_args[__num_target_devices__];
+
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
@@ -483,12 +484,12 @@ void jacobi_v1() {
 			/* copy back the results of reduction in blocks */
 			_host_per_block_error[__i__] = (float*)(malloc(_num_blocks_*sizeof(float)));
 			cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(float)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
-			omp_reduction_float_t *args = (omp_reduction_float_t*)alloca(sizeof(omp_reduction_float_t));
-			args->result = &__host_per_device_error[__i__];
+			omp_reduction_float_t * args = (omp_reduction_float_t*)malloc(sizeof(omp_reduction_float_t));
+			reduction_callback_args[__i__] = args;
 			args->input = _host_per_block_error[__i__];
 			args->num = _num_blocks_;
 			args->opers = 6;
-			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, args, 0);
+			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, reduction_callback_args, 0);
 			/* xomp_beyond_block_reduction_float(_dev_per_block_error, _num_blocks_, 6); */
 			//xomp_freeDevice(_dev_per_block_error);
 		}
@@ -501,8 +502,10 @@ void jacobi_v1() {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 			cudaFree(_dev_per_block_error[__i__]);
+			omp_reduction_float_t * args = reduction_callback_args[__i__];
+			error += args->result;
+			free(args);
 			free(_host_per_block_error[__i__]);
-			error += __host_per_device_error[__i__];
 		}
 
 		/* Error check */
