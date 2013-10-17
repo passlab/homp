@@ -489,7 +489,7 @@ void jacobi_v1() {
 			args->input = _host_per_block_error[__i__];
 			args->num = _num_blocks_;
 			args->opers = 6;
-			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, reduction_callback_args, 0);
+			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, args, 0);
 			/* xomp_beyond_block_reduction_float(_dev_per_block_error, _num_blocks_, 6); */
 			//xomp_freeDevice(_dev_per_block_error);
 		}
