@@ -347,8 +347,10 @@ void jacobi_v1() {
   }          /*  End iteration loop */
 
 #endif
+	double cpu_total = read_timer_ms();
 	/* there are three mapped array variables (f, u, and uold). all scalar variables will be as parameters */
 	int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
+
 	omp_device_t *__target_devices__[__num_target_devices__];
 	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
 	int __i__;
@@ -405,7 +407,9 @@ void jacobi_v1() {
 
 		omp_map_buffer_malloc(__dev_map_f__);
 
+		omp_stream_start_event_record(&__dev_stream__[__i__], 0);
 		omp_memcpyHostToDeviceAsync(__dev_map_f__);
+		omp_stream_stop_event_record(&__dev_stream__[__i__], 0);
 		omp_print_data_map(__dev_map_f__);
 		/*************************************************************************************************************************************************************/
 
@@ -417,7 +421,9 @@ void jacobi_v1() {
 
 		omp_map_buffer_malloc(__dev_map_u__);
 
+		omp_stream_start_event_record(&__dev_stream__[__i__], 1);
 		omp_memcpyHostToDeviceAsync(__dev_map_u__);
+		omp_stream_stop_event_record(&__dev_stream__[__i__], 1);
 		omp_print_data_map(__dev_map_u__);
 
 		/******************************************** for uold ******************************************************************************/
@@ -452,8 +458,10 @@ void jacobi_v1() {
 			omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
+			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
 			OUT__2__10550__<<<_num_blocks_, _threads_per_block_, 0,__dev_stream__[__i__].systream.cudaStream>>>
 					(length_n, m,(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_uold__->map_dev_ptr);
+			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
 		}
 		 /* TODO: here we have to make sure that the remote are finish computation before halo exchange */
 		omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
@@ -464,7 +472,9 @@ void jacobi_v1() {
 			omp_data_map_t * __dev_map_uold__ = &__data_maps__[__i__][2]; /* 2 is given by compiler here */
 
 			/* halo exchange here, we do a pull protocol, thus the receiver move data from the source */
+			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
 			omp_halo_region_pull_async(__dev_map_uold__, 0, 0);
+			omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
 		}
 		omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
 
@@ -480,37 +490,48 @@ void jacobi_v1() {
 			else offset_n = omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
+
+			omp_reduction_float_t * args = reduction_callback_args[__i__];
+			args->input = _host_per_block_error[__i__];
+			args->num = _num_blocks_;
+			args->opers = 6;
 			//printf("%d device: original offset: %d, mapped_offset: %d, length: %d\n", __i__, offset_n, start_n, length_n);
 
 			/* Launch CUDA kernel ... */
 			/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
+			omp_stream_start_event_record(&__dev_stream__[__i__], 4);
 			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(float)),
 					__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
 					omega, ax, ay, b, _dev_per_block_error[__i__],
 					(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_f__->map_dev_ptr,(float*)__dev_map_uold__->map_dev_ptr);
 			/* copy back the results of reduction in blocks */
 			cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(float)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
-			omp_reduction_float_t * args = reduction_callback_args[__i__];
-			args->input = _host_per_block_error[__i__];
-			args->num = _num_blocks_;
-			args->opers = 6;
 			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, args, 0);
+			omp_stream_stop_event_record(&__dev_stream__[__i__], 4);
 			/* xomp_beyond_block_reduction_float(_dev_per_block_error, _num_blocks_, 6); */
 			//xomp_freeDevice(_dev_per_block_error);
 		}
 		/* here we sync the stream and make sure all are complete (including the per-device reduction)
 		 */
-		omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
+		omp_sync_stream(__num_target_devices__, __dev_stream__, 0); /* we can collect timing (accumulated or not) */
 		/* then, we need the reduction from multi-devices */
 		error = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			omp_reduction_float_t * args = reduction_callback_args[__i__];
 			error += args->result;
+
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
+			omp_stream_event_elapsed_accumulate_ms(&__dev_stream__[__i__], 2); /* kernel u2uold */
+			omp_stream_event_elapsed_accumulate_ms(&__dev_stream__[__i__], 3); /* halo exchange */
+			omp_stream_event_elapsed_accumulate_ms(&__dev_stream__[__i__], 4); /* jacobi (including reduction) */
 		}
 
 		/* Error check */
+		/*
 		if ((k % 500) == 0)
 			printf("Finished %d iteration with error =%f\n", k, error);
+		*/
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */
@@ -520,16 +541,66 @@ void jacobi_v1() {
 		omp_device_t * __dev__ = __target_devices__[__i__];
 		omp_set_current_device(__dev__);
 		omp_data_map_t * __dev_map_u__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
+		omp_stream_start_event_record(&__dev_stream__[__i__], 5);
         omp_memcpyDeviceToHostAsync(__dev_map_u__);
+		omp_stream_stop_event_record(&__dev_stream__[__i__], 5);
 		cudaFree(_dev_per_block_error[__i__]);
 		omp_reduction_float_t * args = reduction_callback_args[__i__];
 		free(args);
 		free(_host_per_block_error[__i__]);
 	}
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
-
+    cpu_total = read_timer_ms() - cpu_total;
 	printf("Total Number of Iterations:%d\n", k);
 	printf("Residual:%E\n", error);
+
+    /* for profiling */
+	float f_map_to_elapsed[__num_target_devices__]; /* event 0 */
+	float u_map_to_elapsed[__num_target_devices__]; /* event 1 */
+	float kernel_u2uold_elapsed[__num_target_devices__]; /* event 2 */
+	float halo_exchange_elapsed[__num_target_devices__]; /* event 3 */
+	float kernel_jacobi_elapsed[__num_target_devices__]; /* event 4, also including the reduction */
+	float u_map_from_elapsed[__num_target_devices__]; /* event 5 */
+
+	printf("=============================================================================================================================================\n");
+	printf("=========================== GPU Results (%d GPUs) for y[] = a*x[] + y[], x|y size: %d, time in ms (s/1000) ===============================\n", __num_target_devices__, n);
+	float f_map_to_accumulated = 0.0;
+	float u_map_to_accumulated = 0.0;
+	float kernel_u2uold_accumulated = 0.0;
+	float halo_exchange_accumulated = 0.0;
+	float kernel_jacobi_accumulated = 0.0;
+	float u_map_from_accumulated = 0.0;
+	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+		f_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
+		u_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
+		kernel_u2uold_elapsed[__i__] = __dev_stream__[__i__].elapsed[2]; /* event 2 */
+		halo_exchange_elapsed[__i__] = __dev_stream__[__i__].elapsed[3]; /* event 3 */
+		kernel_jacobi_elapsed[__i__] = __dev_stream__[__i__].elapsed[4]; /* event 4, also including the reduction */
+		u_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 5);
+		float total = f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__] + kernel_u2uold_elapsed[__i__] + halo_exchange_elapsed[__i__] + kernel_jacobi_elapsed[__i__]  + u_map_from_elapsed[__i__];
+		printf("device: %d, total: %4f\n", __i__, total);
+		printf("\t\tbreakdown: x map_to: %4f; y map_to: %4f; kernel: %4f; y map_from: %f\n", f_map_to_elapsed[__i__], u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], u_map_from_elapsed[__i__]);
+		printf("\t\t\t\tbreakdown: map_to (x and y): %4f; kernel: %4f; map_from (y): %f\n", f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], u_map_from_elapsed[__i__]);
+		f_map_to_accumulated += f_map_to_elapsed[__i__];
+		u_map_to_accumulated += u_map_to_elapsed[__i__];
+		kernel_u2uold_accumulated += kernel_u2uold_elapsed[__i__];
+		u_map_from_accumulated += u_map_from_elapsed[__i__];
+	}
+	float total = f_map_to_accumulated + u_map_to_accumulated + kernel_u2uold_accumulated + u_map_from_accumulated;
+	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
+	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", f_map_to_accumulated, u_map_to_accumulated, kernel_u2uold_accumulated, u_map_from_accumulated);
+	printf("\t\tbreakdown: map_to(x and y): %4f, kernel: %4f, map_from (y): %f\n", f_map_to_accumulated + u_map_to_accumulated, kernel_u2uold_accumulated, u_map_from_accumulated);
+	printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
+	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", f_map_to_accumulated/__num_target_devices__, u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, u_map_from_accumulated/__num_target_devices__);
+	printf("\t\tbreakdown: map_to (x and y): %4f, kernel: %4f, map_from (y): %f\n", f_map_to_accumulated/__num_target_devices__ + u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, u_map_from_accumulated/__num_target_devices__);
+
+	printf("----------------------------------------------------------------")
+	printf("Total time measured from CPU: %4f\n", cpu_total);
+	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
+	printf("Total CPU cost: %4f\n", cpu_total - total);
+	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-total)/__num_target_devices__);
+	printf("==========================================================================================================================================\n");
+
 }
 
 #if 0

@@ -67,10 +67,6 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
-	float x_map_to_elapsed[__num_target_devices__];
-	float y_map_to_elapsed[__num_target_devices__];
-	float kernel_elapsed[__num_target_devices__];
-	float y_map_from_elapsed[__num_target_devices__];
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 #if DEBUG_MSG
 	    	printf("=========================================== device %d ==========================================\n", __i__);
@@ -130,6 +126,10 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
 	ompacc_time = (read_timer() - ompacc_time);
 
+	float x_map_to_elapsed[__num_target_devices__];
+	float y_map_to_elapsed[__num_target_devices__];
+	float kernel_elapsed[__num_target_devices__];
+	float y_map_from_elapsed[__num_target_devices__];
 	printf("=============================================================================================================================================\n");
 	printf("=========================== GPU Results (%d GPUs) for y[] = a*x[] + y[], x|y size: %d, time in ms (s/1000) ===============================\n", __num_target_devices__, n);
 	float x_map_to_accumulated = 0.0;
@@ -144,6 +144,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		float total = x_map_to_elapsed[__i__] + y_map_to_elapsed[__i__] + kernel_elapsed[__i__] + y_map_from_elapsed[__i__];
 		printf("device: %d, total: %4f\n", __i__, total);
 		printf("\t\tbreakdown: x map_to: %4f; y map_to: %4f; kernel: %4f; y map_from: %f\n", x_map_to_elapsed[__i__], y_map_to_elapsed[__i__], kernel_elapsed[__i__], y_map_from_elapsed[__i__]);
+		printf("\t\t\t\tbreakdown: map_to (x and y): %4f; kernel: %4f; map_from (y): %f\n", x_map_to_elapsed[__i__] + y_map_to_elapsed[__i__], kernel_elapsed[__i__], y_map_from_elapsed[__i__]);
 		x_map_to_accumulated += x_map_to_elapsed[__i__];
 		y_map_to_accumulated += y_map_to_elapsed[__i__];
 		kernel_accumulated += kernel_elapsed[__i__];
@@ -151,12 +152,18 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	}
 	float total = x_map_to_accumulated + y_map_to_accumulated + kernel_accumulated + y_map_from_accumulated;
 	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
-	printf("\t\tbreakdown: x map_to: %4f, y map_t: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated, y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
+	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated, y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
+	printf("\t\tbreakdown: map_to(x and y): %4f, kernel: %4f, map_from (y): %f\n", x_map_to_accumulated + y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
 	printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
-	printf("\t\tbreakdown: x map_to: %4f, y map_t: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated/__num_target_devices__, y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
+	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated/__num_target_devices__, y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
+	printf("\t\tbreakdown: map_to (x and y): %4f, kernel: %4f, map_from (y): %f\n", x_map_to_accumulated/__num_target_devices__ + y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
 
 	double cpu_total = ompacc_time*1000.0;
-	printf("Total time measured from CPU: %4f, AVERAGE total (CPU cost+GPU) per GPU: %4f; Total CPU cost: %4f, CPU cost per GPU: %4f \n", cpu_total, cpu_total/__num_target_devices__, cpu_total - total, (cpu_total-total)/__num_target_devices__);
+	printf("----------------------------------------------------------------");
+	printf("Total time measured from CPU: %4f\n", cpu_total);
+	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
+	printf("Total CPU cost: %4f\n", cpu_total - total);
+	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-total)/__num_target_devices__);
 	printf("==========================================================================================================================================\n");
 
 	return ompacc_time;

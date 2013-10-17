@@ -119,6 +119,7 @@ void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
 		for (i=0; i<OMP_STREAM_NUM_EVENTS; i++) {
 			cudaEventCreateWithFlags(&stream->start_event[i], cudaEventBlockingSync);
 			cudaEventCreateWithFlags(&stream->stop_event[i], cudaEventBlockingSync);
+			stream->elapsed[i] = 0.0;
 		}
 	} else {
 		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
@@ -158,6 +159,21 @@ float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event) {
 #else
 	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
 #endif
+	stream->elapsed[event] = elapse;
+	return elapse;
+}
+
+/* accumulate the elapsed time of the event to the stream object and return this elapsed
+ */
+float omp_stream_event_elapsed_accumulate_ms(omp_stream_t * stream, int event) {
+	float elapse;
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+	elapse = stream->stop_time[event] - stream->start_time[event];
+#else
+	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
+#endif
+	stream->elapsed[event] += elapse;
+	return elapse;
 }
 
 void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
