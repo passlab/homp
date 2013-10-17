@@ -617,18 +617,18 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			/***************************************************************************************************************************************************************/
 			/*************************************************************************************************************************************************************/
 			/* Launch CUDA kernel ... */
-			long start_k, length_k;
-			omp_loop_map_range(__dev_map_C__, 1, -1, -1, &start_k, &length_k);
+			long start_j, length_j;
+			omp_loop_map_range(__dev_map_C__, 1, -1, -1, &start_j, &length_j);
 			/* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
 			 * device map object
 			*/
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock(n);
+			int _num_blocks_ = xomp_get_max1DBlock(n*length_j);
 	//		printf("device: %d, range: %d:%d\n", __i__, start_k, length_k);
 
 //			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
-			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, length_j, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
 			omp_memcpyDeviceToHostAsync(__dev_map_C__);
@@ -784,19 +784,19 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 			/*************************************************************************************************************************************************************/
 			/* Launch CUDA kernel ... */
 			long start_i, length_i;
-			long start_k, length_k;
+			long start_j, length_j;
 			omp_loop_map_range(__dev_map_C__, 0, -1, -1, &start_i, &length_i);
-			omp_loop_map_range(__dev_map_C__, 1, -1, -1, &start_k, &length_k);
+			omp_loop_map_range(__dev_map_C__, 1, -1, -1, &start_j, &length_j);
 			/* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
 			 * device map object
 			*/
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-			int _num_blocks_ = xomp_get_max1DBlock(length_i);
+			int _num_blocks_ = xomp_get_max1DBlock(length_i*length_j);
 	//		printf("device: %d, C region: %d X %d\n", __i__, length_i, length_k);
 
 //			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
-			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, length_j, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
 
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
 
