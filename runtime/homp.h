@@ -255,10 +255,6 @@ extern void omp_memcpyDeviceToHost(omp_data_map_t * map);
 */
 extern void omp_factor(int n, int factor[], int dims);
 
-/* timing func in timer.c */
-extern float read_timer();
-extern float read_timer_ms();
-
 #ifdef __cplusplus
  }
 #endif
