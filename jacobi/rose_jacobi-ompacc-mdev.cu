@@ -289,11 +289,8 @@ int orig_chunk_size = 1;
  */
 void jacobi_v1() {
 	float omega;
-	int i;
-	int j;
 	int k;
 	float error;
-	float resid;
 	float ax;
 	float ay;
 	float b;
