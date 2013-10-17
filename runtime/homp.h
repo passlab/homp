@@ -142,10 +142,10 @@ typedef struct omp_data_map_halo_region_mem {
 } omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
-/* for each mapped host array, we have one such object */
 
+/* for each mapped host array, we have one such object */
 typedef struct omp_data_map_info {
-    omp_grid_topology_t * top;
+        omp_grid_topology_t * top;
 	void * source_ptr;
 	long dim[OMP_NUM_ARRAY_DIMENSIONS]; /* dimensions for the original array */
 	int sizeof_element;
