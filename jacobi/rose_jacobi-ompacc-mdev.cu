@@ -443,7 +443,7 @@ void jacobi_v1() {
 		reduction_callback_args[__i__] = (omp_reduction_float_t*)malloc(sizeof(omp_reduction_float_t));
 	}
 
-	while ((k <= mits) && (error > tol)) {
+	while ((k <= mits)/* && (error > tol)*/) {
 		error = 0.0;
 		/* Copy new solution into old */
 		/* Launch CUDA kernel ... */
@@ -526,8 +526,10 @@ void jacobi_v1() {
 		}
 
 		/* Error check */
+/*
 		if ((k % 500) == 0)
 			printf("Finished %d iteration with error =%f\n", k, error);
+*/
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */
@@ -548,7 +550,7 @@ void jacobi_v1() {
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
     cpu_total = omp_get_wtime()*1000 - cpu_total;
 	printf("Total Number of Iterations:%d\n", k);
-	printf("Residual:%E\n", error);
+//	printf("Residual:%E\n", error);
 
     /* for profiling */
 	float f_map_to_elapsed[__num_target_devices__]; /* event 0 */
@@ -593,7 +595,7 @@ void jacobi_v1() {
 	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_accumulated/__num_target_devices__, u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
 	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_accumulated/__num_target_devices__ + u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
 
-	printf("----------------------------------------------------------------");
+	printf("----------------------------------------------------------------\n");
 	printf("Total time measured from CPU: %4f\n", cpu_total);
 	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
 	printf("Total CPU cost: %4f\n", cpu_total - gpu_total);
@@ -788,5 +790,5 @@ void error_check() {
 			error = (error + (temp * temp));
 		}
 	error = (sqrt(error) / (n * m));
-	printf("Solution Error :%E \n", error);
+//	printf("Solution Error :%E \n", error);
 }
