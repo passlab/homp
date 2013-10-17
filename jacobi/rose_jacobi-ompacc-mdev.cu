@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#ifdef _OPENMP
 #include <omp.h>
-#endif
 // Add timing support
 #include <sys/time.h>
 #include "libxomp.h" 
@@ -347,7 +345,7 @@ void jacobi_v1() {
   }          /*  End iteration loop */
 
 #endif
-	double cpu_total = read_timer_ms();
+	double cpu_total = omp_get_wtime()*1000;
 	/* there are three mapped array variables (f, u, and uold). all scalar variables will be as parameters */
 	int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
 
@@ -528,10 +526,8 @@ void jacobi_v1() {
 		}
 
 		/* Error check */
-		/*
 		if ((k % 500) == 0)
 			printf("Finished %d iteration with error =%f\n", k, error);
-		*/
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */
@@ -550,7 +546,7 @@ void jacobi_v1() {
 		free(_host_per_block_error[__i__]);
 	}
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
-    cpu_total = read_timer_ms() - cpu_total;
+    cpu_total = omp_get_wtime()*1000 - cpu_total;
 	printf("Total Number of Iterations:%d\n", k);
 	printf("Residual:%E\n", error);
 
