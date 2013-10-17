@@ -35,7 +35,7 @@ __global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_
 
 double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 {
-	double ompacc_time = read_timer();
+	double ompacc_time = read_timer_ms();
     /* get number of target devices specified by the programmers */
     int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
     
@@ -124,7 +124,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
     }
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
-	ompacc_time = (read_timer() - ompacc_time);
+	ompacc_time = (read_timer_ms() - ompacc_time);
 
 	float x_map_to_elapsed[__num_target_devices__];
 	float y_map_to_elapsed[__num_target_devices__];
@@ -158,7 +158,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated/__num_target_devices__, y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
 	printf("\t\tbreakdown: map_to (x and y): %4f, kernel: %4f, map_from (y): %f\n", x_map_to_accumulated/__num_target_devices__ + y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
 
-	double cpu_total = ompacc_time*1000.0;
+	double cpu_total = ompacc_time;
 	printf("----------------------------------------------------------------");
 	printf("Total time measured from CPU: %4f\n", cpu_total);
 	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
