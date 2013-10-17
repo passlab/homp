@@ -248,6 +248,8 @@ extern void omp_deviceMalloc(omp_data_map_t * map);
  */
 extern void omp_memcpyHostToDeviceAsync(omp_data_map_t * map);
 extern void omp_memcpyDeviceToHostAsync(omp_data_map_t * map);
+extern void omp_memcpyHostToDevice(omp_data_map_t * map);
+extern void omp_memcpyDeviceToHost(omp_data_map_t * map);
 /* extern void omp_postACCKernel(int num_devices, int num_maps, cudaStream_t dev_stream[num_devices], omp_data_map_t data_map[num_devices][num_maps]);
 */
 extern void omp_factor(int n, int factor[], int dims);
