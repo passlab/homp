@@ -562,8 +562,8 @@ void jacobi_v1() {
 	float kernel_jacobi_elapsed[__num_target_devices__]; /* event 4, also including the reduction */
 	float u_map_from_elapsed[__num_target_devices__]; /* event 5 */
 
-	printf("=============================================================================================================================================\n");
-	printf("=========================== GPU Results (%d GPUs) for y[] = a*x[] + y[], x|y size: %d, time in ms (s/1000) ===============================\n", __num_target_devices__, n);
+	printf("==============================================================================================================================================================================\n");
+	printf("=========================== GPU Results (%d GPUs) for jacobi: u[][](tofrom), f[][](to), uold[][](alloc) size: [%d][%d], time in ms (s/1000) ===============================\n", __num_target_devices__, n, m);
 	float f_map_to_accumulated = 0.0;
 	float u_map_to_accumulated = 0.0;
 	float kernel_u2uold_accumulated = 0.0;
@@ -579,26 +579,29 @@ void jacobi_v1() {
 		u_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 5);
 		float total = f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__] + kernel_u2uold_elapsed[__i__] + halo_exchange_elapsed[__i__] + kernel_jacobi_elapsed[__i__]  + u_map_from_elapsed[__i__];
 		printf("device: %d, total: %4f\n", __i__, total);
-		printf("\t\tbreakdown: x map_to: %4f; y map_to: %4f; kernel: %4f; y map_from: %f\n", f_map_to_elapsed[__i__], u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], u_map_from_elapsed[__i__]);
-		printf("\t\t\t\tbreakdown: map_to (x and y): %4f; kernel: %4f; map_from (y): %f\n", f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], u_map_from_elapsed[__i__]);
+		printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_elapsed[__i__], u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
+		printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
 		f_map_to_accumulated += f_map_to_elapsed[__i__];
 		u_map_to_accumulated += u_map_to_elapsed[__i__];
 		kernel_u2uold_accumulated += kernel_u2uold_elapsed[__i__];
+		halo_exchange_accumulated += halo_exchange_elapsed[__i__];
+		kernel_jacobi_accumulated += kernel_jacobi_elapsed[__i__];
 		u_map_from_accumulated += u_map_from_elapsed[__i__];
 	}
-	float total = f_map_to_accumulated + u_map_to_accumulated + kernel_u2uold_accumulated + u_map_from_accumulated;
-	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
-	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", f_map_to_accumulated, u_map_to_accumulated, kernel_u2uold_accumulated, u_map_from_accumulated);
-	printf("\t\tbreakdown: map_to(x and y): %4f, kernel: %4f, map_from (y): %f\n", f_map_to_accumulated + u_map_to_accumulated, kernel_u2uold_accumulated, u_map_from_accumulated);
-	printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
-	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", f_map_to_accumulated/__num_target_devices__, u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, u_map_from_accumulated/__num_target_devices__);
-	printf("\t\tbreakdown: map_to (x and y): %4f, kernel: %4f, map_from (y): %f\n", f_map_to_accumulated/__num_target_devices__ + u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, u_map_from_accumulated/__num_target_devices__);
+	float gpu_total = f_map_to_accumulated + u_map_to_accumulated + kernel_u2uold_accumulated + halo_exchange_accumulated + kernel_jacobi_accumulated + u_map_from_accumulated;
+	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , gpu_total);
+	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_accumulated , u_map_to_accumulated , kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
+	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_accumulated + u_map_to_accumulated, kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
 
-	printf("----------------------------------------------------------------")
+	printf("AVERAGE GPU time (per GPU): %4f\n", gpu_total/__num_target_devices__);
+	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_accumulated/__num_target_devices__, u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
+	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_accumulated/__num_target_devices__ + u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
+
+	printf("----------------------------------------------------------------");
 	printf("Total time measured from CPU: %4f\n", cpu_total);
 	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
-	printf("Total CPU cost: %4f\n", cpu_total - total);
-	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-total)/__num_target_devices__);
+	printf("Total CPU cost: %4f\n", cpu_total - gpu_total);
+	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-gpu_total)/__num_target_devices__);
 	printf("==========================================================================================================================================\n");
 
 }
