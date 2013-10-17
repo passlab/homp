@@ -698,6 +698,7 @@ void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cud
 	int i;
 	for (i=0; i<rdata->num; i++)
 		result += rdata->input[i];
+	*rdata->result = result;
 }
 
 /**
