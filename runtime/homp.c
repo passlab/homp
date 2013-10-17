@@ -539,10 +539,12 @@ void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_rig
 	omp_data_map_t * left_map = halo_mem->left_map;
 	omp_data_map_t * right_map = halo_mem->left_map;
 	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) {
-		cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream->systream.cudaStream);
+		if (cudaSuccess != cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream->systream.cudaStream))
+			printf("cudaMemcpyPeerAsync failed!\n");
 	}
 	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
-		cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream->systream.cudaStream);
+		if (cudaSuccess != cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream->systream.cudaStream))
+			printf("cudaMemcpyPeerAsync failed!\n");
 	}
 }
 /**

@@ -201,7 +201,7 @@ __global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,fl
   int _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 
   //TODO: adjust bound to be inclusive later
-  int orig_start =1;
+  int orig_start =start_n;
   int orig_end = (n)*m-1;
   int orig_step = 1;
   int orig_chunk_size = 1;
@@ -216,7 +216,7 @@ __global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,fl
       _dev_i = ij/(m-1);
       _p_j = ij%(m-1);
 
-      if (_dev_i>=start_n && _dev_i< (n-1) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
+      if (_dev_i>=start_n && _dev_i< (n) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
       {
 	_p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
 	_dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
@@ -469,7 +469,7 @@ void jacobi_v1() {
 			else offset_n = omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
-			printf("%d device: original offset: %d, mapped_offset: %d, length: %d", __i__, offset_n, start_n, length_n);
+			//printf("%d device: original offset: %d, mapped_offset: %d, length: %d\n", __i__, offset_n, start_n, length_n);
 
 			/* Launch CUDA kernel ... */
 			/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
@@ -497,7 +497,7 @@ void jacobi_v1() {
 		/* then, we need the reduction from multi-devices */
 		error = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
-			error += __host_per_device_error[i];
+			error += __host_per_device_error[__i__];
 		}
 
 		/* Error check */
