@@ -457,6 +457,8 @@ void jacobi_v1() {
 		omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
 
 		float __host_per_device_error [__num_target_devices__];
+		float *_dev_per_block_error[__num_target_devices__];
+		float *_host_per_block_error[__num_target_devices__];
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
@@ -473,18 +475,17 @@ void jacobi_v1() {
 
 			/* Launch CUDA kernel ... */
 			/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
-			float *_dev_per_block_error;
-			cudaMalloc(&_dev_per_block_error, _num_blocks_ * sizeof(float));
+			cudaMalloc(&_dev_per_block_error[__i__], _num_blocks_ * sizeof(float));
 			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(float)),
 					__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
-					omega, ax, ay, b, _dev_per_block_error,
+					omega, ax, ay, b, _dev_per_block_error[__i__],
 					(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_f__->map_dev_ptr,(float*)__dev_map_uold__->map_dev_ptr);
 			/* copy back the results of reduction in blocks */
-			float * _host_per_block_error = (float*)(malloc(_num_blocks_*sizeof(float)));
-			cudaMemcpyAsync(_host_per_block_error, _dev_per_block_error, sizeof(float)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
+			_host_per_block_error[__i__] = (float*)(malloc(_num_blocks_*sizeof(float)));
+			cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(float)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
 			omp_reduction_float_t *args = (omp_reduction_float_t*)alloca(sizeof(omp_reduction_float_t));
 			args->result = &__host_per_device_error[__i__];
-			args->input = _host_per_block_error;
+			args->input = _host_per_block_error[__i__];
 			args->num = _num_blocks_;
 			args->opers = 6;
 			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, args, 0);
@@ -497,6 +498,10 @@ void jacobi_v1() {
 		/* then, we need the reduction from multi-devices */
 		error = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
+			cudaFree(_dev_per_block_error[__i__]);
+			free(_host_per_block_error[__i__]);
 			error += __host_per_device_error[__i__];
 		}
 
