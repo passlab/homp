@@ -387,6 +387,12 @@ void jacobi_v1() {
 	omp_map_add_halo_region(__info__, 0, 1, 1, 0, 0);
 
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+
+	/* for reduction */
+	float *_dev_per_block_error[__num_target_devices__];
+	float *_host_per_block_error[__num_target_devices__];
+	omp_reduction_float_t *reduction_callback_args[__num_target_devices__];
+
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 #if DEBUG_MSG
 	    	printf("=========================================== device %d ==========================================\n", __i__);
@@ -425,6 +431,15 @@ void jacobi_v1() {
 
 		omp_map_buffer_malloc(__dev_map_uold__);
 		omp_print_data_map(__dev_map_uold__);
+
+		/* for reduction operation */
+		long start_n, length_n;
+		omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
+		int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
+		int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
+		cudaMalloc(&_dev_per_block_error[__i__], _num_blocks_ * sizeof(float));
+		_host_per_block_error[__i__] = (float*)(malloc(_num_blocks_*sizeof(float)));
+		reduction_callback_args[__i__] = (omp_reduction_float_t*)malloc(sizeof(omp_reduction_float_t));
 	}
 
 	while ((k <= mits) && (error > tol)) {
@@ -456,10 +471,6 @@ void jacobi_v1() {
 		}
 		omp_sync_stream(__num_target_devices__, __dev_stream__, 0);
 
-		float *_dev_per_block_error[__num_target_devices__];
-		float *_host_per_block_error[__num_target_devices__];
-		omp_reduction_float_t *reduction_callback_args[__num_target_devices__];
-
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
@@ -476,16 +487,13 @@ void jacobi_v1() {
 
 			/* Launch CUDA kernel ... */
 			/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
-			cudaMalloc(&_dev_per_block_error[__i__], _num_blocks_ * sizeof(float));
 			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(float)),
 					__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
 					omega, ax, ay, b, _dev_per_block_error[__i__],
 					(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_f__->map_dev_ptr,(float*)__dev_map_uold__->map_dev_ptr);
 			/* copy back the results of reduction in blocks */
-			_host_per_block_error[__i__] = (float*)(malloc(_num_blocks_*sizeof(float)));
 			cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(float)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
-			omp_reduction_float_t * args = (omp_reduction_float_t*)malloc(sizeof(omp_reduction_float_t));
-			reduction_callback_args[__i__] = args;
+			omp_reduction_float_t * args = reduction_callback_args[__i__];
 			args->input = _host_per_block_error[__i__];
 			args->num = _num_blocks_;
 			args->opers = 6;
@@ -499,13 +507,8 @@ void jacobi_v1() {
 		/* then, we need the reduction from multi-devices */
 		error = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
-			omp_device_t * __dev__ = __target_devices__[__i__];
-			omp_set_current_device(__dev__);
-			cudaFree(_dev_per_block_error[__i__]);
 			omp_reduction_float_t * args = reduction_callback_args[__i__];
 			error += args->result;
-			free(args);
-			free(_host_per_block_error[__i__]);
 		}
 
 		/* Error check */
@@ -517,8 +520,14 @@ void jacobi_v1() {
 	}
 	/* copy back u from each device and free others */
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+		omp_device_t * __dev__ = __target_devices__[__i__];
+		omp_set_current_device(__dev__);
 		omp_data_map_t * __dev_map_u__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
         omp_memcpyDeviceToHostAsync(__dev_map_u__);
+		cudaFree(_dev_per_block_error[__i__]);
+		omp_reduction_float_t * args = reduction_callback_args[__i__];
+		free(args);
+		free(_host_per_block_error[__i__]);
 	}
     omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
 
