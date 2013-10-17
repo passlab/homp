@@ -13,14 +13,10 @@
 #include "xomp_cuda_lib_inlined.cu"
 #include "homp.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-extern double read_timer(); /* in second */
-extern double read_timer_ms(); /* in ms */
-#ifdef __cplusplus
- }
-#endif
+/* in second */
+#define read_timer() omp_get_wtime()
+/* in ms */
+#define read_timer_ms() (omp_get_wtime()*1000.0)
 void zero(float *A,int n)
 {
   int i;

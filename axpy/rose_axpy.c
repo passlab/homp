@@ -70,9 +70,9 @@ int main(int argc,char *argv[])
   __out_argv1__5182__.num_threads_p = ((void *)(&num_threads));
   XOMP_parallel_start(OUT__1__5182__,&__out_argv1__5182__,1,0,"/data/yy8/2013-8-multiple-gpu-work/benchmarks/axpy/axpy.c",60);
   XOMP_parallel_end("/data/yy8/2013-8-multiple-gpu-work/benchmarks/axpy/axpy.c",64);
-  double omp_time = read_timer_ms();
+  double omp_time = omp_get_wtime();
   axpy_omp(x,y_omp,n,a);
-  omp_time = (read_timer_ms() - omp_time);
+  omp_time = (omp_get_wtime() - omp_time) * 1000.0;
   double ompacc_time = axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
   printf("axpy(%d): checksum: %g; time(ms):\tOMP(%d threads)\tOMPACC\n",n,check(y_omp,y_ompacc,n),num_threads);
   printf("\t\t\t\t\t\t%4f\t%4f, %d devices\n",omp_time,ompacc_time, omp_get_num_active_devices());
