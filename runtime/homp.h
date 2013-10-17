@@ -205,6 +205,7 @@ extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
 extern void omp_stream_start_event_record(omp_stream_t * stream, int event);
 extern void omp_stream_stop_event_record(omp_stream_t * stream, int event);
 extern float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event);
+extern float omp_stream_event_elapsed_accumulate_ms(omp_stream_t * stream, int event);
 
 extern void omp_topology_print(omp_grid_topology_t * top);
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
