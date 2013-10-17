@@ -167,10 +167,10 @@ __global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,fl
   _p_error = 0;
   float _p_resid;
   long _dev_lower, _dev_upper;
-  XOMP_accelerator_loop_default (1, n-2, 1, &_dev_lower, &_dev_upper);
+  XOMP_accelerator_loop_default (start_n, n-1, 1, &_dev_lower, &_dev_upper);
   int _dev_i;
   for (_dev_i = _dev_lower; _dev_i<= _dev_upper; _dev_i ++) {
-    for (_p_j = start_n; _p_j < (m - 1); _p_j++) {
+    for (_p_j = 1; _p_j < (m - 1); _p_j++) {
       _p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
       _dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
       _p_error = (_p_error + (_p_resid * _p_resid));
