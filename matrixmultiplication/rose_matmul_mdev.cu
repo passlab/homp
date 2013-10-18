@@ -186,7 +186,7 @@ int main(int argc,char *argv[])
   XOMP_parallel_end("/data/yy8/2013-8-multiple-gpu-work/benchmarks/matrixmultiplication/matmul.c",163);
 /* sequential run */
   seq_elapsed = omp_get_wtime();
-  iter_matmul(A, B, C_seq, n);
+//  iter_matmul(A, B, C_seq, n);
   seq_elapsed = (omp_get_wtime() - seq_elapsed);
 /* openmp parallel for version */
   omp_for_elapsed = omp_get_wtime();
@@ -214,9 +214,9 @@ int main(int argc,char *argv[])
   printf("Performance:  Runtime (ms)\t MFLOPS\t\t\t Error\n");
   printf("-----------------------------------------------------------------------\n");
   printf("Sequential      :  %4f \t\t %4f\t\t%g\n",seq_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * seq_elapsed)),maxerror(C_seq,C_seq,n));
-  printf("OMP For         :  %4f \t\t %4f\t\t%g\n",omp_for_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * omp_for_elapsed)),maxerror(C_seq,C_omp_for,n));
+  printf("OMP For         :  %4f \t\t %4f\t\t%g\n",omp_for_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * omp_for_elapsed)),maxerror(C_omp_for,C_omp_for,n));
 #ifndef OPENACC
-  printf("OMP ACC         :  %4f \t\t %4f\t\t%g\n",acc_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * acc_elapsed)),maxerror(C_seq,C_acc,n));
+  printf("OMP ACC         :  %4f \t\t %4f\t\t%g\n",acc_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * acc_elapsed)),maxerror(C_omp_for,C_acc,n));
   printf("\t%d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n", omp_get_num_active_devices(), dist);
 #else
 #endif
@@ -414,50 +414,63 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 		__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 		omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+		omp_data_map_t * __dev_map_A__[__num_target_devices__];
+		omp_data_map_t * __dev_map_B__[__num_target_devices__];
+		omp_data_map_t * __dev_map_C__[__num_target_devices__];
+		double streamCreate_elapsed[__num_target_devices__];
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 #if DEBUG_MSG
 	    	printf("=========================================== device %d ==========================================\n", __i__);
 #endif
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
+			streamCreate_elapsed[__i__] = read_timer_ms();
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
-
+			streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-			omp_data_map_t * __dev_map_A__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
-			omp_data_map_init_map(__dev_map_A__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_data_map_do_even_map(__dev_map_A__, 0, __topp__, 0, __i__);
+			__dev_map_A__[__i__] = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
+			omp_data_map_init_map(__dev_map_A__[__i__], &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_data_map_do_even_map(__dev_map_A__[__i__], 0, __topp__, 0, __i__);
 
-			omp_map_buffer_malloc(__dev_map_A__);
+			omp_map_buffer_malloc(__dev_map_A__[__i__]);
 
 			omp_stream_start_event_record(&__dev_stream__[__i__], 0);
-			omp_memcpyHostToDeviceAsync(__dev_map_A__);
+			omp_memcpyHostToDeviceAsync(__dev_map_A__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 0);
 
-			omp_print_data_map(__dev_map_A__);
+			omp_print_data_map(__dev_map_A__[__i__]);
 			/*************************************************************************************************************************************************************/
 
 			/***************************************************************** for B *********************************************************************/
-			omp_data_map_t * __dev_map_B__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
-			omp_data_map_init_map(__dev_map_B__, &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_map_buffer_malloc(__dev_map_B__); /* column major, marshalling needed */
+			__dev_map_B__[__i__] = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
+			omp_data_map_init_map(__dev_map_B__[__i__], &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_map_buffer_malloc(__dev_map_B__[__i__]); /* column major, marshalling needed */
 
 			omp_stream_start_event_record(&__dev_stream__[__i__], 1);
-			omp_memcpyHostToDeviceAsync(__dev_map_B__);
+			omp_memcpyHostToDeviceAsync(__dev_map_B__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 1);
-			omp_print_data_map(__dev_map_B__);
+			omp_print_data_map(__dev_map_B__[__i__]);
 
 			/***************************************************************** for C *********************************************************************/
-			omp_data_map_t * __dev_map_C__ = &__data_maps__[__i__][2]; /* 1 is given by compiler here */
-			omp_data_map_init_map(__dev_map_C__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_data_map_do_even_map(__dev_map_C__, 0, __topp__, 0, __i__);
-			omp_map_buffer_malloc(__dev_map_C__);
-			omp_print_data_map(__dev_map_C__);
+			__dev_map_C__[__i__] = &__data_maps__[__i__][2]; /* 1 is given by compiler here */
+			omp_data_map_init_map(__dev_map_C__[__i__], &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_data_map_do_even_map(__dev_map_C__[__i__], 0, __topp__, 0, __i__);
+			omp_map_buffer_malloc(__dev_map_C__[__i__]);
+			omp_print_data_map(__dev_map_C__[__i__]);
 
 			/***************************************************************************************************************************************************************/
 			/*************************************************************************************************************************************************************/
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			/* Launch CUDA kernel ... */
 			long start_i, length_i;
-			omp_loop_map_range(__dev_map_C__, 0, -1, -1, &start_i, &length_i);
+			omp_loop_map_range(__dev_map_C__[__i__], 0, -1, -1, &start_i, &length_i);
 			/* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
 			 * device map object
 			*/
@@ -465,13 +478,17 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			int _num_blocks_ = xomp_get_max1DBlock(length_i*n);
 		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
 
-//			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+//			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, n, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
-			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, n, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
 
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
-			omp_memcpyDeviceToHostAsync(__dev_map_C__);
+			omp_memcpyDeviceToHostAsync(__dev_map_C__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
 	    }
 
@@ -489,6 +506,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 		float B_map_to_accumulated = 0.0;
 		float kernel_accumulated = 0.0;
 		float C_map_from_accumulated = 0.0;
+		float streamCreate_accumulated = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			A_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
 			B_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
@@ -496,18 +514,22 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			C_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 3);
 			float total = A_map_to_elapsed[__i__] + B_map_to_elapsed[__i__] + kernel_elapsed[__i__] + C_map_from_elapsed[__i__];
 			printf("device: %d, total: %4f\n", __i__, total);
+			printf("\t\tstreamCreate overhead: %4f\n", streamCreate_elapsed[__i__]);
 			printf("\t\tbreakdown: A map_to: %4f; B map_to: %4f; kernel: %4f; C map_from: %f\n", A_map_to_elapsed[__i__], B_map_to_elapsed[__i__], kernel_elapsed[__i__], C_map_from_elapsed[__i__]);
 			printf("\t\tbreakdown: map_to (A and B): %4f; kernel: %4f; map_from (C): %f\n", A_map_to_elapsed[__i__] + B_map_to_elapsed[__i__], kernel_elapsed[__i__], C_map_from_elapsed[__i__]);
 			A_map_to_accumulated += A_map_to_elapsed[__i__];
 			B_map_to_accumulated += B_map_to_elapsed[__i__];
 			kernel_accumulated += kernel_elapsed[__i__];
 			C_map_from_accumulated += C_map_from_elapsed[__i__];
+			streamCreate_accumulated += streamCreate_elapsed[__i__];
 		}
 		float total = A_map_to_accumulated + B_map_to_accumulated + kernel_accumulated + C_map_from_accumulated;
 		printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
+		printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
 		printf("\t\tbreakdown: A map_to: %4f, B map_to: %4f, kernel: %4f, C map_from %f\n", A_map_to_accumulated, B_map_to_accumulated, kernel_accumulated, C_map_from_accumulated);
 		printf("\t\tbreakdown: map_to(A and B): %4f, kernel: %4f, map_from (C): %f\n", A_map_to_accumulated + B_map_to_accumulated, kernel_accumulated, C_map_from_accumulated);
 		printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
+		printf("AVERAGE GPU time without streamCreate (per GPU): %4f\n", (total-streamCreate_accumulated)/__num_target_devices__);
 		printf("\t\tbreakdown: A map_to: %4f, B map_to: %4f, kernel: %4f, C map_from %f\n", A_map_to_accumulated/__num_target_devices__, B_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, C_map_from_accumulated/__num_target_devices__);
 		printf("\t\tbreakdown: map_to (A and B): %4f, kernel: %4f, map_from (C): %f\n", A_map_to_accumulated/__num_target_devices__ + B_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, C_map_from_accumulated/__num_target_devices__);
 
@@ -576,49 +598,63 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 		__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 		omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+		omp_data_map_t * __dev_map_A__[__num_target_devices__];
+		omp_data_map_t * __dev_map_B__[__num_target_devices__];
+		omp_data_map_t * __dev_map_C__[__num_target_devices__];
+		double  streamCreate_elapsed[__num_target_devices__];
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 #if DEBUG_MSG
 	    	printf("=========================================== device %d ==========================================\n", __i__);
 #endif
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
+			streamCreate_elapsed[__i__] = read_timer_ms();
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
+			streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
 
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-			omp_data_map_t * __dev_map_A__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
-			omp_data_map_init_map(__dev_map_A__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
+			__dev_map_A__[__i__] = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
+			omp_data_map_init_map(__dev_map_A__[__i__], &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
 
-			omp_map_buffer_malloc(__dev_map_A__);
+			omp_map_buffer_malloc(__dev_map_A__[__i__]);
 
 			omp_stream_start_event_record(&__dev_stream__[__i__], 0);
-			omp_memcpyHostToDeviceAsync(__dev_map_A__);
+			omp_memcpyHostToDeviceAsync(__dev_map_A__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 0);
-			omp_print_data_map(__dev_map_A__);
+			omp_print_data_map(__dev_map_A__[__i__]);
 			/*************************************************************************************************************************************************************/
 
 			/***************************************************************** for B *********************************************************************/
-			omp_data_map_t * __dev_map_B__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
-			omp_data_map_init_map(__dev_map_B__, &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_data_map_do_even_map(__dev_map_B__, 1, __topp__, 0, __i__);
-			omp_map_buffer_malloc(__dev_map_B__); /* column major, marshalling needed */
+			__dev_map_B__[__i__] = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
+			omp_data_map_init_map(__dev_map_B__[__i__], &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_data_map_do_even_map(__dev_map_B__[__i__], 1, __topp__, 0, __i__);
+			omp_map_buffer_malloc(__dev_map_B__[__i__]); /* column major, marshalling needed */
 
 			omp_stream_start_event_record(&__dev_stream__[__i__], 1);
-			omp_memcpyHostToDeviceAsync(__dev_map_B__);
+			omp_memcpyHostToDeviceAsync(__dev_map_B__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 1);
-			omp_print_data_map(__dev_map_B__);
+			omp_print_data_map(__dev_map_B__[__i__]);
 
 			/***************************************************************** for C *********************************************************************/
-			omp_data_map_t * __dev_map_C__ = &__data_maps__[__i__][2]; /* 1 is given by compiler here */
-			omp_data_map_init_map(__dev_map_C__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_data_map_do_even_map(__dev_map_C__, 1, __topp__, 0, __i__);
-			omp_map_buffer_malloc(__dev_map_C__);
-			omp_print_data_map(__dev_map_C__);
+			__dev_map_C__[__i__] = &__data_maps__[__i__][2]; /* 1 is given by compiler here */
+			omp_data_map_init_map(__dev_map_C__[__i__], &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_data_map_do_even_map(__dev_map_C__[__i__], 1, __topp__, 0, __i__);
+			omp_map_buffer_malloc(__dev_map_C__[__i__]);
+			omp_print_data_map(__dev_map_C__[__i__]);
 
 			/***************************************************************************************************************************************************************/
 			/*************************************************************************************************************************************************************/
 			/* Launch CUDA kernel ... */
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			long start_j, length_j;
-			omp_loop_map_range(__dev_map_C__, 1, -1, -1, &start_j, &length_j);
+			omp_loop_map_range(__dev_map_C__[__i__], 1, -1, -1, &start_j, &length_j);
 			/* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
 			 * device map object
 			*/
@@ -626,12 +662,16 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			int _num_blocks_ = xomp_get_max1DBlock(n*length_j);
 	//		printf("device: %d, range: %d:%d\n", __i__, start_k, length_k);
 
-//			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+//			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, n, length_k, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
-			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, length_j, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, length_j, n, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
-			omp_memcpyDeviceToHostAsync(__dev_map_C__);
+			omp_memcpyDeviceToHostAsync(__dev_map_C__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
 	    }
 
@@ -649,6 +689,7 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 		float B_map_to_accumulated = 0.0;
 		float kernel_accumulated = 0.0;
 		float C_map_from_accumulated = 0.0;
+		float streamCreate_accumulated = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			A_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
 			B_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
@@ -656,18 +697,22 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			C_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 3);
 			float total = A_map_to_elapsed[__i__] + B_map_to_elapsed[__i__] + kernel_elapsed[__i__] + C_map_from_elapsed[__i__];
 			printf("device: %d, total: %4f\n", __i__, total);
+			printf("\t\tstreamCreate overhead: %4f\n", streamCreate_elapsed[__i__]);
 			printf("\t\tbreakdown: A map_to: %4f; B map_to: %4f; kernel: %4f; C map_from: %f\n", A_map_to_elapsed[__i__], B_map_to_elapsed[__i__], kernel_elapsed[__i__], C_map_from_elapsed[__i__]);
 			printf("\t\tbreakdown: map_to (A and B): %4f; kernel: %4f; map_from (C): %f\n", A_map_to_elapsed[__i__] + B_map_to_elapsed[__i__], kernel_elapsed[__i__], C_map_from_elapsed[__i__]);
 			A_map_to_accumulated += A_map_to_elapsed[__i__];
 			B_map_to_accumulated += B_map_to_elapsed[__i__];
 			kernel_accumulated += kernel_elapsed[__i__];
 			C_map_from_accumulated += C_map_from_elapsed[__i__];
+			streamCreate_accumulated += streamCreate_elapsed[__i__];
 		}
 		float total = A_map_to_accumulated + B_map_to_accumulated + kernel_accumulated + C_map_from_accumulated;
 		printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
+		printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
 		printf("\t\tbreakdown: A map_to: %4f, B map_to: %4f, kernel: %4f, C map_from %f\n", A_map_to_accumulated, B_map_to_accumulated, kernel_accumulated, C_map_from_accumulated);
 		printf("\t\tbreakdown: map_to(A and B): %4f, kernel: %4f, map_from (C): %f\n", A_map_to_accumulated + B_map_to_accumulated, kernel_accumulated, C_map_from_accumulated);
 		printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
+		printf("AVERAGE GPU time without streamCreate (per GPU): %4f\n", (total-streamCreate_accumulated)/__num_target_devices__);
 		printf("\t\tbreakdown: A map_to: %4f, B map_to: %4f, kernel: %4f, C map_from %f\n", A_map_to_accumulated/__num_target_devices__, B_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, C_map_from_accumulated/__num_target_devices__);
 		printf("\t\tbreakdown: map_to (A and B): %4f, kernel: %4f, map_from (C): %f\n", A_map_to_accumulated/__num_target_devices__ + B_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, C_map_from_accumulated/__num_target_devices__);
 
@@ -739,54 +784,68 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 		__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 		omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+		omp_data_map_t * __dev_map_A__[__num_target_devices__];
+		omp_data_map_t * __dev_map_B__[__num_target_devices__];
+		omp_data_map_t * __dev_map_C__[__num_target_devices__];
+		double streamCreate_elapsed[__num_target_devices__];
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 #if DEBUG_MSG
 	    	printf("=========================================== device %d ==========================================\n", __i__);
 #endif
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
+			streamCreate_elapsed[__i__] = read_timer_ms();
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
+			streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
 
 			/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-			omp_data_map_t * __dev_map_A__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
-			omp_data_map_init_map(__dev_map_A__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_data_map_do_even_map(__dev_map_A__, 0, __topp__, 0, __i__);
+			__dev_map_A__[__i__] = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
+			omp_data_map_init_map(__dev_map_A__[__i__], &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_data_map_do_even_map(__dev_map_A__[__i__], 0, __topp__, 0, __i__);
 
-			omp_map_buffer_malloc(__dev_map_A__);
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
+			omp_map_buffer_malloc(__dev_map_A__[__i__]);
 
 			omp_stream_start_event_record(&__dev_stream__[__i__], 0);
-			omp_memcpyHostToDeviceAsync(__dev_map_A__);
+			omp_memcpyHostToDeviceAsync(__dev_map_A__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 0);
-			omp_print_data_map(__dev_map_A__);
+			omp_print_data_map(__dev_map_A__[__i__]);
 			/*************************************************************************************************************************************************************/
 
 			/***************************************************************** for B *********************************************************************/
-			omp_data_map_t * __dev_map_B__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
-			omp_data_map_init_map(__dev_map_B__, &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_data_map_do_even_map(__dev_map_B__, 1, __topp__, 1, __i__);
-			omp_map_buffer_malloc(__dev_map_B__); /* column major, marshalling needed */
+			__dev_map_B__[__i__] = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
+			omp_data_map_init_map(__dev_map_B__[__i__], &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_data_map_do_even_map(__dev_map_B__[__i__], 1, __topp__, 1, __i__);
+			omp_map_buffer_malloc(__dev_map_B__[__i__]); /* column major, marshalling needed */
 
 			omp_stream_start_event_record(&__dev_stream__[__i__], 1);
-			omp_memcpyHostToDeviceAsync(__dev_map_B__);
+			omp_memcpyHostToDeviceAsync(__dev_map_B__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 1);
-			omp_print_data_map(__dev_map_B__);
+			omp_print_data_map(__dev_map_B__[__i__]);
 
 			/***************************************************************** for C *********************************************************************/
-			omp_data_map_t * __dev_map_C__ = &__data_maps__[__i__][2]; /* 1 is given by compiler here */
-			omp_data_map_init_map(__dev_map_C__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
-			omp_data_map_do_even_map(__dev_map_C__, 0, __topp__, 0, __i__);
-			omp_data_map_do_even_map(__dev_map_C__, 1, __topp__, 1, __i__);
+			__dev_map_C__[__i__] = &__data_maps__[__i__][2]; /* 1 is given by compiler here */
+			omp_data_map_init_map(__dev_map_C__[__i__], &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
+			omp_data_map_do_even_map(__dev_map_C__[__i__], 0, __topp__, 0, __i__);
+			omp_data_map_do_even_map(__dev_map_C__[__i__], 1, __topp__, 1, __i__);
 
-			omp_map_buffer_malloc(__dev_map_C__);
-			omp_print_data_map(__dev_map_C__);
+			omp_map_buffer_malloc(__dev_map_C__[__i__]);
+			omp_print_data_map(__dev_map_C__[__i__]);
 
 			/***************************************************************************************************************************************************************/
 			/*************************************************************************************************************************************************************/
 			/* Launch CUDA kernel ... */
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			long start_i, length_i;
 			long start_j, length_j;
-			omp_loop_map_range(__dev_map_C__, 0, -1, -1, &start_i, &length_i);
-			omp_loop_map_range(__dev_map_C__, 1, -1, -1, &start_j, &length_j);
+			omp_loop_map_range(__dev_map_C__[__i__], 0, -1, -1, &start_i, &length_i);
+			omp_loop_map_range(__dev_map_C__[__i__], 1, -1, -1, &start_j, &length_j);
 			/* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
 			 * device map object
 			*/
@@ -794,14 +853,18 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 			int _num_blocks_ = xomp_get_max1DBlock(length_i*length_j);
 	//		printf("device: %d, C region: %d X %d\n", __i__, length_i, length_k);
 
-//			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, length_k, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+//			OUT__2__7117_mdev__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, length_k, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
-			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, length_j, n, (REAL *)__dev_map_A__->map_dev_ptr, (REAL *)__dev_map_B__->map_dev_ptr, (REAL *)__dev_map_C__->map_dev_ptr);
+			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, length_j, n, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
 
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
-			omp_memcpyDeviceToHostAsync(__dev_map_C__);
+			omp_memcpyDeviceToHostAsync(__dev_map_C__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
 	    }
 
@@ -819,6 +882,7 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 		float B_map_to_accumulated = 0.0;
 		float kernel_accumulated = 0.0;
 		float C_map_from_accumulated = 0.0;
+		float streamCreate_accumulated = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			A_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
 			B_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
@@ -826,18 +890,22 @@ void matmul_ompacc_mdev_v3(REAL *A, REAL *B, REAL *C,  int n)
 			C_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 3);
 			float total = A_map_to_elapsed[__i__] + B_map_to_elapsed[__i__] + kernel_elapsed[__i__] + C_map_from_elapsed[__i__];
 			printf("device: %d, total: %4f\n", __i__, total);
+			printf("\t\tstreamCreate overhead: %4f\n", streamCreate_elapsed[__i__]);
 			printf("\t\tbreakdown: A map_to: %4f; B map_to: %4f; kernel: %4f; C map_from: %f\n", A_map_to_elapsed[__i__], B_map_to_elapsed[__i__], kernel_elapsed[__i__], C_map_from_elapsed[__i__]);
 			printf("\t\tbreakdown: map_to (A and B): %4f; kernel: %4f; map_from (C): %f\n", A_map_to_elapsed[__i__] + B_map_to_elapsed[__i__], kernel_elapsed[__i__], C_map_from_elapsed[__i__]);
 			A_map_to_accumulated += A_map_to_elapsed[__i__];
 			B_map_to_accumulated += B_map_to_elapsed[__i__];
 			kernel_accumulated += kernel_elapsed[__i__];
 			C_map_from_accumulated += C_map_from_elapsed[__i__];
+			streamCreate_accumulated += streamCreate_elapsed[__i__];
 		}
 		float total = A_map_to_accumulated + B_map_to_accumulated + kernel_accumulated + C_map_from_accumulated;
 		printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
+		printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
 		printf("\t\tbreakdown: A map_to: %4f, B map_to: %4f, kernel: %4f, C map_from %f\n", A_map_to_accumulated, B_map_to_accumulated, kernel_accumulated, C_map_from_accumulated);
 		printf("\t\tbreakdown: map_to(A and B): %4f, kernel: %4f, map_from (C): %f\n", A_map_to_accumulated + B_map_to_accumulated, kernel_accumulated, C_map_from_accumulated);
 		printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
+		printf("AVERAGE GPU time without streamCreate (per GPU): %4f\n", (total-streamCreate_accumulated)/__num_target_devices__);
 		printf("\t\tbreakdown: A map_to: %4f, B map_to: %4f, kernel: %4f, C map_from %f\n", A_map_to_accumulated/__num_target_devices__, B_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, C_map_from_accumulated/__num_target_devices__);
 		printf("\t\tbreakdown: map_to (A and B): %4f, kernel: %4f, map_from (C): %f\n", A_map_to_accumulated/__num_target_devices__ + B_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, C_map_from_accumulated/__num_target_devices__);
 
