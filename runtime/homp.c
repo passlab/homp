@@ -632,6 +632,13 @@ void omp_memcpyDeviceToHost(omp_data_map_t * map) {
     cudaMemcpy((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost);
 }
 
+void omp_memcpyDeviceToDevice(omp_data_map_t * target, omp_data_map_t * src, int size) {
+    cudaMemcpy((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice);
+}
+
+void omp_memcpyDeviceToDeviceAsync(omp_data_map_t * target, omp_data_map_t * src, int size) {
+    cudaMemcpyAsync((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice,src->stream->systream.cudaStream);
+}
 /**
  * sync device by syncing the stream so all the pending calls the stream are completed
  *
