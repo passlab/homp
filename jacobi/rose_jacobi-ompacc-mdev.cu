@@ -6,6 +6,10 @@
 #include "libxomp.h" 
 #include "xomp_cuda_lib_inlined.cu" 
 #include "homp.h"
+/* in second */
+#define read_timer() omp_get_wtime()
+/* in ms */
+#define read_timer_ms() (omp_get_wtime()*1000.0)
 
 double time_stamp() {
 	struct timeval t;
@@ -389,6 +393,7 @@ void jacobi_v1() {
 	float *_dev_per_block_error[__num_target_devices__];
 	float *_host_per_block_error[__num_target_devices__];
 	omp_reduction_float_t *reduction_callback_args[__num_target_devices__];
+	double streamCreate_elapsed[__num_target_devices__];
 
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 #if DEBUG_MSG
@@ -396,8 +401,14 @@ void jacobi_v1() {
 #endif
 		omp_device_t * __dev__ = __target_devices__[__i__];
 		omp_set_current_device(__dev__);
+		streamCreate_elapsed[__i__] = read_timer_ms();
 		omp_init_stream(__dev__, &__dev_stream__[__i__]);
+		streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
 
+}
+		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+			omp_device_t * __dev__ = __target_devices__[__i__];
+			omp_set_current_device(__dev__);
 		/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 		omp_data_map_t * __dev_map_f__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
 		omp_data_map_init_map(__dev_map_f__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
@@ -568,6 +579,7 @@ void jacobi_v1() {
 	float halo_exchange_accumulated = 0.0;
 	float kernel_jacobi_accumulated = 0.0;
 	float u_map_from_accumulated = 0.0;
+	float streamCreate_accumulated = 0.0;
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 		f_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
 		u_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
@@ -577,6 +589,7 @@ void jacobi_v1() {
 		u_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 5);
 		float total = f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__] + kernel_u2uold_elapsed[__i__] + halo_exchange_elapsed[__i__] + kernel_jacobi_elapsed[__i__]  + u_map_from_elapsed[__i__];
 		printf("device: %d, total: %4f\n", __i__, total);
+		printf("\t\tstreamCreate overhead: %4f\n", streamCreate_elapsed[__i__]);
 		printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_elapsed[__i__], u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
 		printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
 		f_map_to_accumulated += f_map_to_elapsed[__i__];
@@ -585,9 +598,11 @@ void jacobi_v1() {
 		halo_exchange_accumulated += halo_exchange_elapsed[__i__];
 		kernel_jacobi_accumulated += kernel_jacobi_elapsed[__i__];
 		u_map_from_accumulated += u_map_from_elapsed[__i__];
+		streamCreate_accumulated += streamCreate_elapsed[__i__];
 	}
 	float gpu_total = f_map_to_accumulated + u_map_to_accumulated + kernel_u2uold_accumulated + halo_exchange_accumulated + kernel_jacobi_accumulated + u_map_from_accumulated;
 	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , gpu_total);
+	printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
 	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_accumulated , u_map_to_accumulated , kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
 	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_accumulated + u_map_to_accumulated, kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
 
@@ -597,6 +612,7 @@ void jacobi_v1() {
 
 	printf("----------------------------------------------------------------\n");
 	printf("Total time measured from CPU: %4f\n", cpu_total);
+	printf("Total time measured without streamCreate %4f\n", (cpu_total-streamCreate_accumulated));
 	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
 	printf("Total CPU cost: %4f\n", cpu_total - gpu_total);
 	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-gpu_total)/__num_target_devices__);
