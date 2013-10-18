@@ -142,10 +142,10 @@ typedef struct omp_data_map_halo_region_mem {
 } omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
-/* for each mapped host array, we have one such object */
 
+/* for each mapped host array, we have one such object */
 typedef struct omp_data_map_info {
-    omp_grid_topology_t * top;
+        omp_grid_topology_t * top;
 	void * source_ptr;
 	long dim[OMP_NUM_ARRAY_DIMENSIONS]; /* dimensions for the original array */
 	int sizeof_element;
@@ -225,6 +225,7 @@ extern void omp_map_buffer_malloc(omp_data_map_t * map);
 extern void omp_sync_stream(int num_devices, omp_stream_t dev_stream[], int destroy_stream);
 extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[], omp_data_map_t data_map[]);
 
+extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );
 /**
  * return the mapped range index from the iteration range of the original array
  * e.g. A[128], when being mapped to a device for A[64:64] (from 64 to 128), then, the range 100 to 128 in the original A will be
@@ -241,7 +242,6 @@ extern void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_str
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
  */
-extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );
 extern long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length);
 extern void omp_deviceMalloc(omp_data_map_t * map);
 /*
