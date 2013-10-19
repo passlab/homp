@@ -4,6 +4,10 @@
 #include "xomp_cuda_lib_inlined.cu" 
 #include "homp.h"
 
+/* in second */
+#define read_timer() omp_get_wtime()
+/* in ms */
+#define read_timer_ms() (omp_get_wtime()*1000.0)
 #if 0
 void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
 
@@ -67,13 +71,21 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
+	double streamCreate_elapsed[__num_target_devices__];
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 #if DEBUG_MSG
 	    	printf("=========================================== device %d ==========================================\n", __i__);
 #endif
+
 		omp_device_t * __dev__ = __target_devices__[__i__];
 		omp_set_current_device(__dev__);
+		streamCreate_elapsed[__i__] = read_timer_ms();
 		omp_init_stream(__dev__, &__dev_stream__[__i__]);
+		streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
+}
+	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+		omp_device_t * __dev__ = __target_devices__[__i__];
+		omp_set_current_device(__dev__);
 
 		/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 		omp_data_map_t * __dev_map_x__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
@@ -136,6 +148,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	float y_map_to_accumulated = 0.0;
 	float kernel_accumulated = 0.0;
 	float y_map_from_accumulated = 0.0;
+	float streamCreate_accumulated = 0.0;
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 		x_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
 		y_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
@@ -149,9 +162,11 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		y_map_to_accumulated += y_map_to_elapsed[__i__];
 		kernel_accumulated += kernel_elapsed[__i__];
 		y_map_from_accumulated += y_map_from_elapsed[__i__];
+		streamCreate_accumulated += streamCreate_elapsed[__i__];
 	}
 	float total = x_map_to_accumulated + y_map_to_accumulated + kernel_accumulated + y_map_from_accumulated;
 	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
+	printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
 	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated, y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
 	printf("\t\tbreakdown: map_to(x and y): %4f, kernel: %4f, map_from (y): %f\n", x_map_to_accumulated + y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
 	printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
@@ -161,6 +176,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	double cpu_total = ompacc_time*1000;
 	printf("----------------------------------------------------------------\n");
 	printf("Total time measured from CPU: %4f\n", cpu_total);
+	printf("Total time measured without streamCreate %4f\n", (cpu_total-streamCreate_accumulated));
 	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
 	printf("Total CPU cost: %4f\n", cpu_total - total/__num_target_devices__);
 	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-total/__num_target_devices__)/__num_target_devices__);
