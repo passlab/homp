@@ -406,14 +406,30 @@ void jacobi_v1() {
 		streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
 
 }
+                for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+                        omp_device_t * __dev__ = __target_devices__[__i__];
+                        omp_set_current_device(__dev__);
+                /***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
+                omp_data_map_t * __dev_map_f__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
+                omp_data_map_init_map(__dev_map_f__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
+                omp_data_map_do_even_map(__dev_map_f__, 0, __topp__, 0, __i__);
+
+                omp_data_map_t * __dev_map_u__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
+                omp_data_map_init_map(__dev_map_u__, &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
+                omp_data_map_do_even_map(__dev_map_u__, 0, __topp__, 0, __i__);
+
+                omp_data_map_t * __dev_map_uold__ = &__data_maps__[__i__][2]; /* 2 is given by compiler here */
+                omp_data_map_init_map(__dev_map_uold__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
+                omp_data_map_do_even_map(__dev_map_uold__, 0, __topp__, 0, __i__);
+                }
+
+
+
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 		/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 		omp_data_map_t * __dev_map_f__ = &__data_maps__[__i__][0]; /* 0 is given by compiler here */
-		omp_data_map_init_map(__dev_map_f__, &__data_map_infos__[0], __i__, __dev__, &__dev_stream__[__i__]);
-		omp_data_map_do_even_map(__dev_map_f__, 0, __topp__, 0, __i__);
-
 		omp_map_buffer_malloc(__dev_map_f__);
 
 		omp_stream_start_event_record(&__dev_stream__[__i__], 0);
@@ -424,10 +440,6 @@ void jacobi_v1() {
 
 		/***************************************************************** for u *********************************************************************/
 		omp_data_map_t * __dev_map_u__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
-		omp_data_map_init_map(__dev_map_u__, &__data_map_infos__[1], __i__, __dev__, &__dev_stream__[__i__]);
-
-		omp_data_map_do_even_map(__dev_map_u__, 0, __topp__, 0, __i__);
-
 		omp_map_buffer_malloc(__dev_map_u__);
 
 		omp_stream_start_event_record(&__dev_stream__[__i__], 1);
@@ -437,10 +449,6 @@ void jacobi_v1() {
 
 		/******************************************** for uold ******************************************************************************/
 		omp_data_map_t * __dev_map_uold__ = &__data_maps__[__i__][2]; /* 2 is given by compiler here */
-		omp_data_map_init_map(__dev_map_uold__, &__data_map_infos__[2], __i__, __dev__, &__dev_stream__[__i__]);
-
-		omp_data_map_do_even_map(__dev_map_uold__, 0, __topp__, 0, __i__);
-
 		omp_map_buffer_malloc(__dev_map_uold__);
 		omp_print_data_map(__dev_map_uold__);
 
