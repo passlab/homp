@@ -456,14 +456,28 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 			int can_access = 0;
 			if (left >=0 ) {
 				cudaDeviceCanAccessPeer(&can_access, map->devsid, left);
-				if (!can_access) cudaDeviceEnablePeerAccess(left, 0);
-				halo_mem->left_map = info->maps[left];
+				if (can_access)
+                                { 
+                                  cudaDeviceEnablePeerAccess(left, 0);
+				  halo_mem->left_map = info->maps[left];
+                                } 
+                                else
+                                {
+                                  printf("Cannot do P2P access from %d to %d \n",map->devsid, left);
+                                }
 			}
 			if (right >=0 ) {
 				can_access = 0;
 				cudaDeviceCanAccessPeer(&can_access, map->devsid, right);
-				if (!can_access) cudaDeviceEnablePeerAccess(right, 0);
-				halo_mem->right_map = info->maps[right];
+				if (can_access)
+                                {
+                                  cudaDeviceEnablePeerAccess(right, 0);
+				  halo_mem->right_map = info->maps[right];
+                                }
+                                else
+                                {
+                                  printf("Cannot do P2P access from %d to %d\n",map->devsid, right);
+                                }
 			}
 		}
 	}
@@ -617,11 +631,13 @@ long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
  * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
  */
 void omp_memcpyHostToDeviceAsync(omp_data_map_t * map) {
-	cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream);
+	if(cudaSuccess != cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream))
+			printf("cudaMemcpyAsync failed!\n");
 }
 
 void omp_memcpyDeviceToHostAsync(omp_data_map_t * map) {
-    cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream);
+    if(cudaSuccess != cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream))
+			printf("cudaMemcpyAsync failed!\n");
 }
 
 void omp_memcpyHostToDevice(omp_data_map_t * map) {
