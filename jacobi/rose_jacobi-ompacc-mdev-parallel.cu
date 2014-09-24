@@ -529,7 +529,7 @@ void jacobi_v1() {
 		omp_set_current_device(__dev__);
 		omp_data_map_t * __dev_map_u__ = &__data_maps__[__i__][1]; /* 1 is given by compiler here */
 		omp_stream_start_event_record(&__dev_stream__[__i__], 5);
-        omp_memcpyDeviceToHostAsync(__dev_map_u__);
+                omp_memcpyDeviceToHostAsync(__dev_map_u__);
 		omp_stream_stop_event_record(&__dev_stream__[__i__], 5);
 		cudaFree(_dev_per_block_error[__i__]);
 		omp_reduction_float_t * args = reduction_callback_args[__i__];
