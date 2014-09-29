@@ -35,6 +35,8 @@ typedef enum omp_device_type {
    OMP_DEVICE_TIDSP,      /* TI DSP */
    OMP_DEVICE_AMPU,       /* AMD APUs */
    OMP_DEVICE_REMOTE,	  /* a remote node */
+   OMP_DEVICE_LOCALTH,	  /* a new thread of the same process, e.g. pthread */
+   OMP_DEVICE_LOCALPS,	  /* a new process in the same node, e.g. a new process created using fork) */
    OMP_NUM_DEVICE_TYPES,  /* the total number of types of supported devices */
 } omp_device_type_t;
 
@@ -45,7 +47,9 @@ extern char * omp_device_type_name[];
  */
 typedef struct omp_device {
 	int id; /* the id from omp view */
-	int sysid; /* the id from the system view, used for call like cudaSetDevice(sysid) */
+	char * sysid; /* the handle from the system view, e.g. 
+			 device id for NVGPU cudaSetDevice(sysid), 
+			 or pthread_t for LOCALTH. Need type casting to become device-specific id */
 	omp_device_type_t type;
 	int status;
 	struct omp_device * next; /* the device list */
@@ -189,6 +193,64 @@ struct omp_data_map {
 	omp_stream_t * stream; /* the stream operations of this data map are registered with */
 };
 
+/**
+  * We have a pthread managing a accelerator device, i.e. responsible of set up the GPU, 
+  * launching calls for memory allocation, kernel launching as well as timing. 
+  * A sequence of calls in one offloading involve.
+  * set up stream and event for queuing and sync purpose, we currently only one stream per 
+  * device at a time, i.e. multiple concurrent streams are not supported. 
+  * 1. compute data mapping region for each variables, allocate device memory to store mapped data
+  * 2. copy data from host to device (could happy while allocating device memory)
+  * 3. launch the kernel that will work on the data
+  * 4. if any, do data exchange between host and devices, and between devices
+  * 5. more kernel launch and data exchange
+  * 6. copy data from device to host, deallocate memory that will not be used
+  * 
+  * Between each of the above steps, a barrier may be needed. 
+  * The thread will can be used to a accelerator  
+  */
+
+/**
+  * info for per device helper thread, per offloading
+  */
+typedef struct dev_offloading_info {
+	/************** per-offloading var, shared by all target devices ******/
+	omp_grid_topology_t * top; /* num of target devices are in this object */
+	omp_device_t ** targets; /* a list of target devices */
+
+	int num_mapped_vars;
+	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
+
+	/* the parcipating barrier */
+	pthread_barrier_t * barrier;
+
+	/************** per device var ***************/	
+	omp_stream_t stream;
+
+	/* the map for a variable on this device */
+	omp_data_map_t * data_maps; /* one entry per variable */
+
+	/* kernel info */
+	int X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
+	int X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
+	void ** para;
+	void *(*foo)(void *);
+
+} dev_offloading_info_t;
+
+/* heler thread main */
+void thread_main(void * arg) {
+	omp_device_t * dev = (omp_device_t*)arg;
+	int id = dev->id;
+	
+	while (1) {
+		pthread_barrier_wait(barrier);
+
+	}
+
+
+}
+
 /** temp solution */
 typedef struct omp_reduction_float {
 				float result;
@@ -197,9 +259,10 @@ typedef struct omp_reduction_float {
 				int opers;
 } omp_reduction_float_t;
 
-extern void omp_init_devices();
+extern int omp_init_devices(); /* return # of devices initialized */
 extern int omp_get_num_active_devices();
-extern void omp_set_current_device(omp_device_t * d);
+extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
+extern int omp_set_current_device(int id); /* return the current device id */
 
 extern void omp_init_stream(omp_device_t * d, omp_stream_t * stream);
 extern void omp_stream_start_event_record(omp_stream_t * stream, int event);
@@ -257,6 +320,9 @@ extern void omp_memcpyDeviceToDeviceAsync(omp_data_map_t * target, omp_data_map_
 */
 /*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
 extern void omp_factor(int n, int factor[], int dims);
+
+extern void devcall_errchk(int code, char *file, int line, int abort);
+#define devcall_assert(ecode) { devcall_errchk((ecode), __FILE__, __LINE__, 1); }
 
 #ifdef __cplusplus
  }

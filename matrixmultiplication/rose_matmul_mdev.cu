@@ -376,6 +376,7 @@ void ompacc_matmul_mdev_v1(REAL *A, REAL *B, REAL *C, int n)
 }
 #endif
 
+
 void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 {
 	    double ompacc_time = read_timer_ms();
@@ -427,7 +428,7 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			streamCreate_elapsed[__i__] = read_timer_ms();
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
 			streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
-}
+		}
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
@@ -483,14 +484,14 @@ void matmul_ompacc_mdev_v1(REAL *A, REAL *B, REAL *C,  int n)
 			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(length_i, n, n, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
 
-}
+		}
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
 			omp_memcpyDeviceToHostAsync(__dev_map_C__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
-	    }
+	    	}
 
 	    omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
 	    ompacc_time = (read_timer_ms() - ompacc_time);
@@ -612,7 +613,7 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			omp_init_stream(__dev__, &__dev_stream__[__i__]);
 			streamCreate_elapsed[__i__] = read_timer_ms() - streamCreate_elapsed[__i__];
 
-}
+		}
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
@@ -649,7 +650,7 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			/***************************************************************************************************************************************************************/
 			/*************************************************************************************************************************************************************/
 			/* Launch CUDA kernel ... */
-}
+		}
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
@@ -666,14 +667,14 @@ void matmul_ompacc_mdev_v2(REAL *A, REAL *B, REAL *C,  int n)
 			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
 			OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, __dev_stream__[__i__].systream.cudaStream>>>(n, length_j, n, (REAL *)__dev_map_A__[__i__]->map_dev_ptr, (REAL *)__dev_map_B__[__i__]->map_dev_ptr, (REAL *)__dev_map_C__[__i__]->map_dev_ptr);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
-}
+		}
 		for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 			omp_device_t * __dev__ = __target_devices__[__i__];
 			omp_set_current_device(__dev__);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
 			omp_memcpyDeviceToHostAsync(__dev_map_C__[__i__]);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
-	    }
+	    	}
 
 	    omp_sync_cleanup(__num_target_devices__, __num_mapped_variables__, __dev_stream__, &__data_maps__[0][0]);
 	    ompacc_time = (read_timer_ms() - ompacc_time);

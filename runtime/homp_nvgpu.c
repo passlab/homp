@@ -1,7 +1,5 @@
 /*
  * homp.c
- * device-independent implementation for the homp.h, 
- * see homp_<devname>.c file for each device-specific implementation 
  *
  *  Created on: Sep 16, 2013
  *      Author: yy8
@@ -9,6 +7,16 @@
 #include <stdio.h>
 #include <string.h>
 #include "homp.h"
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__, 1); }
+inline void devcall_assert(cudaError_t code, char *file, int line, int abort)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
 
 /* OpenMP 4.0 support */
 int default_device_var = -1;
