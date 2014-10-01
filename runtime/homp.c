@@ -119,9 +119,42 @@ void omp_set_current_device(omp_device_t * d) {
 	}
 }
 
+#define DEV_HELPER_THREAD_DATA_MAP_BUFFER_SIZE 16
+/* helper thread main */
+void thread_main(void * arg) {
+	omp_data_map_t data_map_buffer[DEV_HELPER_THREAD_DATA_MAP_BUFFER_SIZE];
+	omp_device_t * dev = (omp_device_t*)arg;
+	int id = dev->id;
+
+	while (1) {
+		omp_offloading_t * offdev_info = dev->	offload_queue_head;
+		if (offdev_info == NULL) continue;
+		if (dev->offload_queue_tail == offdev_info) {
+			dev->offload_queue_tail = dev->offload_queue_head = NULL;
+		} else {
+			offdev_info->prev->next = NULL;
+			dev->offload_queue_head = offdev_info->prev;
+		}
+
+		omp_offloading_info_t * off_info = offdev_info->off_info;
+		pthread_barrier_wait(off_info->barrier);
+
+		/* set up stream and event */
+		omp_init_stream(dev, &offdev_info->stream);
+
+
+
+
+
+
+	}
+
+
+}
+
 void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
 	stream->dev = d;
-        cudaError_t result;
+	cudaError_t result;
 	if (d->type == OMP_DEVICE_NVGPU) {
 		result = cudaStreamCreate(&stream->systream.cudaStream);
                 gpuErrchk(result); 
@@ -198,17 +231,17 @@ float omp_stream_event_elapsed_accumulate_ms(omp_stream_t * stream, int event) {
 	return elapse;
 }
 
-void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int sizeof_element,
-		omp_map_type_t map_type, long dim0, long dim1, long dim2) {
+void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_type_t * map_type, omp_data_map_dist_t * dist) {
 	info->top = top;
 	info->source_ptr = source_ptr;
+	info->num_dims = num_dims;
+	info->dims = dims;
 	info->map_type = map_type;
-	info->dim[0] = dim0;
-	info->dim[1] = dim1;
-	info->dim[2] = dim2;
+	info->dist = dist;
 	info->sizeof_element = sizeof_element;
 	int i;
-	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
+	for (i=0; i<num_dims; i++) {
 		omp_data_map_halo_region_info_t * halo = &info->halo_region[i];
 		halo->left = halo->right = halo->cyclic = 0;
 		halo->top_dim = -1;
@@ -248,6 +281,16 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int 
 		map->halo_mem[i].left_map = map->halo_mem[i].right_map = NULL;
 	}
 	map->marshalled_or_not = 0;
+}
+
+void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
+		omp_data_map_info_t * data_map_info, void *(*kernel)(void *)) {
+	info->top = top;
+	info->targets = targets;
+	info->num_mapped_vars = num_mapped_vars;
+	info->data_map_info = data_map_info;
+	info->kernel = kernel;
+	pthread_barrier_init(&info->barrier, NULL, top->ndims);
 }
 
 /**

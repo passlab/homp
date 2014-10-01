@@ -36,10 +36,10 @@ __global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_
   }
 }
 
-
 double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 {
 	double ompacc_time = omp_get_wtime(); //read_timer_ms();
+	
     /* get number of target devices specified by the programmers */
     int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
     
@@ -59,17 +59,25 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 
 	int __num_mapped_variables__ = 2; /* XXX: need compiler output */
 
-	omp_stream_t __dev_stream__[__num_target_devices__]; /* need to change later one for omp_stream_t struct */
 	omp_data_map_info_t __data_map_infos__[__num_mapped_variables__];
-
+		
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	omp_data_map_init_info(__info__, __topp__, x, sizeof(double), OMP_MAP_TO, n, 1, 1);
+	long x_dims[1]; x_dims[0] = n;
+	omp_data_map_dist_t x_dist[1]; x_dist[0].start = 0; x_dist[0].end = n-1; x_dist[0].type = OMP_DATA_MAP_DIST_EVEN; x_dist[0].topdim = 0;
+	
+	omp_data_map_init_info(__info__, __topp__, x, 1, x_dims, sizeof(double), OMP_DATA_MAP_TO, x_dist);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	__info__ = &__data_map_infos__[1];
-	omp_data_map_init_info(__info__, __topp__, y, sizeof(double), OMP_MAP_TOFROM, n, 1, 1);
+	long y_dims[1]; y_dims[0] = n;
+	omp_data_map_dist_t y_dist[1]; y_dist[0].start = 0; y_dist[0].end = n-1; y_dist[0].type = OMP_DATA_MAP_DIST_EVEN; y_dist[0].topdim = 0;
+	omp_data_map_init_info(__info__, __topp__, y, 1, y_dims, sizeof(double), OMP_DATA_MAP_TO, y_dist);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
+	
+	omp_offloading_init_info (&__offloading_info__, __topp__, __target_devices__, __num_mapped_variables__, __data_map_infos__, NULL);
 
+
+	omp_stream_t __dev_stream__[__num_target_devices__]; /* need to change later one for omp_stream_t struct */
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 	double streamCreate_elapsed[__num_target_devices__];
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {

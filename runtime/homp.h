@@ -22,6 +22,8 @@ extern void omp_set_default_device(int device_num );
 extern int omp_get_default_device(void);
 extern int omp_get_num_devices();
 
+typedef struct omp_data_map omp_data_map_t;
+
 /**
  * multiple device support
  * the following should be a list of name agreed with vendors
@@ -44,6 +46,24 @@ extern char * omp_device_type_name[];
 /**
  ********************* Runtime notes ***********************************************
  * runtime may want to have internal array to supports the programming APIs for mulitple devices, e.g.
+ *
+ * We have a pthread managing a accelerator device, i.e. responsible of set up the GPU,
+ * launching calls for memory allocation, kernel launching as well as timing.
+ * A sequence of calls in one offloading involve.
+ * set up stream and event for queuing and sync purpose, we currently only one stream per
+ * device at a time, i.e. multiple concurrent streams are not supported.
+ * 1. compute data mapping region for each variables, allocate device memory to store mapped data
+ * 2. copy data from host to device (could happen while allocating device memory)
+ * 3. launch the kernel that will work on the data
+ * 4. if any, do data exchange between host and devices, and between devices
+ * 5. more kernel launch and data exchange
+ * 6. copy data from device to host, deallocate memory that will not be used
+ *
+ * Between each of the above steps, a barrier may be needed.
+ * The thread will can be used to a accelerator
+ *
+ * The helper thread use the offload_queue to keep track of a list of
+ * offloading request to this device, see struct_offloading_dev_t struct definition
  */
 typedef struct omp_device {
 	int id; /* the id from omp view */
@@ -53,7 +73,45 @@ typedef struct omp_device {
 	omp_device_type_t type;
 	int status;
 	struct omp_device * next; /* the device list */
+	struct omp_offloading_dev_t * offload_queue_head; /* the queue for the offloading computations */
+	struct omp_offloading_dev_t * offload_queue_tail;
+
+	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
+
 } omp_device_t;
+
+#define OMP_STREAM_NUM_EVENTS 6
+typedef enum OMP_OFFLOADING_STEPS {
+	OMP_OFFLOADING_INIT,      /* initialization of device, e.g. stream, host barrier, etc */
+	OMP_OFFLOADING_MAPMEM,    /* compute data map and allocate memory/buffer on host and device */
+	OMP_OFFLOADING_COPYTO,    /* copy data from host to device */
+	OMP_OFFLOADING_KERNEL,    /* kernel execution */
+	OMP_OFFLOADING_EXCHANGE,  /* p2p (dev2dev) and h2d (host2dev) data exchange */
+	OMP_OFFLOADING_COPYFROM,  /* copy data from dev to host */
+	OMP_OFFLOADING_COMPLETE,  /* make grace complete, e.g. deallocate memory and turn off dev */
+	OMP_OFFLOADING_NUM_STEPS, /* total number of steps */
+} OMP_OFFLOADING_STEP_t;
+
+/**
+ * each stream also provide a limited number of event objects for collecting timing
+ * information.
+ */
+typedef struct omp_stream {
+	omp_device_t * dev;
+	union {
+		cudaStream_t cudaStream;
+		void * myStream;
+	} systream;
+
+	/* we organize them as set of events */
+	cudaEvent_t start_event[OMP_STREAM_NUM_EVENTS];
+	cudaEvent_t stop_event[OMP_STREAM_NUM_EVENTS];
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+	float start_time[OMP_STREAM_NUM_EVENTS];
+	float stop_time[OMP_STREAM_NUM_EVENTS];
+#endif
+	float elapsed[OMP_STREAM_NUM_EVENTS];
+} omp_stream_t;
 
 /**
  ********************** Compiler notes *********************************************
@@ -73,21 +131,6 @@ extern omp_device_t * omp_get_device(int id);
 extern omp_device_t * omp_devices; /* an array of all device objects */
 extern int omp_num_devices;
 
-/* APIs to support data/array mapping and distribution */
-typedef enum omp_map_type {
-	OMP_MAP_TO,
-	OMP_MAP_FROM,
-	OMP_MAP_TOFROM,
-	OMP_MAP_ALLOC,
-} omp_map_type_t;
-
-typedef enum omp_map_dist_type {
-	OMP_MAP_DIST_EVEN,
-	OMP_MAP_DIST_COPY,
-	OMP_MAP_DIST_FIX, /* user defined */
-	OMP_MAP_DIST_CHUNK, /* with chunk size, and cyclic */
-} omp_map_dist_type_t;
-
 /* a topology of devices, or threads or teams */
 typedef struct omp_grid_topology {
 	 int nnodes;     /* Product of dims[*], gives the size of the topology */
@@ -96,28 +139,79 @@ typedef struct omp_grid_topology {
 	 int *periodic;
 } omp_grid_topology_t;
 
-#define OMP_STREAM_NUM_EVENTS 6
-/**
- * each stream also provide a limited number of event objects for collecting timing
- * information.
- */
-typedef struct omp_stream {
-	omp_device_t * dev;
-	union {
-		cudaStream_t cudaStream;
-		void * myStream;
-	} systream;
+/* APIs to support data/array mapping and distribution */
+typedef enum omp_data_map_type {
+	OMP_DATA_MAP_TO,
+	OMP_DATA_MAP_FROM,
+	OMP_DATA_MAP_TOFROM,
+	OMP_DATA_MAP_ALLOC,
+} omp_data_map_type_t;
 
-	/* we orgainze them as set of events */
-	cudaEvent_t start_event[OMP_STREAM_NUM_EVENTS];
-	cudaEvent_t stop_event[OMP_STREAM_NUM_EVENTS];
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	float start_time[OMP_STREAM_NUM_EVENTS];
-	float stop_time[OMP_STREAM_NUM_EVENTS];
-#endif
-	float elapsed[OMP_STREAM_NUM_EVENTS];
-} omp_stream_t;
-typedef struct omp_data_map omp_data_map_t;
+typedef enum omp_data_map_dist_type {
+	OMP_DATA_MAP_DIST_EVEN,
+	OMP_DATA_MAP_DIST_COPY,
+	OMP_DATA_MAP_DIST_FIX, /* user defined */
+	OMP_DATA_MAP_DIST_CHUNK, /* with chunk size, and cyclic */
+} omp_data_map_dist_type_t;
+
+typedef struct omp_data_map_dist {
+	long start; /* the start for the dim of the original array */
+	long end;   /* the end for the dim of the original array */
+	omp_data_map_dist_type_t type; /* the dist type */
+	int topdim; /* which top dim to apply dist, for dist_even, copy*/
+} omp_data_map_dist_t;
+
+#define OMP_NUM_ARRAY_DIMENSIONS 3
+
+/* for each mapped host array, we have one such object */
+typedef struct omp_data_map_info {
+    omp_grid_topology_t * top;
+	void * source_ptr;
+	int num_dims;
+	long * dims;
+
+	omp_data_map_dist_t *dist;
+
+	int sizeof_element;
+	omp_data_map_type_t map_type; /* the map type, to, from, or tofrom */
+
+	/* the halo region: halo region is considered out-of-bound access of the main array region,
+	 * thus the index could be -1, -2, or larger than the dimensions. Our memory allocation and pointer
+	 * arithmetic will make sure we do not go out of memory bound
+	 *
+	 * In each dimension, we may have halo region.
+	 */
+	omp_data_map_halo_region_info_t halo_region[OMP_NUM_ARRAY_DIMENSIONS];
+	/* a quick flag to tell whether this is halo region or not in this map,
+	 * otherwise, we have to iterate the halo_region array to see whether this is one or not */
+	short has_halo_region;
+
+	omp_data_map_t ** maps; /* a list of data maps of this array */
+} omp_data_map_info_t;
+
+/* for each device, we maintain a list such objects, each for one mapped array */
+struct omp_data_map {
+	omp_data_map_info_t * info;
+    omp_device_t * dev;
+    int devsid; /* the linear id of this data environment mapping */
+
+	long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
+	/* the offset of each dimension from the original array for the mapped region (not the mem region)*/
+	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+	void * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
+	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
+
+	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
+	long mem_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mem region for both mapped region and halo region */
+	void * mem_dev_ptr; /* the mapped buffer on device, for the mapped array region plus halo region */
+	long mem_size; // = mem_dim[0] * mem_dim[1] * mem_dim[2] * sizeof_element;
+
+    void * map_buffer; /* the mapped buffer on host. This pointer is either the
+	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
+	int marshalled_or_not;
+
+	omp_stream_t * stream; /* the stream operations of this data map are registered with */
+};
 
 /**
  * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
@@ -145,75 +239,15 @@ typedef struct omp_data_map_halo_region_mem {
 	void * right_out_ptr;
 } omp_data_map_halo_region_mem_t;
 
-#define OMP_NUM_ARRAY_DIMENSIONS 3
-
-/* for each mapped host array, we have one such object */
-typedef struct omp_data_map_info {
-        omp_grid_topology_t * top;
-	void * source_ptr;
-	long dim[OMP_NUM_ARRAY_DIMENSIONS]; /* dimensions for the original array */
-	int sizeof_element;
-	omp_map_type_t map_type; /* the map type, to, from, or tofrom */
-
-	/* the halo region: halo region is considered out-of-bound access of the main array region,
-	 * thus the index could be -1, -2, or larger than the dimensions. Our memory allocation and pointer
-	 * arithmetic will make sure we do not go out of memory bound
-	 *
-	 * In each dimension, we may have halo region.
-	 */
-	omp_data_map_halo_region_info_t halo_region[OMP_NUM_ARRAY_DIMENSIONS];
-	/* a quick flag to tell whether this is halo region or not in this map,
-	 * otherwise, we have to iterate the halo_region array to see whether this is one or not */
-	short has_halo_region;
-
-	omp_data_map_t ** maps; /* a list of data maps of this array */
-} omp_data_map_info_t;
-
-/* for each device, we maintain such an object */
-struct omp_data_map {
-	omp_data_map_info_t * info;
-    omp_device_t * dev;
-    int devsid; /* the linear id of this data environment mapping */
-
-	long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
-	/* the offset of each dimension from the original array for the mapped region (not the mem region)*/
-	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
-	void * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
-	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
-
-	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
-	long mem_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mem region for both mapped region and halo region */
-	void * mem_dev_ptr; /* the mapped buffer on device, for the mapped array region plus halo region */
-	long mem_size; // = mem_dim[0] * mem_dim[1] * mem_dim[2] * sizeof_element;
-
-    void * map_buffer; /* the mapped buffer on host. This pointer is either the
-	offsetted pointer from the source_ptr, or the pointer to the marshalled array subregions */
-	int marshalled_or_not;
-
-	omp_stream_t * stream; /* the stream operations of this data map are registered with */
-};
-
 /**
-  * We have a pthread managing a accelerator device, i.e. responsible of set up the GPU, 
-  * launching calls for memory allocation, kernel launching as well as timing. 
-  * A sequence of calls in one offloading involve.
-  * set up stream and event for queuing and sync purpose, we currently only one stream per 
-  * device at a time, i.e. multiple concurrent streams are not supported. 
-  * 1. compute data mapping region for each variables, allocate device memory to store mapped data
-  * 2. copy data from host to device (could happy while allocating device memory)
-  * 3. launch the kernel that will work on the data
-  * 4. if any, do data exchange between host and devices, and between devices
-  * 5. more kernel launch and data exchange
-  * 6. copy data from device to host, deallocate memory that will not be used
-  * 
-  * Between each of the above steps, a barrier may be needed. 
-  * The thread will can be used to a accelerator  
+  * info per offloading
+  *
+  * For each offloading to one or multiple devices, we will maintain an object of omp_offloading_info
+  * that keeps track of the topology of target devices, the mapped variables and other info.
+  *
+  * The barrier is used for syncing target devices
   */
-
-/**
-  * info for per device helper thread, per offloading
-  */
-typedef struct dev_offloading_info {
+typedef struct omp_offloading_info {
 	/************** per-offloading var, shared by all target devices ******/
 	omp_grid_topology_t * top; /* num of target devices are in this object */
 	omp_device_t ** targets; /* a list of target devices */
@@ -221,35 +255,43 @@ typedef struct dev_offloading_info {
 	int num_mapped_vars;
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
 
+	void *(*kernel)(void *); /* the same kernel to be called by each of the target device */
+
 	/* the parcipating barrier */
-	pthread_barrier_t * barrier;
+	pthread_barrier_t barrier;
+
+} omp_offloading_info_t;
+
+/**
+ * info for per device
+ *
+ * For each offloading, we have this object to keep track per-device info, e.g. the stream used, mapped region of
+ * a variable (array or scalar) and kernel info.
+ *
+ * The next pointer is used to form the offloading queue (see omp_device struct)
+ */
+typedef struct omp_offloading {
+	/* per-offloading info */
+	omp_offloading_info_t * off_info;
 
 	/************** per device var ***************/	
 	omp_stream_t stream;
 
 	/* the map for a variable on this device */
-	omp_data_map_t * data_maps; /* one entry per variable */
+	omp_data_map_t ** data_maps; /* the data maps used only for this specific offloading */
 
 	/* kernel info */
 	int X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
 	int X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
 	void ** para;
-	void *(*foo)(void *);
+	void *(*kernel)(void *); /* device specific kernel, if any */
 
-} dev_offloading_info_t;
+	struct omp_offloading * next; /* the link to form offloading queue */
+	struct omp_offloading * prev;
+} omp_offloading_t;
 
-/* heler thread main */
-void thread_main(void * arg) {
-	omp_device_t * dev = (omp_device_t*)arg;
-	int id = dev->id;
-	
-	while (1) {
-		pthread_barrier_wait(barrier);
-
-	}
-
-
-}
+extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
+		omp_data_map_info_t * data_map_info, void *(*kernel)(void *));
 
 /** temp solution */
 typedef struct omp_reduction_float {
