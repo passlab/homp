@@ -8,16 +8,6 @@
 #include <string.h>
 #include "homp.h"
 
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__, 1); }
-inline void gpuAssert(cudaError_t code, char *file, int line, int abort)
-{
-   if (code != cudaSuccess) 
-   {
-      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
-   }
-}
-
 /* OpenMP 4.0 support */
 int default_device_var = -1;
 void omp_set_default_device(int device_num ) {
@@ -78,11 +68,7 @@ omp_device_t * omp_get_device(int id) {
 
 static void omp_query_device_count(int * count) {
 	/* currently, only do the CUDA GPUs */
-        
-        cudaError_t result;
-	result = cudaGetDeviceCount(count);
-        gpuErrchk(result);
-        
+	cudaGetDeviceCount(count);
 }
 
 /* init the device objects, num_of_devices, default_device_var ICV etc */
@@ -118,10 +104,8 @@ int omp_get_num_active_devices() {
 }
 
 void omp_set_current_device(omp_device_t * d) {
-        cudaError_t result;
 	if (d->type == OMP_DEVICE_NVGPU) {
-		result = cudaSetDevice(d->sysid);
-                gpuErrchk(result); 
+		cudaSetDevice(d->sysid);
 	} else {
 		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
 	}
@@ -129,16 +113,12 @@ void omp_set_current_device(omp_device_t * d) {
 
 void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
 	stream->dev = d;
-        cudaError_t result;
 	if (d->type == OMP_DEVICE_NVGPU) {
-		result = cudaStreamCreate(&stream->systream.cudaStream);
-                gpuErrchk(result); 
+		cudaStreamCreate(&stream->systream.cudaStream);
 		int i;
 		for (i=0; i<OMP_STREAM_NUM_EVENTS; i++) {
-			result = cudaEventCreateWithFlags(&stream->start_event[i], cudaEventBlockingSync);
-                        gpuErrchk(result); 
-			result = cudaEventCreateWithFlags(&stream->stop_event[i], cudaEventBlockingSync);
-                        gpuErrchk(result); 
+			cudaEventCreateWithFlags(&stream->start_event[i], cudaEventBlockingSync);
+			cudaEventCreateWithFlags(&stream->stop_event[i], cudaEventBlockingSync);
 			stream->elapsed[i] = 0.0;
 		}
 	} else {
@@ -154,40 +134,32 @@ void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, vo
 #endif
 
 void omp_stream_start_event_record(omp_stream_t * stream, int event) {
-        cudaError_t result;
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->start_time[event], 0);
+	cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->start_time[event], 0);
 #else
-	result = cudaEventRecord(stream->start_event[event], stream->systream.cudaStream);
+	cudaEventRecord(stream->start_event[event], stream->systream.cudaStream);
 #endif
-        gpuErrchk(result);
 }
 
 void omp_stream_stop_event_record(omp_stream_t * stream, int event) {
-        cudaError_t result;
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->stop_time[event], 0);
+	cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->stop_time[event], 0);
 #else
-	result = cudaEventRecord(stream->stop_event[event], stream->systream.cudaStream);
+	cudaEventRecord(stream->stop_event[event], stream->systream.cudaStream);
 #endif
-        gpuErrchk(result);
 }
 
 /**
  * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
  */
 float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event) {
-        cudaError_t result;
 	float elapse;
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
 	elapse = stream->stop_time[event] - stream->start_time[event];
 #else
-	result = cudaEventSynchronize(stream->start_event[event]);
-        gpuErrchk(result);
-	result = cudaEventSynchronize(stream->stop_event[event]);
-        gpuErrchk(result);
-	result = cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
-        gpuErrchk(result);
+	cudaEventSynchronize(stream->start_event[event]);
+	cudaEventSynchronize(stream->stop_event[event]);
+	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
 #endif
 	stream->elapsed[event] = elapse;
 	return elapse;
@@ -435,7 +407,6 @@ void omp_data_map_marshal(omp_data_map_t * map) {
  * it will also create device memory region (both the array region memory and halo region memory
  */
 void omp_map_buffer_malloc(omp_data_map_t * map) {
-        cudaError_t result;
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 
@@ -462,7 +433,6 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 
 	/* we need to allocate device memory, including both the array region and halo region */
 	if (cudaErrorMemoryAllocation == cudaMalloc(&map->mem_dev_ptr, mem_size)) {
-                gpuErrchk(cudaErrorMemoryAllocation);
 		fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
 	} else {
 	}
@@ -485,34 +455,14 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 #endif
 			int can_access = 0;
 			if (left >=0 ) {
-				result = cudaDeviceCanAccessPeer(&can_access, map->devsid, left);
-                                gpuErrchk(result);
-				if (can_access)
-                                { 
-                                  result = cudaDeviceEnablePeerAccess(left, 0);
-                                  if(result != cudaErrorPeerAccessAlreadyEnabled)
-                                    gpuErrchk(result);
-                                } 
-                                else
-                                {
-                                  printf("Cannot do P2P access from %d to %d, use CPUsync.\n",map->devsid, left);
-                                }
+				cudaDeviceCanAccessPeer(&can_access, map->devsid, left);
+				if (!can_access) cudaDeviceEnablePeerAccess(left, 0);
 				halo_mem->left_map = info->maps[left];
 			}
 			if (right >=0 ) {
 				can_access = 0;
-				result = cudaDeviceCanAccessPeer(&can_access, map->devsid, right);
-                                gpuErrchk(result);
-				if (can_access)
-                                {
-                                  result = cudaDeviceEnablePeerAccess(right, 0);
-                                  if(result != cudaErrorPeerAccessAlreadyEnabled)
-                                    gpuErrchk(result);
-                                }
-                                else
-                                {
-                                  printf("Cannot do P2P access from %d to %d, use CPUsync\n",map->devsid, right);
-                                }
+				cudaDeviceCanAccessPeer(&can_access, map->devsid, right);
+				if (!can_access) cudaDeviceEnablePeerAccess(right, 0);
 				halo_mem->right_map = info->maps[right];
 			}
 		}
@@ -535,11 +485,9 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
 		halo_info = &halo_info[1];
 		int buffer_size = sizeof_element*map->mem_dim[0]*(halo_info->left+halo_info->right);
-		result = cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
-                gpuErrchk(result);
+		cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
 		halo_mem->left_out_ptr = halo_mem->left_in_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
-		result = cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
-                gpuErrchk(result);
+		cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
 		halo_mem->right_in_ptr = halo_mem->right_out_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
 	}
 }
@@ -566,7 +514,6 @@ void omp_print_data_map(omp_data_map_t * map) {
  *
  */
 void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right) {
-        cudaError_t result;
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
 	if (info->dim[2] != 1) {
@@ -584,19 +531,16 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right) {
 	omp_data_map_t * right_map = halo_mem->right_map;
 	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) {
 //		cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream.systream.cudaStream);
-		result = cudaMemcpyPeer(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size);
-                gpuErrchk(result); 
+		cudaMemcpyPeer(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size);
 	}
 	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
 //		cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream.systream.cudaStream);
-		result = cudaMemcpyPeer(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size);
-                gpuErrchk(result); 
+		cudaMemcpyPeer(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size);
 	}
 	return;
 }
 
 void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right) {
-        cudaError_t result;
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
 	if (info->dim[2] != 1) {
@@ -613,52 +557,12 @@ void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_rig
 	omp_data_map_t * left_map = halo_mem->left_map;
 	omp_data_map_t * right_map = halo_mem->right_map;
 	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) {
-		int can_access = 0;
-	        result = cudaDeviceCanAccessPeer(&can_access, map->devsid,  left_map->devsid);
-                gpuErrchk(result);
-                if(can_access)
-                {
-#ifdef DEBUG_MSG
-printf("P2P from %d to %d\n",map->devsid,  left_map->devsid);
-#endif
-		  result = cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream->systream.cudaStream);
-                  gpuErrchk(result); 
-                }else
-                {
-#ifdef DEBUG_MSG
-printf("CPUSync from %d to %d\n",map->dev->sysid,  left_map->dev->sysid);
-#endif
-                  char* CPUbuffer = (char*)malloc(halo_mem->left_in_size);
-                  result = cudaMemcpy(CPUbuffer,left_map->halo_mem[0].right_out_ptr,halo_mem->left_in_size,cudaMemcpyDeviceToHost); 
-                  gpuErrchk(result); 
-                  result = cudaMemcpy(halo_mem->left_in_ptr,CPUbuffer,halo_mem->left_in_size,cudaMemcpyHostToDevice); 
-                  gpuErrchk(result);
-                  free(CPUbuffer); 
-                }
+		if (cudaSuccess != cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream->systream.cudaStream))
+			printf("cudaMemcpyPeerAsync failed!\n");
 	}
 	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
-		int can_access = 0;
-	        result = cudaDeviceCanAccessPeer(&can_access, map->devsid, right_map->devsid);
-                gpuErrchk(result);
-                if(can_access)
-                {
-#ifdef DEBUG_MSG
-printf("P2P from %d to %d\n",map->devsid,  right_map->devsid);
-#endif
-		  result = cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream->systream.cudaStream);
-                  gpuErrchk(result); 
-                }else
-                {
-#ifdef DEBUG_MSG
-printf("CPUSync from %d to %d\n",map->devsid,  right_map->devsid);
-#endif
-                  char* CPUbuffer = (char*)malloc(halo_mem->right_in_size);
-                  result = cudaMemcpy(CPUbuffer,right_map->halo_mem[0].left_out_ptr,halo_mem->right_in_size,cudaMemcpyDeviceToHost); 
-                  gpuErrchk(result); 
-                  result = cudaMemcpy(halo_mem->right_in_ptr,CPUbuffer,halo_mem->right_in_size,cudaMemcpyHostToDevice); 
-                  gpuErrchk(result); 
-                  free(CPUbuffer); 
-                }
+		if (cudaSuccess != cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream->systream.cudaStream))
+			printf("cudaMemcpyPeerAsync failed!\n");
 	}
 }
 /**
@@ -713,39 +617,27 @@ long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
  * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
  */
 void omp_memcpyHostToDeviceAsync(omp_data_map_t * map) {
-        cudaError_t result;
-	result = cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream);
-        gpuErrchk(result); 
+	cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream);
 }
 
 void omp_memcpyDeviceToHostAsync(omp_data_map_t * map) {
-        cudaError_t result;
-        result = cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream);
-        gpuErrchk(result); 
+    cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream);
 }
 
 void omp_memcpyHostToDevice(omp_data_map_t * map) {
-    cudaError_t result; 
-    result = cudaMemcpy((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice);
-    gpuErrchk(result); 
+    cudaMemcpy((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice);
 }
 
 void omp_memcpyDeviceToHost(omp_data_map_t * map) {
-    cudaError_t result; 
-    result = cudaMemcpy((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost);
-    gpuErrchk(result); 
+    cudaMemcpy((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost);
 }
 
 void omp_memcpyDeviceToDevice(omp_data_map_t * target, omp_data_map_t * src, int size) {
-    cudaError_t result;
-    result = cudaMemcpy((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice);
-    gpuErrchk(result); 
+    cudaMemcpy((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice);
 }
 
 void omp_memcpyDeviceToDeviceAsync(omp_data_map_t * target, omp_data_map_t * src, int size) {
-    cudaError_t result;
-    result = cudaMemcpyAsync((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice,src->stream->systream.cudaStream);
-    gpuErrchk(result); 
+    cudaMemcpyAsync((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice,src->stream->systream.cudaStream);
 }
 /**
  * sync device by syncing the stream so all the pending calls the stream are completed
@@ -754,28 +646,22 @@ void omp_memcpyDeviceToDeviceAsync(omp_data_map_t * target, omp_data_map_t * src
  */
 void omp_sync_stream(int num_devices, omp_stream_t dev_stream[num_devices], int destroy_stream) {
 	int i;
-        cudaError_t result;
 	omp_stream_t * st;
 
 	if (destroy_stream){
 		for (i=0; i<num_devices; i++) {
 			st = &dev_stream[i];
-			result = cudaSetDevice(st->dev->sysid);
-                        gpuErrchk(result); 
+			cudaSetDevice(st->dev->sysid);
 			//Wait for all operations to finish
-			result = cudaStreamSynchronize(st->systream.cudaStream);
-                        gpuErrchk(result); 
-			result = cudaStreamDestroy(st->systream.cudaStream);
-                        gpuErrchk(result); 
+			cudaStreamSynchronize(st->systream.cudaStream);
+			cudaStreamDestroy(st->systream.cudaStream);
 		}
 	} else {
 		for (i=0; i<num_devices; i++) {
 			st = &dev_stream[i];
-			result = cudaSetDevice(st->dev->sysid);
-                        gpuErrchk(result); 
+			cudaSetDevice(st->dev->sysid);
 			//Wait for all operations to finish
-			result = cudaStreamSynchronize(st->systream.cudaStream);
-                        gpuErrchk(result); 
+			cudaStreamSynchronize(st->systream.cudaStream);
 		}
 	}
 }
@@ -783,20 +669,15 @@ void omp_sync_stream(int num_devices, omp_stream_t dev_stream[num_devices], int 
 void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num_devices], omp_data_map_t data_map[]) {
 	int i, j;
 	omp_stream_t * st;
-        cudaError_t result;
 
 	for (i=0; i<num_devices; i++) {
 		st = &dev_stream[i];
-		result = cudaSetDevice(st->dev->sysid);
-                gpuErrchk(result); 
-		result = cudaStreamSynchronize(st->systream.cudaStream);
-                gpuErrchk(result); 
-		result = cudaStreamDestroy(st->systream.cudaStream);
-                gpuErrchk(result); 
+		cudaSetDevice(st->dev->sysid);
+		cudaStreamSynchronize(st->systream.cudaStream);
+		cudaStreamDestroy(st->systream.cudaStream);
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-	    	result = cudaFree(map->mem_dev_ptr);
-                gpuErrchk(result); 
+	    	cudaFree(map->mem_dev_ptr);
 	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
 	    		omp_data_map_unmarshal(map);
 	    		free(map->map_buffer);
@@ -809,16 +690,13 @@ void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num
  */
 void omp_map_device2host(int num_devices, int num_maps, omp_data_map_t *data_map) {
 	int i, j;
-        cudaError_t result;
 
 	for (i=0; i<num_devices; i++) {
-		result = cudaSetDevice(i);
-                gpuErrchk(result); 
+		cudaSetDevice(i);
 	    //Wait for all operations to finish
 	    for (j=0; j<num_maps; j++) {
 	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-	    	result = cudaFree(map->mem_dev_ptr);
-                gpuErrchk(result); 
+	    	cudaFree(map->mem_dev_ptr);
 	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
 	    		omp_data_map_unmarshal(map);
 	    		free(map->map_buffer);
