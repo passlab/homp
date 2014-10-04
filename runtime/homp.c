@@ -68,35 +68,6 @@ omp_device_t * omp_get_device(int id) {
 	return &omp_devices[id];
 }
 
-static void omp_query_device_count(int * count) {
-	/* currently, only do the CUDA GPUs */
-        
-        cudaError_t result;
-	result = cudaGetDeviceCount(count);
-        gpuErrchk(result);
-        
-}
-
-/* init the device objects, num_of_devices, default_device_var ICV etc */
-void omp_init_devices() {
-	omp_query_device_count(&omp_num_devices);
-	omp_devices = malloc(sizeof(omp_device_t) * omp_num_devices);
-	int i;
-	for (i=0; i<omp_num_devices; i++)
-	{
-		omp_devices[i].id = i;
-		omp_devices[i].type = OMP_DEVICE_NVGPU;
-		omp_devices[i].status = 1;
-		omp_devices[i].sysid = i;
-		omp_devices[i].next = &omp_devices[i+1];
-	}
-	if (omp_num_devices) {
-		default_device_var = 0;
-		omp_devices[omp_num_devices-1].next = NULL;
-	}
-	printf("System has total %d GPU devices, and the number of active (enabled) devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n", omp_num_devices);
-}
-
 int omp_get_num_active_devices() {
 	 int num_dev;
 	 char * ndev = getenv("OMP_NUM_ACTIVE_DEVICES");
@@ -110,10 +81,10 @@ int omp_get_num_active_devices() {
 }
 
 void omp_set_current_device(omp_device_t * d) {
-        cudaError_t result;
+    int result;
 	if (d->type == OMP_DEVICE_NVGPU) {
 		result = cudaSetDevice(d->sysid);
-                gpuErrchk(result); 
+		devcall_assert (result);
 	} else {
 		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
 	}
@@ -122,165 +93,46 @@ void omp_set_current_device(omp_device_t * d) {
 #define DEV_HELPER_THREAD_DATA_MAP_BUFFER_SIZE 16
 /* helper thread main */
 void thread_main(void * arg) {
+	/* each thread keep a buffer of data_map objects */
 	omp_data_map_t data_map_buffer[DEV_HELPER_THREAD_DATA_MAP_BUFFER_SIZE];
+	int buffer_index = 0;
+
 	omp_device_t * dev = (omp_device_t*)arg;
-	int id = dev->id;
+	int devid = dev->id;
+	/*************** wait *******************/
+	while (dev->notification_counter == -1);
 
-	while (1) {
-		omp_offloading_t * offdev_info = dev->	offload_queue_head;
-		if (offdev_info == NULL) continue;
-		if (dev->offload_queue_tail == offdev_info) {
-			dev->offload_queue_tail = dev->offload_queue_head = NULL;
-		} else {
-			offdev_info->prev->next = NULL;
-			dev->offload_queue_head = offdev_info->prev;
-		}
+	omp_offloading_info_t * off_info = omp_devices[dev->notification_counter].offload_info;
+	omp_grid_topology_t * top = off_info->top;
+	int seqid = omp_grid_topology_get_seqid(top, devid);
 
-		omp_offloading_info_t * off_info = offdev_info->off_info;
-		pthread_barrier_wait(off_info->barrier);
+	omp_offloading_t * off = &off_info->dev_offloadings[seqid];
 
-		/* set up stream and event */
-		omp_init_stream(dev, &offdev_info->stream);
+	pthread_barrier_wait(off_info->barrier);
 
+	/* set up stream and event */
+	omp_init_stream(dev, &off->stream);
 
+	/* init data map and dev memory allocation */
+	/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 
-
-
-
+	int i = 0;
+	for (i=0; i<off_info->num_mapped_vars; i++) {
+		omp_data_map_info_t * map_info = off_info->data_map_info[i];
+		omp_data_map_t * map = map_info->maps[seqid];
+		omp_data_map_init_map(map, map_info, dev, &off->stream);
+		omp_data_map_dist(map, seqid);
+		omp_print_data_map(map);
+		omp_map_buffer_malloc(map);
 	}
 
 
-}
+		/* there is a total number (6 so far) of event for each stream(device), thus use it with the index */
+		omp_stream_start_event_record(&__dev_stream__[__i__], 0);
+		omp_memcpyHostToDeviceAsync(__dev_map_x__);
+		omp_stream_stop_event_record(&__dev_stream__[__i__], 0);
 
-void omp_init_stream(omp_device_t * d, omp_stream_t * stream) {
-	stream->dev = d;
-	cudaError_t result;
-	if (d->type == OMP_DEVICE_NVGPU) {
-		result = cudaStreamCreate(&stream->systream.cudaStream);
-                gpuErrchk(result); 
-		int i;
-		for (i=0; i<OMP_STREAM_NUM_EVENTS; i++) {
-			result = cudaEventCreateWithFlags(&stream->start_event[i], cudaEventBlockingSync);
-                        gpuErrchk(result); 
-			result = cudaEventCreateWithFlags(&stream->stop_event[i], cudaEventBlockingSync);
-                        gpuErrchk(result); 
-			stream->elapsed[i] = 0.0;
-		}
-	} else {
-		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
-	}
-}
 
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
-	float * time = (float*)userData;
-	*time = read_timer_ms();
-}
-#endif
-
-void omp_stream_start_event_record(omp_stream_t * stream, int event) {
-        cudaError_t result;
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->start_time[event], 0);
-#else
-	result = cudaEventRecord(stream->start_event[event], stream->systream.cudaStream);
-#endif
-        gpuErrchk(result);
-}
-
-void omp_stream_stop_event_record(omp_stream_t * stream, int event) {
-        cudaError_t result;
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->stop_time[event], 0);
-#else
-	result = cudaEventRecord(stream->stop_event[event], stream->systream.cudaStream);
-#endif
-        gpuErrchk(result);
-}
-
-/**
- * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
- */
-float omp_stream_event_elapsed_ms(omp_stream_t * stream, int event) {
-        cudaError_t result;
-	float elapse;
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	elapse = stream->stop_time[event] - stream->start_time[event];
-#else
-	result = cudaEventSynchronize(stream->start_event[event]);
-        gpuErrchk(result);
-	result = cudaEventSynchronize(stream->stop_event[event]);
-        gpuErrchk(result);
-	result = cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
-        gpuErrchk(result);
-#endif
-	stream->elapsed[event] = elapse;
-	return elapse;
-}
-
-/* accumulate the elapsed time of the event to the stream object and return this elapsed
- */
-float omp_stream_event_elapsed_accumulate_ms(omp_stream_t * stream, int event) {
-	float elapse;
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	elapse = stream->stop_time[event] - stream->start_time[event];
-#else
-	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
-#endif
-	stream->elapsed[event] += elapse;
-	return elapse;
-}
-
-void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_type_t * map_type, omp_data_map_dist_t * dist) {
-	info->top = top;
-	info->source_ptr = source_ptr;
-	info->num_dims = num_dims;
-	info->dims = dims;
-	info->map_type = map_type;
-	info->dist = dist;
-	info->sizeof_element = sizeof_element;
-	int i;
-	for (i=0; i<num_dims; i++) {
-		omp_data_map_halo_region_info_t * halo = &info->halo_region[i];
-		halo->left = halo->right = halo->cyclic = 0;
-		halo->top_dim = -1;
-	}
-	info->has_halo_region = 0;
-}
-
-void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic, int top_dim) {
-	omp_grid_topology_t * top = info->top;
-	/* calculate the coordinates of id in the top */
-	int dimsize = top->dims[top_dim];
-	if (dimsize == 1) { /* no need to do halo region at all */
-		return;
-	} else {
-		info->halo_region[dim].left = left;
-		info->halo_region[dim].right = right;
-		info->halo_region[dim].cyclic = cyclic;
-		info->halo_region[dim].top_dim = top_dim;
-		info->has_halo_region = 1;
-	}
-}
-
-/**
- * after initialization, by default, it will perform full map of the original array
- */
-void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, int devsid, omp_device_t * dev,	omp_stream_t * stream) {
-	map->info = info;
-	map->dev = dev;
-	map->stream = stream;
-	map->devsid = devsid;
-	info->maps[devsid] = map; /* link this map to the info object */
-	int i;
-	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-		map->map_dim[i] = map->info->dim[i]; /* default, full mapping */
-		map->mem_dim[i] = map->info->dim[i]; /* default, full mapping */
-		map->map_offset[i] = 0;
-		map->halo_mem[i].left_map = map->halo_mem[i].right_map = NULL;
-	}
-	map->marshalled_or_not = 0;
 }
 
 void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
@@ -293,137 +145,136 @@ void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t 
 	pthread_barrier_init(&info->barrier, NULL, top->ndims);
 }
 
-/**
- * given a sequence id, return the top coordinates
- * the function return the actual number of dimensions
+/* the dist is straight, i.e.
+ * 1. the number of array dimensions is the same as or less than the number of the topology dimensions
+ * 2. the full range in each dimension of the array is distributed to the corresponding dimension of the topology
+ * 3. the distribution type is the same for all dimensions
  */
-int omp_topology_get_coords(omp_grid_topology_t * top, int sid, int ndims, int coords[]) {
-	if (top->ndims > ndims) {
-		fprintf(stderr, "the given ndims and array are too small\n");
-		return -1;
-	}
-	int i, nnodes;
-	nnodes = top->nnodes;
-    for ( i=0; i < top->ndims; i++ ) {
-    	nnodes    = nnodes / top->dims[i];
-    	coords[i] = sid / nnodes;
-        sid  = sid % nnodes;
-    }
-
-    ndims = i;
-    return i;
-}
-
-/* return the sequence id of the coord
- */
-int omp_topology_get_devsid(omp_grid_topology_t * top, int coords[]) {
+void omp_data_map_init_info_dist_straight(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_type_t * map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t * dist_type) {
 	int i;
-	int devsid = 0;
-	/* TODO: currently only for 2D */
-	if (top->ndims == 1) return coords[0];
-	else if (top->ndims == 2) return coords[0]*top->dims[1] + coords[1];
-	else return -1;
-}
-
-void omp_topology_print(omp_grid_topology_t * top) {
-	printf("top: %X (%d): ", top, top->nnodes);
-	int i;
-	for(i=0; i<top->ndims; i++)
-		printf("%d ", top->dims[i]);
-	printf("\n");
-}
-
-void omp_topology_get_neighbors(omp_grid_topology_t * top, int devsid, int topdim, int cyclic, int* left, int* right) {
-	if (devsid < 0 || devsid > top->nnodes) {
-		*left = -1;
-		*right = -1;
-		return;
+	for (i=0; i<num_dims; i++) {
+		dist[i].start = 0;
+		dist[i].end = dims[i]-1;
+		dist[i].type = dist_type;
+		dist[i].topdim = i;
+		dist[i].halo_left = dist[i].halo_right = 0;
 	}
-	int coords[top->ndims];
-	omp_topology_get_coords(top, devsid, top->ndims, coords);
 
-    int dimcoord = coords[topdim];
-    int dimsize = top->dims[topdim];
-
-    int leftdimcoord = dimcoord - 1;
-    int rightdimcoord = dimcoord + 1;
-    if (cyclic) {
-    	if (leftdimcoord < 0)
-    		leftdimcoord = dimsize - 1;
-    	if (rightdimcoord == dimsize)
-    		rightdimcoord = 0;
-    	coords[topdim] = leftdimcoord;
-    	*left = omp_topology_get_devsid(top, coords);
-    	coords[topdim] = rightdimcoord;
-    	*right = omp_topology_get_devsid(top, coords);
-    	return;
-    } else {
-    	if (leftdimcoord < 0) {
-    		*left = -1;
-    		if (rightdimcoord == dimsize) {
-    			*right = -1;
-    			return;
-    		} else {
-    			coords[topdim] = rightdimcoord;
-    			*right = omp_topology_get_devsid(top, coords);
-    			return;
-    		}
-    	} else {
-    		coords[topdim] = leftdimcoord;
-    		*left = omp_topology_get_devsid(top, coords);
-    		if (rightdimcoord == dimsize) {
-    			*right = -1;
-    			return;
-    		} else {
-    			coords[topdim] = rightdimcoord;
-    			*right = omp_topology_get_devsid(top, coords);
-    			return;
-    		}
-    	}
-    }
+	omp_data_map_init_info(info, top, source_ptr, num_dims, dims, sizeof_element, map_type, dist);
 }
 
 /**
- * for a given device (with sequence id devsid in the target device list) who is part of the topology (top) of topdim dimension, apply
- * the even distribution of the dim of the source array in map
+ * caller must meet the requirements of omp_data_map_init_info_dist_straight, plus:
  *
- * if there is halo region in this dimension, this will also be taken into account
+ * The halo region setup is the same in each dimension
+ *
  */
-void omp_data_map_do_even_map(omp_data_map_t *map, int dim, omp_grid_topology_t *top, int topdim, int devsid) {
-	/* calculate the coordinates of id in the top */
-	int coords[top->ndims];
-	omp_topology_get_coords(top, devsid, top->ndims, coords);
-
-    int dimcoord = coords[topdim];
-    int dimsize = top->dims[topdim];
-
-    omp_data_map_info_t *info = map->info;
-
-    /* partition the array region into subregion and save it to the map */
-    int n = info->dim[dim];
-    int remaint = n % dimsize;
-    int esize = n / dimsize;
-    int map_dim, map_offset;
-    if (dimcoord < remaint) { /* each of the first remaint dev has one more element */
-    	map_dim = esize+1;
-        map_offset = (esize+1)*dimcoord;
-    } else {
-    	map_dim = esize;
-        map_offset = esize*dimcoord + remaint;
-    }
-   	map->map_dim[dim] = map_dim;
-    map->map_offset[dim] = map_offset;
-    omp_data_map_halo_region_info_t * halo = &info->halo_region[dim];
-    if (halo->top_dim == topdim) {
-    	map_dim += (halo->left + halo->right);
-    }
-    map->mem_dim[dim] = map_dim;
+void omp_data_map_init_info_dist_straight_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_type_t * map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t * dist_type, int halo_left, int halo_right, int halo_cyclic) {
+	if (dist_type != OMP_DATA_MAP_DIST_EVEN) {
+		fprintf(stderr, "%s: we currently only handle halo region for even distribution of arrays\n", __func__);
+	}
+	int i;
+	for (i=0; i<num_dims; i++) {
+		dist[i].start = 0;
+		dist[i].end = dims[i]-1;
+		dist[i].type = dist_type;
+		dist[i].topdim = i;
+		dist[i].halo_left = halo_left;
+		dist[i].halo_right = halo_right;
+		dist[i].halo_cyclic = halo_cyclic;
+	}
+	omp_data_map_init_info(info, top, source_ptr, num_dims, dims, sizeof_element, map_type, dist);
+	info->has_halo_region = 1;
 }
 
-void omp_data_map_do_fix_map(omp_data_map_t * map, int dim, int start, int length, int devsid) {
-	map->map_dim[dim] = length;
-	map->mem_dim[dim] = length;
-	map->map_offset[dim] = start;
+void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_type_t * map_type, omp_data_map_dist_t * dist) {
+	if (dims > 3) {
+		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", dims);
+		exit(1);
+	}
+	info->top = top;
+	info->source_ptr = source_ptr;
+	info->num_dims = num_dims;
+	info->dims = dims;
+	info->map_type = map_type;
+	info->dist = dist;
+	info->sizeof_element = sizeof_element;
+
+	info->has_halo_region = 0;
+}
+
+void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic) {
+	info->dist[dim].halo_left = left;
+	info->dist[dim].halo_right = right;
+	info->dist[dim].halo_cyclic = cyclic;
+	info->has_halo_region = 1;
+}
+
+/**
+ * after initialization, by default, it will perform full map of the original array
+ */
+void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev, omp_stream_t * stream) {
+	map->info = info;
+	map->dev = dev;
+	map->stream = stream;
+	map->marshalled_or_not = 0;
+}
+
+/**
+ * Apply map to device seqid, seqid is the sequence id of the device in the grid topology
+ *
+ * do the distribution of array onto the grid topology of devices
+ */
+void omp_data_map_dist(omp_data_map_t *map, int seqid) {
+	omp_data_map_info_t * info = map->info;
+	omp_grid_topology_t * top = info->top;
+	int coords[top->ndims];
+	omp_topology_get_coords(top, seqid, top->ndims, coords);
+	int i;
+	for (i = 0; i < info->dims; i++) { /* process each dimension */
+		omp_data_map_dist_t * dist = &info->dist[i];
+		int n = dist->start - dist->end;
+
+		int topdim = dist->topdim;
+		int topdimcoord = coords[topdim];
+		int topdimsize = top->dims[topdim];
+		if (dist->type == OMP_DATA_MAP_DIST_EVEN) { /* even distributions */
+			/* partition the array region into subregion and save it to the map */
+			int remaint = n % topdimsize;
+			int esize = n / topdimsize;
+			int map_dim, map_offset;
+			if (topdimcoord < remaint) { /* each of the first remaint dev has one more element */
+				map_dim = esize + 1;
+				map_offset = (esize + 1) * topdimcoord;
+			} else {
+				map_dim = esize;
+				map_offset = esize * topdimcoord + remaint;
+			}
+			map->map_dim[i] = map_dim;
+			map->map_offset[i] = dist->start + map_offset;
+			if (info->has_halo_region) {
+				map_dim += dist->halo_left + dist->halo_right;
+			}
+			map->mem_dim[i] = map_dim;
+		} else if (dist->type == OMP_DATA_MAP_DIST_FULL) { /* full rang dist */
+			map->map_dim[i] = n;
+			map->mem_dim[i] = n;
+			map->map_offset[i] = dist->start;
+
+		} else {
+			fprintf(stderr, "other dist type %d is not yet supported\n",
+					dist->type);
+			exit(1);
+		}
+	}
+
+	/* allocate buffer on both host and device, on host, it is the buffer for
+	 * marshalled data (move data from non-contiguous memory regions to a contiguous memory region
+	 */
+
 }
 
 void omp_data_map_unmarshal(omp_data_map_t * map) {
@@ -451,7 +302,7 @@ void omp_data_map_marshal(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 	int i;
-	map->map_buffer = (void*) malloc(sizeof_element*map->map_dim[0]*map->map_dim[1]*map->map_dim[2]);
+	map->map_buffer = (void*) malloc(map->map_size);
 	int region_line_size = map->map_dim[1]*sizeof_element;
 	int full_line_size = info->dim[1]*sizeof_element;
 	int region_off = 0;
@@ -464,59 +315,70 @@ void omp_data_map_marshal(omp_data_map_t * map) {
 	}
 //	printf("total %ld bytes of data marshalled\n", region_off);
 }
+
+/**
+ * for a ndims-dimensional array, the dimensions are stored in dims array.
+ * Given an element with index stored in idx array, this function return the offset
+ * of that element in row-major. E.g. for an array [3][4][5], element [2][2][3] has offset 53
+ */
+int omp_top_offset(int ndims, int * dims, int * idx) {
+	int i;
+	int off = 0;
+	int mt = 1;
+	for (i=ndims-1; i>=0; i--) {
+		off += mt * idx[i];
+		mt *= dims[i];
+	}
+	return off;
+}
+
 /**
  * this function creates host buffer, if needed, and marshall data to the host buffer,
  *
  * it will also create device memory region (both the array region memory and halo region memory
  */
 void omp_map_buffer_malloc(omp_data_map_t * map) {
-        cudaError_t result;
+    int error;
+    int i;
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
+	long buffer_offset = 0;
 
-	long mem_size = sizeof_element;
-	long map_size = sizeof_element;
-	int i;
-	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-		mem_size *= map->mem_dim[i];
+	long map_size = map->map_dim[0] * sizeof_element;
+	/* TODO: we have not yet handle halo region yet */
+	for (i=1; i<info->num_dims; i++) {
+		if (map->map_dim[i] != info->dim[i]) {
+			/* check the dimension from 1 to the highest, if any one is not the full range of the dimension in the original array,
+			 * we have non-contiguous memory space and we need to marshall data
+			 */
+			map->marshalled_or_not = 1;
+		}
 		map_size *= map->map_dim[i];
+
 	}
 	map->map_size = map_size;
-	map->mem_size = mem_size;
-
-	if (info->source_ptr == NULL) map->map_buffer = NULL;
-	else {
-		if (map->map_dim[1] == info->dim[1] && map->map_dim[2] == info->dim[2]) {
-			map->map_buffer = info->source_ptr + map->map_offset[0]*map->map_dim[1]*map->map_dim[2]*sizeof_element;
-			/* TODO: should we separate map_buffer and mem_buffer (includes map and halo_region) */
-		} else {
-			map->marshalled_or_not = 1;
-			omp_data_map_marshal(map);
-		}
-	}
-
-	/* we need to allocate device memory, including both the array region and halo region */
-	if (cudaErrorMemoryAllocation == cudaMalloc(&map->mem_dev_ptr, mem_size)) {
-                gpuErrchk(cudaErrorMemoryAllocation);
-		fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+	if (!map->marshalled_or_not) {
+		map->map_buffer = sizeof_element * omp_top_offset(info->num_dims, map->map_dim, map->map_offset);
 	} else {
+		omp_data_map_marshal(map);
 	}
-	if (!info->has_halo_region) {
-		map->map_dev_ptr = map->mem_dev_ptr;
-		return;
-	}
+
+	/* we need to allocate device memory, including both the array region TODO: to deal with halo region */
+	omp_dev_malloc(map);
+	if (!info->has_halo_region) return;
+
+#if 0
 	omp_data_map_halo_region_info_t * halo_info = info->halo_region;
 	omp_data_map_halo_region_mem_t * halo_mem = map->halo_mem;
 
 	for (i=0; i<OMP_NUM_ARRAY_DIMENSIONS; i++) {
-		if (map->mem_dim[i] != map->map_dim[i]) { /* there is halo region */
+		if (info->has_halo_region[i]) { /* there is halo region */
 			/* enable CUDA peer memcpy */
-			halo_info = &halo_info[i];
 			halo_mem = &halo_mem[i];
 			int left, right;
-			omp_topology_get_neighbors(info->top, map->devsid, halo_info->top_dim , halo_info->cyclic, &left, &right);
+			omp_topology_get_neighbors(info->top, map->devsid, (&halo_info[i])->top_dim , (&halo_info[i])->cyclic, &left, &right);
 #if DEBUG_MSG
-			printf("%d neighbors in dim %d: left: %d, right: %d\n", map->devsid, halo_info->top_dim, left, right);
+			printf("%d neighbors in dim %d: left: %d, right: %d\n", map->devsid, (&halo_info[i])->top_dim, left, right);
 #endif
 			int can_access = 0;
 			if (left >=0 ) {
@@ -552,31 +414,87 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 			}
 		}
 	}
+	halo_mem = map->halo_mem;
 	/* TODO: so far only for two dimension array */
-	if (map->mem_dim[0] != map->map_dim[0]) { /* there is halo region */
+	if (info->has_halo_region[0]) { /* there is halo region */
 		halo_mem = &halo_mem[0];
-		halo_mem->left_in_ptr = map->mem_dev_ptr;
-		halo_mem->left_in_size = halo_info->left*map->mem_dim[1]*sizeof_element;
-		halo_mem->left_out_ptr = map->mem_dev_ptr + halo_mem->left_in_size;
+		halo_mem->left_in_size = (&halo_info[0])->left*map->map_dim[1]*sizeof_element;
+printf("tid %d allocating dim %d halo:%d * %d\n",omp_get_thread_num(),0, (&halo_info[0])->left, map->map_dim[1]);
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_in_ptr, halo_mem->left_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_out_ptr, halo_mem->left_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
 		/* we calculate from the end of the address */
-		halo_mem->right_in_ptr = map->mem_dev_ptr + map->mem_size - halo_info->right*map->mem_dim[1]*sizeof_element;
-		halo_mem->right_in_size = halo_info->right*map->mem_dim[1]*sizeof_element;
-		halo_mem->right_out_ptr = halo_mem->right_in_ptr - halo_info->left*map->mem_dim[1]*sizeof_element;
+		halo_mem->right_in_size = (&halo_info[0])->right*map->map_dim[1]*sizeof_element;
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_in_ptr, halo_mem->right_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_out_ptr, halo_mem->right_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
 
-		if (halo_mem->left_map)
-			map->map_dev_ptr = halo_mem->left_out_ptr;
-		else map->map_dev_ptr = map->mem_dev_ptr;
+//		map->map_dev_ptr = map->mem_dev_ptr;
+//		if (halo_mem->left_map)
+//			map->map_dev_ptr = map->map_dev_ptr + (halo_info->left*map->mem_dim[1]*sizeof_element);
 	}
-	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
-		halo_info = &halo_info[1];
-		int buffer_size = sizeof_element*map->mem_dim[0]*(halo_info->left+halo_info->right);
-		result = cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
-                gpuErrchk(result);
-		halo_mem->left_out_ptr = halo_mem->left_in_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
-		result = cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
-                gpuErrchk(result);
-		halo_mem->right_in_ptr = halo_mem->right_out_ptr + sizeof_element*halo_info->left*map->mem_dim[0];
+	halo_mem = map->halo_mem;
+	if (info->has_halo_region[1]) { /* there is halo region */
+		halo_mem = &halo_mem[1];
+printf("allocating dim %d halo:%d * %d\n",1, (map->map_dim[0]+(&halo_info[1])->right+(&halo_info[1])->left), (&halo_info[1])->left);
+		halo_mem->left_in_size = (&halo_info[1])->left*(map->map_dim[0]+(&halo_info[1])->right+(&halo_info[1])->left)*sizeof_element;
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_in_ptr, halo_mem->left_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_out_ptr, halo_mem->left_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
+
+		halo_mem->right_in_size = (&halo_info[1])->right*(map->map_dim[0]+(&halo_info[1])->right+(&halo_info[1])->left)*sizeof_element;
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_in_ptr, halo_mem->right_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
+                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_out_ptr, halo_mem->right_in_size)) {
+                        gpuErrchk(cudaErrorMemoryAllocation);
+                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
+                }
+//		map->map_dev_ptr = map->mem_dev_ptr;
+//		if (halo_mem->left_map)
+//		  map->map_dev_ptr =  map->map_dev_ptr + (halo_info->left*sizeof_element);
 	}
+//	if (map->mem_dim[0] != map->map_dim[0]) { /* there is halo region */
+//		halo_mem = &halo_mem[0];
+//		halo_mem->left_in_ptr = map->mem_dev_ptr;
+//		halo_mem->left_in_size = halo_info->left*map->map_dim[1]*sizeof_element;
+//		halo_mem->left_out_ptr = map->mem_dev_ptr + halo_mem->left_in_size;
+//		/* we calculate from the end of the address */
+//		halo_mem->right_in_ptr = map->mem_dev_ptr + map->map_size - halo_info->right*map->map_dim[1]*sizeof_element;
+//		halo_mem->right_in_size = halo_info->right*map->map_dim[1]*sizeof_element;
+//		halo_mem->right_out_ptr = halo_mem->right_in_ptr - halo_info->left*map->map_dim[1]*sizeof_element;
+//
+//		if (halo_mem->left_map)
+//			map->map_dev_ptr = halo_mem->left_out_ptr;
+//		else map->map_dev_ptr = map->mem_dev_ptr;
+//	}
+//	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
+//		halo_info = &halo_info[1];
+//		int buffer_size = sizeof_element*map->map_dim[0]*(halo_info->left+halo_info->right);
+//		result = cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
+//                gpuErrchk(result);
+//		halo_mem->left_out_ptr = halo_mem->left_in_ptr + sizeof_element*halo_info->left*map->map_dim[0];
+//		result = cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
+//                gpuErrchk(result);
+//		halo_mem->right_in_ptr = halo_mem->right_out_ptr + sizeof_element*halo_info->left*map->map_dim[0];
+//	}
+#endif
 }
 
 void omp_print_data_map(omp_data_map_t * map) {
@@ -590,6 +508,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 #endif
 }
 
+#if 0
 /* do a halo regin pull for data map of devid. If top is not NULL, devid will be translated to coordinate of the
  * virtual topology and the halo region pull will be based on this coordinate.
  * @param: int dim[ specify which dimension to do the halo region update.
@@ -696,6 +615,9 @@ printf("CPUSync from %d to %d\n",map->devsid,  right_map->devsid);
                 }
 	}
 }
+
+#endif /* if 0 */
+
 /**
  * return the mapped range index from the iteration range of the original array
  * e.g. A[128], when being mapped to a device for A[64:64] (from 64 to 128), then, the range 100 to 128 in the original A will be
@@ -743,125 +665,6 @@ long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
 	*map_length = -1;
 	return -1;
 }
-
-/*
- * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
- */
-void omp_memcpyHostToDeviceAsync(omp_data_map_t * map) {
-        cudaError_t result;
-	result = cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream);
-        gpuErrchk(result); 
-}
-
-void omp_memcpyDeviceToHostAsync(omp_data_map_t * map) {
-        cudaError_t result;
-        result = cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream);
-        gpuErrchk(result); 
-}
-
-void omp_memcpyHostToDevice(omp_data_map_t * map) {
-    cudaError_t result; 
-    result = cudaMemcpy((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice);
-    gpuErrchk(result); 
-}
-
-void omp_memcpyDeviceToHost(omp_data_map_t * map) {
-    cudaError_t result; 
-    result = cudaMemcpy((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost);
-    gpuErrchk(result); 
-}
-
-void omp_memcpyDeviceToDevice(omp_data_map_t * target, omp_data_map_t * src, int size) {
-    cudaError_t result;
-    result = cudaMemcpy((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice);
-    gpuErrchk(result); 
-}
-
-void omp_memcpyDeviceToDeviceAsync(omp_data_map_t * target, omp_data_map_t * src, int size) {
-    cudaError_t result;
-    result = cudaMemcpyAsync((void *)target->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice,src->stream->systream.cudaStream);
-    gpuErrchk(result); 
-}
-/**
- * sync device by syncing the stream so all the pending calls the stream are completed
- *
- * if destroy_stream != 0; the stream will be destroyed.
- */
-void omp_sync_stream(int num_devices, omp_stream_t dev_stream[num_devices], int destroy_stream) {
-	int i;
-        cudaError_t result;
-	omp_stream_t * st;
-
-	if (destroy_stream){
-		for (i=0; i<num_devices; i++) {
-			st = &dev_stream[i];
-			result = cudaSetDevice(st->dev->sysid);
-                        gpuErrchk(result); 
-			//Wait for all operations to finish
-			result = cudaStreamSynchronize(st->systream.cudaStream);
-                        gpuErrchk(result); 
-			result = cudaStreamDestroy(st->systream.cudaStream);
-                        gpuErrchk(result); 
-		}
-	} else {
-		for (i=0; i<num_devices; i++) {
-			st = &dev_stream[i];
-			result = cudaSetDevice(st->dev->sysid);
-                        gpuErrchk(result); 
-			//Wait for all operations to finish
-			result = cudaStreamSynchronize(st->systream.cudaStream);
-                        gpuErrchk(result); 
-		}
-	}
-}
-
-void omp_sync_cleanup(int num_devices, int num_maps, omp_stream_t dev_stream[num_devices], omp_data_map_t data_map[]) {
-	int i, j;
-	omp_stream_t * st;
-        cudaError_t result;
-
-	for (i=0; i<num_devices; i++) {
-		st = &dev_stream[i];
-		result = cudaSetDevice(st->dev->sysid);
-                gpuErrchk(result); 
-		result = cudaStreamSynchronize(st->systream.cudaStream);
-                gpuErrchk(result); 
-		result = cudaStreamDestroy(st->systream.cudaStream);
-                gpuErrchk(result); 
-	    for (j=0; j<num_maps; j++) {
-	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-	    	result = cudaFree(map->mem_dev_ptr);
-                gpuErrchk(result); 
-	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
-	    		omp_data_map_unmarshal(map);
-	    		free(map->map_buffer);
-	    	}
-	    }
-	}
-}
-/*
- * When call this function, the stream should already synced
- */
-void omp_map_device2host(int num_devices, int num_maps, omp_data_map_t *data_map) {
-	int i, j;
-        cudaError_t result;
-
-	for (i=0; i<num_devices; i++) {
-		result = cudaSetDevice(i);
-                gpuErrchk(result); 
-	    //Wait for all operations to finish
-	    for (j=0; j<num_maps; j++) {
-	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-	    	result = cudaFree(map->mem_dev_ptr);
-                gpuErrchk(result); 
-	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
-	    		omp_data_map_unmarshal(map);
-	    		free(map->map_buffer);
-	    	}
-	    }
-	}
-}
-
 
 size_t xomp_get_maxThreadsPerBlock()
 {
@@ -982,6 +785,124 @@ void omp_factor(int n, int factor[], int dims) {
 		fprintf(stderr, "more than 3 dimensions are not supported\n");
 		break;
 	}
+}
+
+/**
+ * given a sequence id, return the top coordinates
+ * the function return the actual number of dimensions
+ */
+int omp_topology_get_coords(omp_grid_topology_t * top, int sid, int ndims, int coords[]) {
+	if (top->ndims > ndims) {
+		fprintf(stderr, "the given ndims and array are too small\n");
+		return -1;
+	}
+	int i, nnodes;
+	nnodes = top->nnodes;
+    for ( i=0; i < top->ndims; i++ ) {
+    	nnodes    = nnodes / top->dims[i];
+    	coords[i] = sid / nnodes;
+        sid  = sid % nnodes;
+    }
+
+    ndims = i;
+    return i;
+}
+
+/* return the sequence id of the coord
+ */
+int omp_grid_topology_get_devid(omp_grid_topology_t * top, int coords[]) {
+/*
+	// TODO: currently only for 2D
+	if (top->ndims == 1) return top->idmap[coords[0]].devid;
+	else if (top->ndims == 2) return top->idmap[coords[0]*top->dims[1] + coords[1]].devid;
+	else return -1;
+	*/
+	return omp_top_offset(top->ndims, top->dims, coords);
+}
+
+int omp_grid_topology_get_seqid(omp_grid_topology_t * top, int devid) {
+	int i;
+	for (i=0; i<top->nnodes; i++)
+		if (top->idmap[i].devid == devid) return top->idmap[i].seqid;
+
+	return -1;
+}
+
+/**
+ * simple and common topology setup, i.e. devid is from 0 to n-1, the same id map (seqid) in the topology
+ *
+ */
+void omp_grid_topology_init_simple (omp_grid_topology_t * top, int nnodes, int ndims, int *dims, int *periodic, omp_grid_topology_idmap_t * idmap) {
+	int i;
+	omp_factor(nnodes, dims, ndims);
+	for (i=0; i<ndims; i++) periodic[i] = 0;
+
+	for (i=0; i<nnodes; i++) {
+		idmap->devid = idmap->seqid = i;
+	}
+	top->nnodes = nnodes;
+	top->ndims = ndims;
+	top->dims = dims;
+	top->periodic = periodic;
+	top->idmap = idmap;
+}
+
+void omp_topology_print(omp_grid_topology_t * top) {
+	printf("top: %X (%d): ", top, top->nnodes);
+	int i;
+	for(i=0; i<top->ndims; i++)
+		printf("%d ", top->dims[i]);
+	printf("\n");
+}
+
+void omp_topology_get_neighbors(omp_grid_topology_t * top, int devsid, int topdim, int cyclic, int* left, int* right) {
+	if (devsid < 0 || devsid > top->nnodes) {
+		*left = -1;
+		*right = -1;
+		return;
+	}
+	int coords[top->ndims];
+	omp_topology_get_coords(top, devsid, top->ndims, coords);
+
+    int dimcoord = coords[topdim];
+    int dimsize = top->dims[topdim];
+
+    int leftdimcoord = dimcoord - 1;
+    int rightdimcoord = dimcoord + 1;
+    if (cyclic) {
+    	if (leftdimcoord < 0)
+    		leftdimcoord = dimsize - 1;
+    	if (rightdimcoord == dimsize)
+    		rightdimcoord = 0;
+    	coords[topdim] = leftdimcoord;
+    	*left = omp_topology_get_devsid(top, coords);
+    	coords[topdim] = rightdimcoord;
+    	*right = omp_topology_get_devsid(top, coords);
+    	return;
+    } else {
+    	if (leftdimcoord < 0) {
+    		*left = -1;
+    		if (rightdimcoord == dimsize) {
+    			*right = -1;
+    			return;
+    		} else {
+    			coords[topdim] = rightdimcoord;
+    			*right = omp_topology_get_devsid(top, coords);
+    			return;
+    		}
+    	} else {
+    		coords[topdim] = leftdimcoord;
+    		*left = omp_topology_get_devsid(top, coords);
+    		if (rightdimcoord == dimsize) {
+    			*right = -1;
+    			return;
+    		} else {
+    			coords[topdim] = rightdimcoord;
+    			*right = omp_topology_get_devsid(top, coords);
+    			return;
+    		}
+    	}
+    }
 }
 
 

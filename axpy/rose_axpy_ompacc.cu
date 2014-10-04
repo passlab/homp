@@ -52,10 +52,9 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	/**TODO: compiler generated code or runtime call to init the topology */
 	int __top_ndims__ = 1;
 	int __top_dims__[__top_ndims__];
-	omp_factor(__num_target_devices__, __top_dims__, __top_ndims__);
-	int __top_periodic__[__top_ndims__]; __top_periodic__[0] = 0;
-	omp_grid_topology_t __topology__={__num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__};
-	omp_grid_topology_t *__topp__ = &__topology__;
+	int __top_periodic__[__top_ndims__]; 
+	omp_grid_topology_idmap_t __id_map__[__num_target_devices__];
+	omp_grid_topology_init_simple (&__topology__, __num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__, __id_map__);
 
 	int __num_mapped_variables__ = 2; /* XXX: need compiler output */
 
@@ -63,19 +62,22 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long x_dims[1]; x_dims[0] = n;
-	omp_data_map_dist_t x_dist[1]; x_dist[0].start = 0; x_dist[0].end = n-1; x_dist[0].type = OMP_DATA_MAP_DIST_EVEN; x_dist[0].topdim = 0;
-	
-	omp_data_map_init_info(__info__, __topp__, x, 1, x_dims, sizeof(double), OMP_DATA_MAP_TO, x_dist);
+	omp_data_map_dist_t x_dist[1];
+	omp_data_map_init_info_dist_straight(__info__, __topp__, x, 1, x_dims, sizeof(double), OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
-	omp_data_map_dist_t y_dist[1]; y_dist[0].start = 0; y_dist[0].end = n-1; y_dist[0].type = OMP_DATA_MAP_DIST_EVEN; y_dist[0].topdim = 0;
-	omp_data_map_init_info(__info__, __topp__, y, 1, y_dims, sizeof(double), OMP_DATA_MAP_TO, y_dist);
+	omp_data_map_dist_t y_dist[1];
+	omp_data_map_init_info_dist_straight(__info__, __topp__, y, 1, y_dims, sizeof(double), OMP_DATA_MAP_TO, y_dist, OMP_DATA_MAP_DIST_EVEN);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 	
+	omp_offloading_info_t __offloading_info__;
+	__offloading_info__.dev_offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	omp_offloading_init_info (&__offloading_info__, __topp__, __target_devices__, __num_mapped_variables__, __data_map_infos__, NULL);
-
+	
+	/*********** NOW notifying helper thread to work on this offload ******************/
+	
 
 	omp_stream_t __dev_stream__[__num_target_devices__]; /* need to change later one for omp_stream_t struct */
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
