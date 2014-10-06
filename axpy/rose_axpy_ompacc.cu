@@ -75,6 +75,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.dev_offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	omp_offloading_init_info (&__offloading_info__, __topp__, __target_devices__, __num_mapped_variables__, __data_map_infos__, NULL);
+	__offloading_info__.
 	
 	/*********** NOW notifying helper thread to work on this offload ******************/
 	

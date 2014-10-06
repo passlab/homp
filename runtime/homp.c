@@ -80,26 +80,12 @@ int omp_get_num_active_devices() {
 	 return num_dev;
 }
 
-void omp_set_current_device(omp_device_t * d) {
-    int result;
-	if (d->type == OMP_DEVICE_NVGPU) {
-		result = cudaSetDevice(d->sysid);
-		devcall_assert (result);
-	} else {
-		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
-	}
-}
-
-#define DEV_HELPER_THREAD_DATA_MAP_BUFFER_SIZE 16
 /* helper thread main */
-void thread_main(void * arg) {
-	/* each thread keep a buffer of data_map objects */
-	omp_data_map_t data_map_buffer[DEV_HELPER_THREAD_DATA_MAP_BUFFER_SIZE];
-	int buffer_index = 0;
-
+void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 	int devid = dev->id;
 	/*************** wait *******************/
+schedule: ;
 	while (dev->notification_counter == -1);
 
 	omp_offloading_info_t * off_info = omp_devices[dev->notification_counter].offload_info;
@@ -115,8 +101,8 @@ void thread_main(void * arg) {
 
 	/* init data map and dev memory allocation */
 	/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-
 	int i = 0;
+	int event_index = 0;
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = off_info->data_map_info[i];
 		omp_data_map_t * map = map_info->maps[seqid];
@@ -124,15 +110,30 @@ void thread_main(void * arg) {
 		omp_data_map_dist(map, seqid);
 		omp_print_data_map(map);
 		omp_map_buffer_malloc(map);
+		if (map_info->map_type == OMP_DATA_MAP_TO || map_info->map_type == OMP_DATA_MAP_TOFROM) {
+			omp_stream_start_event_record(&off->stream, event_index);
+			omp_map_memcpy_to_async(map); /* memcpy from host to device */
+			omp_stream_stop_event_record(&off->stream, event_index++);
+		}
 	}
 
+	/* launching the kernel */
 
-		/* there is a total number (6 so far) of event for each stream(device), thus use it with the index */
-		omp_stream_start_event_record(&__dev_stream__[__i__], 0);
-		omp_memcpyHostToDeviceAsync(__dev_map_x__);
-		omp_stream_stop_event_record(&__dev_stream__[__i__], 0);
+	/* copy back results */
+	for (i=0; i<off_info->num_mapped_vars; i++) {
+		omp_data_map_info_t * map_info = off_info->data_map_info[i];
+		omp_data_map_t * map = map_info->maps[seqid];
+		if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TOFROM) {
+			omp_stream_start_event_record(&off->stream, event_index);
+			omp_map_memcpy_from_async(map); /* memcpy from host to device */
+			omp_stream_stop_event_record(&off->stream, event_index++);
+		}
+	}
 
+	/* sync stream to wait for completion */
 
+	dev->notification_counter = -1;
+	goto schedule;
 }
 
 void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
@@ -216,7 +217,7 @@ void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int 
 /**
  * after initialization, by default, it will perform full map of the original array
  */
-void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev, omp_stream_t * stream) {
+void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev, omp_dev_stream_t * stream) {
 	map->info = info;
 	map->dev = dev;
 	map->stream = stream;
@@ -277,20 +278,37 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 
 }
 
-void omp_data_map_unmarshal(omp_data_map_t * map) {
+void omp_map_unmarshal(omp_data_map_t * map) {
 	if (!map->marshalled_or_not) return;
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 	int i;
-	int region_line_size = map->map_dim[1]*sizeof_element;
-	int full_line_size = info->dim[1]*sizeof_element;
-	int region_off = 0;
-	int full_off = 0;
-	char * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
-	for (i=0; i<map->map_dim[0]; i++) {
-		memcpy(src_ptr+full_off, map->map_buffer+region_off, region_line_size);
-		region_off += region_line_size;
-		full_off += full_line_size;
+	switch (info->num_dims) {
+	case 1: {
+		fprintf(stderr,
+				"data unmarshall can only do 2-d or 3-d array, currently is 1-d\n");
+		break;
+	}
+	case 2: {
+		int region_line_size = map->map_dim[1]*sizeof_element;
+		int full_line_size = info->dim[1]*sizeof_element;
+		int region_off = 0;
+		int full_off = 0;
+		char * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
+		for (i=0; i<map->map_dim[0]; i++) {
+			memcpy(src_ptr+full_off, map->map_buffer+region_off, region_line_size);
+			region_off += region_line_size;
+			full_off += full_line_size;
+		}
+		break;
+	}
+	case 3: {
+		break;
+	}
+	default: {
+		fprintf(stderr, "data unmarshall can only do 2-d or 3-d array\n");
+		break;
+	}
 	}
 //	printf("total %ld bytes of data unmarshalled\n", region_off);
 }
@@ -298,21 +316,41 @@ void omp_data_map_unmarshal(omp_data_map_t * map) {
 /**
  *  so far works for at most 2D
  */
-void omp_data_map_marshal(omp_data_map_t * map) {
+void omp_map_marshal(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 	int i;
 	map->map_buffer = (void*) malloc(map->map_size);
-	int region_line_size = map->map_dim[1]*sizeof_element;
-	int full_line_size = info->dim[1]*sizeof_element;
-	int region_off = 0;
-	int full_off = 0;
-	char * src_ptr = info->source_ptr + sizeof_element*info->dim[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
-	for (i=0; i<map->map_dim[0]; i++) {
-		memcpy(map->map_buffer+region_off,src_ptr+full_off, region_line_size);
-		region_off += region_line_size;
-		full_off += full_line_size;
+	switch (info->num_dims) {
+	case 1: {
+		fprintf(stderr,
+				"data marshall can only do 2-d or 3-d array, currently is 1-d\n");
+		break;
 	}
+	case 2: {
+		int region_line_size = map->map_dim[1] * sizeof_element;
+		int full_line_size = info->dim[1] * sizeof_element;
+		int region_off = 0;
+		int full_off = 0;
+		char * src_ptr = info->source_ptr
+				+ sizeof_element * info->dim[1] * map->map_offset[0]
+				+ sizeof_element * map->map_offset[1];
+		for (i = 0; i < map->map_dim[0]; i++) {
+			memcpy(map->map_buffer+region_off, src_ptr+full_off, region_line_size);
+			region_off += region_line_size;
+			full_off += full_line_size;
+		}
+		break;
+	}
+	case 3: {
+		break;
+	}
+	default: {
+		fprintf(stderr, "data marshall can only do 2-d or 3-d array\n");
+		break;
+	}
+	}
+
 //	printf("total %ld bytes of data marshalled\n", region_off);
 }
 
@@ -360,11 +398,11 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 	if (!map->marshalled_or_not) {
 		map->map_buffer = sizeof_element * omp_top_offset(info->num_dims, map->map_dim, map->map_offset);
 	} else {
-		omp_data_map_marshal(map);
+		omp_map_marshal(map);
 	}
 
 	/* we need to allocate device memory, including both the array region TODO: to deal with halo region */
-	omp_dev_malloc(map);
+	omp_map_malloc_dev(map);
 	if (!info->has_halo_region) return;
 
 #if 0
@@ -679,15 +717,6 @@ size_t xomp_get_max1DBlock(size_t s)
   if (s % xomp_get_maxThreadsPerBlock()!= 0)
      block_num ++;
   return block_num;
-}
-
-void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
-	omp_reduction_float_t * rdata = (omp_reduction_float_t*)userData;
-	float result = 0.0;
-	int i;
-	for (i=0; i<rdata->num; i++)
-		result += rdata->input[i];
-	rdata->result = result;
 }
 
 /**
