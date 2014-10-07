@@ -18,7 +18,6 @@
  */
 #include "homp.h"
 
-
 inline void devcall_errchk(int code, char *file, int line, int abort) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (code != cudaSuccess) {
@@ -75,7 +74,7 @@ void omp_init_devices() {
 		dev->sysid = i;
 		dev->resident_data_maps = NULL;
 		dev->next = &omp_devices[i+1];
-		dev->notification_counter = -1;
+		dev->offload_info = NULL;
 
 		int rt = pthread_create(&dev->helperth, &attr, (void *(*)(void *))helper_thread_main, (void *) dev);
 		if (rt) {fprintf(stderr, "cannot create helper threads for devices.\n"); exit(1); }
@@ -110,6 +109,21 @@ void omp_map_malloc_dev(omp_data_map_t * map) {
 #endif
 	if (devtype == OMP_DEVICE_LOCALTH) {
 		map->mem_dev_ptr = malloc(map->map_size);
+	} else {
+		fprintf(stderr, "device type is not supported for this call\n");
+	}
+}
+
+void omp_map_free_dev(omp_data_map_t * map) {
+	omp_device_type_t devtype = map->dev->type;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (devtype == OMP_DEVICE_NVGPU) {
+	    cudaError_t result = cudaFree(map->mem_dev_ptr);
+	    devcall_assert(result);
+	} else
+#endif
+	if (devtype == OMP_DEVICE_LOCALTH) {
+		free(map->mem_dev_ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
@@ -340,7 +354,7 @@ float omp_stream_event_elapsed_accumulate_ms(omp_dev_stream_t * stream, int even
  *
  * if destroy_stream != 0; the stream will be destroyed.
  */
-void omp_sync_stream(omp_dev_stream_t *st, int destroy_stream) {
+void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 	cudaError_t result;
 	if (destroy_stream) {
@@ -356,28 +370,22 @@ void omp_sync_stream(omp_dev_stream_t *st, int destroy_stream) {
 #endif
 }
 
-void omp_sync_cleanup(int num_devices, int num_maps, omp_dev_stream_t dev_stream[num_devices], omp_data_map_t data_map[]) {
-	int i, j;
-	omp_dev_stream_t * st;
-        cudaError_t result;
+/**
+ * seqid is the sequence id of the device in the top, it is also used as index to access maps
+ *
+ */
+void omp_sync_cleanup(omp_offloading_t * off) {
+	int i;
+	omp_offloading_info_t * off_info = off->off_info;
+	omp_stream_sync(&off->stream, 1);
 
-	for (i=0; i<num_devices; i++) {
-		st = &dev_stream[i];
-		result = cudaSetDevice(st->dev->sysid);
-                devcall_assert(result);
-		result = cudaStreamSynchronize(st->systream.cudaStream);
-                devcall_assert(result);
-		result = cudaStreamDestroy(st->systream.cudaStream);
-                devcall_assert(result);
-	    for (j=0; j<num_maps; j++) {
-	    	omp_data_map_t * map = &data_map[i*num_maps+j];
-	    	result = cudaFree(map->mem_dev_ptr);
-                devcall_assert(result);
-	    	if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
-	    		omp_data_map_unmarshal(map);
-	    		free(map->map_buffer);
-	    	}
-	    }
+	for (i = 0; i < off_info->num_mapped_vars; i++) {
+		omp_data_map_t * map = &off_info->data_map_info[i]->maps[off->devseqid];
+		omp_map_free_dev(map);
+		if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
+			omp_data_map_unmarshal(map);
+			free(map->map_buffer);
+		}
 	}
 }
 

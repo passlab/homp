@@ -80,21 +80,41 @@ int omp_get_num_active_devices() {
 	 return num_dev;
 }
 
+/**
+ * notifying the helper threads to work on the offloading specified in off_info arg
+ *
+ * master is just the thread that will store
+ */
+void omp_offloading_notify_and_wait_completion(omp_device_t * targets, int num_targets, omp_offloading_info_t * off_info) {
+	int i;
+	pthread_barrier_init(&off_info->barrier, NULL, off_info->top->ndims+1);
+	for (i = 0; i < __num_target_devices__; i++) {
+		targets[i].offload_info = off_info;
+	}
+	pthread_barrier_wait(&off_info->barrier);
+}
+
+/**
+ * TODO: extracting main body of helper_thread_main here or not ?????
+ */
+void omp_offloading_run(omp_offloading_info_t * off_info, int seqid) {
+
+}
+
 /* helper thread main */
 void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 	int devid = dev->id;
 	/*************** wait *******************/
 schedule: ;
-	while (dev->notification_counter == -1);
+	while (dev->offload_info == NULL);
 
-	omp_offloading_info_t * off_info = omp_devices[dev->notification_counter].offload_info;
+	omp_offloading_info_t * off_info = dev->offload_info;
 	omp_grid_topology_t * top = off_info->top;
 	int seqid = omp_grid_topology_get_seqid(top, devid);
 
 	omp_offloading_t * off = &off_info->dev_offloadings[seqid];
-
-	pthread_barrier_wait(off_info->barrier);
+	off->devseqid = seqid;
 
 	/* set up stream and event */
 	omp_init_stream(dev, &off->stream);
@@ -131,8 +151,10 @@ schedule: ;
 	}
 
 	/* sync stream to wait for completion */
+	omp_sync_cleanup(off);
+	pthread_barrier_wait(off_info->barrier);
 
-	dev->notification_counter = -1;
+	dev->offload_info = NULL;
 	goto schedule;
 }
 
@@ -143,7 +165,6 @@ void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t 
 	info->num_mapped_vars = num_mapped_vars;
 	info->data_map_info = data_map_info;
 	info->kernel = kernel;
-	pthread_barrier_init(&info->barrier, NULL, top->ndims);
 }
 
 /* the dist is straight, i.e.

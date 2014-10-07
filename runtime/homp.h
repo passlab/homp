@@ -78,10 +78,7 @@ typedef struct omp_device {
 	omp_device_type_t type;
 	int status;
 	struct omp_device * next; /* the device list */
-	omp_offloading_info_t * offload_info;
-	volatile int notification_counter; /* the counter will be -1 if nothing to do, the master thread (who offloads) will reset this
-	counter to the value of the device id the master thread is helping, so the other helper threads for other dev will know where to retrieve
-	the offload_info */
+	volatile omp_offloading_info_t * offload_info; /* this is the notification flag that the helper thread will pick up the offloading request */
 
 	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
 
@@ -303,18 +300,13 @@ typedef struct omp_offloading {
 
 	/************** per device var ***************/	
 	omp_dev_stream_t stream;
-
-	/* the map for a variable on this device */
-	omp_data_map_t ** data_maps; /* the data maps used only for this specific offloading */
+	int devseqid; /* device seqid in the top */
 
 	/* kernel info */
 	int X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
 	int X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
 	void ** para;
 	void *(*kernel)(void *); /* device specific kernel, if any */
-
-	struct omp_offloading * next; /* the link to form offloading queue */
-	struct omp_offloading * prev;
 } omp_offloading_t;
 
 extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
@@ -332,6 +324,9 @@ extern int omp_init_devices(); /* return # of devices initialized */
 extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
+
+extern void omp_offloading_notify_and_wait_completion(omp_device_t * targets, int num_targets, omp_offloading_info_t * off_info);
+extern void helper_thread_main(void * arg);
 
 extern void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream);
 extern void omp_stream_start_event_record(omp_dev_stream_t * stream, int event);
@@ -356,8 +351,8 @@ extern void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_ri
 extern void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right);
 extern void omp_map_buffer_malloc(omp_data_map_t * map);
 
-extern void omp_sync_stream(int num_devices, omp_dev_stream_t dev_stream[], int destroy_stream);
-extern void omp_sync_cleanup(int num_devices, int num_maps, omp_dev_stream_t dev_stream[], omp_data_map_t data_map[]);
+extern void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream);
+extern void omp_sync_cleanup(omp_offloading_t * off);
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );
