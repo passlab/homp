@@ -39,13 +39,14 @@ __global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_
 struct OUT__3__5904__other_args {
 	double a;
 	long n;
-}
+};
 
 /* called by the helper thread */
-void OUT__3__5904__launcher (omp_offloading_t * off, struct OUT__3__5904__other_args *args, int event_id) {
+void OUT__3__5904__launcher (omp_offloading_t * off, void *args, int event_id) {
+    struct OUT__3__5904__other_args * iargs = (struct OUT__3__5904__other_args*) args; 
     long start_n, length_n;
-    double a = args->a;
-    double n = args->n;
+    double a = iargs->a;
+    double n = iargs->n;
     omp_offloading_info_t * off_info = off->off_info;
     omp_data_map_t * map_x = off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map X */
     omp_data_map_t * map_y = off_info->data_map_info[1].maps[off->devseqid]; /* 0 means the map X */
@@ -165,7 +166,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		y_map_to_accumulated += y_map_to_elapsed[__i__];
 		kernel_accumulated += kernel_elapsed[__i__];
 		y_map_from_accumulated += y_map_from_elapsed[__i__];
-		streamCreate_accumulated += streamCreate_elapsed[__i__];
+		//streamCreate_accumulated += streamCreate_elapsed[__i__];
 	}
 	float total = x_map_to_accumulated + y_map_to_accumulated + kernel_accumulated + y_map_from_accumulated;
 	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
