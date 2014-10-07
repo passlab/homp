@@ -36,8 +36,16 @@ __global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_
   }
 }
 
-void OUT__3__5904__launcher (omp_offloading_t * off, int event_id) {
+struct OUT__3__5904__other_args {
+	double a;
+	long n;
+}
+
+/* called by the helper thread */
+void OUT__3__5904__launcher (omp_offloading_t * off, struct OUT__3__5904__other_args *args, int event_id) {
     long start_n, length_n;
+    double a = args->a;
+    double n = args->n;
     omp_offloading_info_t * off_info = off->off_info;
     omp_data_map_t * map_x = off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map X */
     omp_data_map_t * map_y = off_info->data_map_info[1].maps[off->devseqid]; /* 0 means the map X */
@@ -108,9 +116,22 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	omp_data_map_init_info_dist_straight(__info__, &__top__, y, 1, y_dims, sizeof(double), OMP_DATA_MAP_TO, y_dist, OMP_DATA_MAP_DIST_EVEN);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 	
+	struct OUT__3__5904__other_args args;
 	omp_offloading_info_t __offloading_info__;
-	__offloading_info__.dev_offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
-	omp_offloading_init_info (&__offloading_info__, &__top__, __target_devices__, __num_mapped_variables__, __data_map_infos__, NULL);
+	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
+	/* we use universal args and launcher because axpy can do it */
+	omp_offloading_init_info (&__offloading_info__, &__top__, __target_devices__, __num_mapped_variables__, __data_map_infos__, OUT__3__5904__launcher, &args);
+
+#if 0
+	/* we could specify dev-specific args and kernel_launcher */
+	struct OUT__3__5904__other_args args[__num_target_devices__];
+	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+		args[i].a = a;
+		args[i].n = n;
+		__offloading_info__.offloadings[i].args = &args[i];
+		__offloading_info__.offloadings[i].kernel_launcher = OUT__3__5904__launcher;
+	}
+#endif
 	
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

@@ -108,6 +108,11 @@ void omp_offloading_run(omp_offloading_info_t * off_info, int seqid) {
 void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 	int devid = dev->id;
+#if 0
+	int data_map_buffer_size = 64;
+	omp_data_map_t *data_map_buffer[64]; /* a buffer to maintain a list of data maps for the current offload */
+	int data_map_buffer_index = 0;
+#endif
 	/*************** wait *******************/
 schedule: ;
 	while (dev->offload_info == NULL);
@@ -116,8 +121,12 @@ schedule: ;
 	omp_grid_topology_t * top = off_info->top;
 	int seqid = omp_grid_topology_get_seqid(top, devid);
 
-	omp_offloading_t * off = &off_info->dev_offloadings[seqid];
+	omp_offloading_t * off = &off_info->offloadings[seqid];
 	off->devseqid = seqid;
+#if 0
+	off->num_data_maps = off_info->num_mapped_vars;
+	off->data_maps = &data_map_buffer[data_map_buffer_index];
+#endif
 
 	/* set up stream and event */
 	omp_init_stream(dev, &off->stream);
@@ -141,6 +150,12 @@ schedule: ;
 	}
 
 	/* launching the kernel */
+	void * args = off_info->args;
+	void (*kernel_launcher)(omp_offloading_t *, void *, int) = off_info->kernel_launcher;
+	if (args == NULL) args = off->args;
+	if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
+	kernel_launcher(off, args, event_index);
+	event_index++;
 
 	/* copy back results */
 	for (i=0; i<off_info->num_mapped_vars; i++) {
@@ -162,12 +177,13 @@ schedule: ;
 }
 
 void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void (*kernel)(void *)) {
+		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *, int), void * args) {
 	info->top = top;
 	info->targets = targets;
 	info->num_mapped_vars = num_mapped_vars;
 	info->data_map_info = data_map_info;
-	info->kernel = kernel;
+	info->kernel_launcher = kernel_launcher;
+	info->args = args;
 }
 
 /* the dist is straight, i.e.

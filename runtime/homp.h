@@ -275,9 +275,12 @@ struct omp_offloading_info {
 
 	int num_mapped_vars;
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
-	omp_offloading_t * dev_offloadings; /* a list of dev-specific offloading objects */
+	omp_offloading_t * offloadings; /* a list of dev-specific offloading objects, num of this is num of targets from top */
 
-	void (*kernel)(void *); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
+	/* the universal kernel launcher and args, the helper thread will use this one if no dev-specific one is provided */
+	/* the helper thread will first check these two field, if they are not null, it will use them, otherwise, it will use the dev-specific one */
+	void * args;
+	void (*kernel_launcher)(omp_offloading_t *, void *, int); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
 
 	/* the parcipating barrier */
 	pthread_barrier_t barrier;
@@ -299,11 +302,19 @@ struct omp_offloading {
 	omp_dev_stream_t stream;
 	int devseqid; /* device seqid in the top */
 
+#if 0
+	/* we currently do not use the loal cached copy of the data_maps for each device, but reference to them from map_info object,
+	 * we will see if there is a need to do that later on
+	 */
+	omp_data_map_t ** data_maps;
+	int num_data_maps;
+#endif
+
 	/* kernel info */
 	int X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
 	int X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
-	void ** para;
-	void (*kernel)(void *); /* device specific kernel, if any */
+	void *args;
+	void (*kernel_launcher)(omp_offloading_t *, void *, int); /* device specific kernel, if any */
 };
 
 /** temp solution */
@@ -320,7 +331,7 @@ extern int omp_set_current_device_dev(omp_device_t * d); /* return the current d
 extern int omp_set_current_device(int id); /* return the current device id */
 
 extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void (*kernel)(void *));
+		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *, int), void *args);
 extern void omp_offloading_notify_and_wait_completion(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
