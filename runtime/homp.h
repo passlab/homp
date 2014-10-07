@@ -268,7 +268,7 @@ struct omp_data_map {
   *
   * The barrier is used for syncing target devices
   */
-typedef struct omp_offloading_info {
+struct omp_offloading_info {
 	/************** per-offloading var, shared by all target devices ******/
 	omp_grid_topology_t * top; /* num of target devices are in this object */
 	omp_device_t ** targets; /* a list of target devices */
@@ -277,12 +277,11 @@ typedef struct omp_offloading_info {
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
 	omp_offloading_t * dev_offloadings; /* a list of dev-specific offloading objects */
 
-	void *(*kernel)(void *); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
+	void (*kernel)(void *); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
 
 	/* the parcipating barrier */
 	pthread_barrier_t barrier;
-
-} omp_offloading_info_t;
+};
 
 /**
  * info for per device
@@ -292,7 +291,7 @@ typedef struct omp_offloading_info {
  *
  * The next pointer is used to form the offloading queue (see omp_device struct)
  */
-typedef struct omp_offloading {
+struct omp_offloading {
 	/* per-offloading info */
 	omp_offloading_info_t * off_info;
 
@@ -304,11 +303,8 @@ typedef struct omp_offloading {
 	int X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
 	int X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
 	void ** para;
-	void *(*kernel)(void *); /* device specific kernel, if any */
-} omp_offloading_t;
-
-extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void *(*kernel)(void *));
+	void (*kernel)(void *); /* device specific kernel, if any */
+};
 
 /** temp solution */
 typedef struct omp_reduction_float {
@@ -323,6 +319,8 @@ extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
 
+extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
+		omp_data_map_info_t * data_map_info, void (*kernel)(void *));
 extern void omp_offloading_notify_and_wait_completion(omp_device_t * targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 

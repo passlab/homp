@@ -38,8 +38,9 @@ __global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_
 
 void OUT__3__5904__launcher (omp_offloading_t * off, int event_id) {
     long start_n, length_n;
-    omp_data_map_t * map_x = off->data_map_info[0]->maps[off->devseqid]; /* 0 means the map X */
-    omp_data_map_t * map_y = off->data_map_info[1]->maps[off->devseqid]; /* 0 means the map X */
+    omp_offloading_info_t * off_info = off->off_info;
+    omp_data_map_t * map_x = off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map X */
+    omp_data_map_t * map_y = off_info->data_map_info[1].maps[off->devseqid]; /* 0 means the map X */
     double * x = (double *)map_x->map_dev_ptr;
     double * y = (double *)map_y->map_dev_ptr;
     

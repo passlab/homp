@@ -162,7 +162,7 @@ schedule: ;
 }
 
 void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void *(*kernel)(void *)) {
+		omp_data_map_info_t * data_map_info, void (*kernel)(void *)) {
 	info->top = top;
 	info->targets = targets;
 	info->num_mapped_vars = num_mapped_vars;
