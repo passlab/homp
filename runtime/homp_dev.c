@@ -16,6 +16,9 @@
 
 #endif
  */
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include "homp.h"
 
 inline void devcall_errchk(int code, char *file, int line, int abort) {
@@ -35,7 +38,7 @@ inline void devcall_errchk(int code, char *file, int line, int abort) {
 /* init the device objects, num_of_devices, default_device_var ICV etc
  *
  */
-void omp_init_devices() {
+int omp_init_devices() {
 	/* query hardware device */
 	int num_gpudevs = 0;
 	omp_num_devices = 0;
@@ -83,12 +86,13 @@ void omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
+	return omp_num_devices;
 	printf("System has total %d devices, %d GPU, %d THSIM devices, and the number of THSIM devices can be controlled by setting the NUM_THSIM_DEVICES env,\
 	  and number of active (enabled) devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n", omp_num_devices, num_gpudevs, num_thsimdev);
 }
 
 
-void omp_set_current_device(omp_device_t * d) {
+int omp_set_current_device_dev(omp_device_t * d) {
 #if defined (DEVICE_NVGPU_SUPPORT)
     int result;
 	if (d->type == OMP_DEVICE_NVGPU) {
@@ -96,6 +100,7 @@ void omp_set_current_device(omp_device_t * d) {
 		devcall_assert (result);
 	}
 #endif
+	return d->id;
 }
 
 void omp_map_malloc_dev(omp_data_map_t * map) {
@@ -380,10 +385,10 @@ void omp_sync_cleanup(omp_offloading_t * off) {
 	omp_stream_sync(&off->stream, 1);
 
 	for (i = 0; i < off_info->num_mapped_vars; i++) {
-		omp_data_map_t * map = &off_info->data_map_info[i]->maps[off->devseqid];
+		omp_data_map_t * map = &(off_info->data_map_info[i].maps[off->devseqid]);
 		omp_map_free_dev(map);
 		if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
-			omp_data_map_unmarshal(map);
+			omp_map_unmarshal(map);
 			free(map->map_buffer);
 		}
 	}

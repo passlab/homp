@@ -1,6 +1,7 @@
 GOMP_PATH=/usr/lib/gcc/x86_64-linux-gnu/4.4.7/
 # on shark node (crill-102)
-GOMP_PATH=/opt/gnu/gcc/4.4.6/lib64/
+# GOMP_PATH=/opt/gnu/gcc/4.4.6/lib64/
+GOMP_PATH=/usr/lib/gcc/x86_64-linux-gnu/4.8.2/
 # on eureka
 #GOMP_PATH=/opt/local/gcc/4.4.7/lib64/
 
@@ -14,7 +15,7 @@ axpy:
 #	nvcc $(TEST_INCLUDES) ${TEST_LINK}  -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c $(ROSE_XOMPSRC)/xomp_cuda_lib.cu rose_axpy_omp.c rose_axpy_ompacc.cu rose_axpy.c timer.c -c
 #	nvcc $(TEST_INCLUDES) ${TEST_LINK} -arch sm_20 -DUSE_ROSE_GOMP_OPENMP_LIBRARY ../runtime/homp.c ../runtime/homp_dev.c rose_axpy_omp.c rose_axpy_ompacc.cu rose_axpy.c -c
 	gcc $(TEST_INCLUDES) ../runtime/homp.c ../runtime/homp_dev.c rose_axpy_omp.c rose_axpy_ompacc.cu rose_axpy.c -c
-	nvcc $(TEST_INCLUDES) ${TEST_LINK}  *.o -o $@
+	gcc $(TEST_INCLUDES) ${TEST_LINK}  *.o -o $@
 
 clean:
 	rm -rf *.o axpy

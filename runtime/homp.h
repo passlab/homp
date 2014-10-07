@@ -28,6 +28,7 @@ extern int omp_get_num_devices();
 
 typedef struct omp_data_map omp_data_map_t;
 typedef struct omp_offloading_info omp_offloading_info_t;
+typedef struct omp_offloading omp_offloading_t;
 
 /**
  * multiple device support
@@ -72,7 +73,7 @@ extern char * omp_device_type_name[];
  */
 typedef struct omp_device {
 	int id; /* the id from omp view */
-	char * sysid; /* the handle from the system view, e.g. 
+	long sysid; /* the handle from the system view, e.g.
 			 device id for NVGPU cudaSetDevice(sysid), 
 			 or pthread_t for LOCALTH. Need type casting to become device-specific id */
 	omp_device_type_t type;
@@ -83,7 +84,6 @@ typedef struct omp_device {
 	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
 
 	pthread_t helperth;
-
 } omp_device_t;
 
 typedef enum OMP_OFFLOADING_STEPS {
@@ -146,8 +146,6 @@ typedef struct omp_grid_topology_idmap {
 	int seqid; /* the seq id in the topology */
 } omp_grid_topology_idmap_t;
 
-extern void omp_grid_topology_init_simple (omp_grid_topology_idmap_t * idmap, int nnodes, int ndims, int *dims, int *periodic, omp_grid_topology_idmap_t * idmap);
-
 /* a topology of devices, or threads or teams */
 typedef struct omp_grid_topology {
 	 int nnodes;     /* Product of dims[*], gives the size of the topology */
@@ -181,6 +179,32 @@ typedef struct omp_data_map_dist {
 	omp_data_map_dist_type_t type; /* the dist type */
 	int topdim; /* which top dim to apply dist, for dist_even, copy*/
 } omp_data_map_dist_t;
+
+/**
+ * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
+ */
+typedef struct omp_data_map_halo_region_info {
+	int left; /* element size */
+	int right; /* element size */
+	short cyclic;
+	int top_dim; /* which dimension of the device topology this halo region is related to */
+} omp_data_map_halo_region_info_t;
+
+typedef struct omp_data_map_halo_region_mem {
+	/* the in/out pointer is the buffer for the halo regions.
+	 * The in ptr is the buffer for halo region that will be copied in,
+	 * and the out is for those that will be copied out.
+	 * In implementation, we put the in and out buffer into one mem space for each left and right halo region
+	 */
+	omp_data_map_t *left_map; /* left data map */
+	omp_data_map_t *right_map; /* left data map */
+	void * left_in_ptr;
+	long left_in_size; /* for pull update, == right_out_size if push protocol is used */
+	void * left_out_ptr;
+	void * right_in_ptr;
+	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
+	void * right_out_ptr;
+} omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
 
@@ -235,32 +259,6 @@ struct omp_data_map {
 
 	omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
 };
-
-/**
- * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
- */
-typedef struct omp_data_map_halo_region_info {
-	int left; /* element size */
-	int right; /* element size */
-	short cyclic;
-	int top_dim; /* which dimension of the device topology this halo region is related to */
-} omp_data_map_halo_region_info_t;
-
-typedef struct omp_data_map_halo_region_mem {
-	/* the in/out pointer is the buffer for the halo regions.
-	 * The in ptr is the buffer for halo region that will be copied in,
-	 * and the out is for those that will be copied out.
-	 * In implementation, we put the in and out buffer into one mem space for each left and right halo region
-	 */
-	omp_data_map_t *left_map; /* left data map */
-	omp_data_map_t *right_map; /* left data map */
-	void * left_in_ptr;
-	long left_in_size; /* for pull update, == right_out_size if push protocol is used */
-	void * left_out_ptr;
-	void * right_in_ptr;
-	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
-	void * right_out_ptr;
-} omp_data_map_halo_region_mem_t;
 
 /**
   * info per offloading
@@ -334,13 +332,16 @@ extern void omp_stream_stop_event_record(omp_dev_stream_t * stream, int event);
 extern float omp_stream_event_elapsed_ms(omp_dev_stream_t * stream, int event);
 extern float omp_stream_event_elapsed_accumulate_ms(omp_dev_stream_t * stream, int event);
 
+extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, int nnodes, int ndims, int *dims, int *periodic, omp_grid_topology_idmap_t * idmap) ;
 extern void omp_topology_print(omp_grid_topology_t * top);
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_type_t * map_type, omp_data_map_dist_t * dist);
+		omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
 extern void omp_data_map_init_info_dist_straight(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_type_t * map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t * dist_type) ;
+		omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
+extern void omp_data_map_init_info_dist_straight_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, int halo_left, int halo_right, int halo_cyclic);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev,	omp_dev_stream_t * stream);
-extern void omp_data_map_do_even_dist(omp_data_map_t *map, int dim, omp_grid_topology_t *top, int topdim, int devid);
+extern void omp_data_map_dist(omp_data_map_t *map, int seqid);
 extern void omp_print_data_map(omp_data_map_t * map);
 
 extern void omp_map_marshal(omp_data_map_t * map);
@@ -392,6 +393,10 @@ extern void omp_factor(int n, int factor[], int dims);
 
 extern void devcall_errchk(int code, char *file, int line, int abort);
 #define devcall_assert(ecode) { devcall_errchk((ecode), __FILE__, __LINE__, 1); }
+
+/* util */
+extern double read_timer_ms();
+extern double read_timer();
 
 #ifdef __cplusplus
  }
