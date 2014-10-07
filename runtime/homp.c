@@ -88,11 +88,11 @@ int omp_get_num_active_devices() {
  *
  * master is just the thread that will store
  */
-void omp_offloading_notify_and_wait_completion(omp_device_t * targets, int num_targets, omp_offloading_info_t * off_info) {
+void omp_offloading_notify_and_wait_completion(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info) {
 	int i;
 	pthread_barrier_init(&off_info->barrier, NULL, off_info->top->ndims+1);
 	for (i = 0; i < num_targets; i++) {
-		targets[i].offload_info = off_info;
+		targets[i]->offload_info = off_info;
 	}
 	pthread_barrier_wait(&off_info->barrier);
 }

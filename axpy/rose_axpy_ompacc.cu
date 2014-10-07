@@ -46,7 +46,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, int event_id) {
     
     omp_loop_map_range(map_x, 0, -1, -1, &start_n, &length_n);
     
-	omp_device_type_t devtype = off->dev->type;
+	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
         /* Launch CUDA kernel ... */
@@ -85,11 +85,12 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 		__target_devices__[__i__] = &omp_devices[__i__]; /* currently this is simple a copy of the pointer */
 	}
 	/**TODO: compiler generated code or runtime call to init the topology */
+	omp_grid_topology_t __top__;	
 	int __top_ndims__ = 1;
 	int __top_dims__[__top_ndims__];
 	int __top_periodic__[__top_ndims__]; 
 	omp_grid_topology_idmap_t __id_map__[__num_target_devices__];
-	omp_grid_topology_init_simple (&__topology__, __num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__, __id_map__);
+	omp_grid_topology_init_simple (&__top__, __num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__, __id_map__);
 
 	int __num_mapped_variables__ = 2; /* XXX: need compiler output */
 
@@ -98,18 +99,18 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_dist_t x_dist[1];
-	omp_data_map_init_info_dist_straight(__info__, __topp__, x, 1, x_dims, sizeof(double), OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_dist_straight(__info__, &__top__, x, 1, x_dims, sizeof(double), OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
 	omp_data_map_dist_t y_dist[1];
-	omp_data_map_init_info_dist_straight(__info__, __topp__, y, 1, y_dims, sizeof(double), OMP_DATA_MAP_TO, y_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_dist_straight(__info__, &__top__, y, 1, y_dims, sizeof(double), OMP_DATA_MAP_TO, y_dist, OMP_DATA_MAP_DIST_EVEN);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 	
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.dev_offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
-	omp_offloading_init_info (&__offloading_info__, __topp__, __target_devices__, __num_mapped_variables__, __data_map_infos__, NULL);
+	omp_offloading_init_info (&__offloading_info__, &__top__, __target_devices__, __num_mapped_variables__, __data_map_infos__, NULL);
 	
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

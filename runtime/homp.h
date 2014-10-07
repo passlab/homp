@@ -321,7 +321,7 @@ extern int omp_set_current_device(int id); /* return the current device id */
 
 extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
 		omp_data_map_info_t * data_map_info, void (*kernel)(void *));
-extern void omp_offloading_notify_and_wait_completion(omp_device_t * targets, int num_targets, omp_offloading_info_t * off_info);
+extern void omp_offloading_notify_and_wait_completion(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
 extern void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream);
