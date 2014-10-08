@@ -1,7 +1,5 @@
 #include "axpy.h"
 /* standard one-dev support */
-#include "libxomp.h" 
-#include "xomp_cuda_lib_inlined.cu"
 #include "homp.h"
 
 #if 0
