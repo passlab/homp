@@ -98,7 +98,7 @@ typedef enum OMP_OFFLOADING_STEPS {
 } OMP_OFFLOADING_STEP_t;
 
 
-#define OMP_DEV_STREAM_NUM_EVENTS 6
+#define OMP_DEV_STREAM_NUM_EVENTS 8
 
 /**
  * each stream also provide a limited number of event objects for collecting timing
@@ -112,16 +112,32 @@ typedef struct omp_dev_stream {
 #endif
 		void * myStream;
 	} systream;
-
-	/* we organize them as set of events */
-#if defined (DEVICE_NVGPU_SUPPORT)
-	cudaEvent_t start_event[OMP_DEV_STREAM_NUM_EVENTS];
-	cudaEvent_t stop_event[OMP_DEV_STREAM_NUM_EVENTS];
-#endif
-	float start_time[OMP_DEV_STREAM_NUM_EVENTS];
-	float stop_time[OMP_DEV_STREAM_NUM_EVENTS];
-	float elapsed[OMP_DEV_STREAM_NUM_EVENTS];
 } omp_dev_stream_t;
+
+/**
+ * we organize record and timing as a sequence of event, recording could be done by host side or by device-specific approach
+ */
+typedef enum omp_event_record_method {
+	OMP_EVENT_DEV_RECORD,
+	OMP_EVENT_HOST_RECORD,
+	OMP_EVENT_HOST_DEV_RECORD,
+} omp_event_record_method_t;
+
+typedef struct omp_event {
+	omp_dev_stream_t * stream;
+	omp_event_record_method_t record_method;
+
+#if defined (DEVICE_NVGPU_SUPPORT)
+	cudaEvent_t start_event_dev;
+	cudaEvent_t stop_event_dev;
+#endif
+	float start_time_dev;
+	float stop_time_dev;
+	float start_time_host;
+	float stop_time_host;
+	float elapsed_dev;
+	float elapsed_host;
+} omp_event_t;
 
 /**
  ********************** Compiler notes *********************************************
@@ -280,7 +296,7 @@ struct omp_offloading_info {
 	/* the universal kernel launcher and args, the helper thread will use this one if no dev-specific one is provided */
 	/* the helper thread will first check these two field, if they are not null, it will use them, otherwise, it will use the dev-specific one */
 	void * args;
-	void (*kernel_launcher)(omp_offloading_t *, void *, int); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
+	void (*kernel_launcher)(omp_offloading_t *, void *); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
 
 	/* the parcipating barrier */
 	pthread_barrier_t barrier;
@@ -314,7 +330,7 @@ struct omp_offloading {
 	int X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
 	int X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
 	void *args;
-	void (*kernel_launcher)(omp_offloading_t *, void *, int); /* device specific kernel, if any */
+	void (*kernel_launcher)(omp_offloading_t *, void *); /* device specific kernel, if any */
 };
 
 /** temp solution */
@@ -331,18 +347,24 @@ extern int omp_set_current_device_dev(omp_device_t * d); /* return the current d
 extern int omp_set_current_device(int id); /* return the current device id */
 
 extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *, int), void *args);
+		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void *args);
 extern void omp_offloading_notify_and_wait_completion(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
 extern void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream);
-extern void omp_stream_start_event_record(omp_dev_stream_t * stream, int event);
-extern void omp_stream_stop_event_record(omp_dev_stream_t * stream, int event);
-extern float omp_stream_event_elapsed_ms(omp_dev_stream_t * stream, int event);
-extern float omp_stream_event_elapsed_accumulate_ms(omp_dev_stream_t * stream, int event);
+extern void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream);
+extern void omp_sync_cleanup(omp_offloading_t * off);
 
-extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, int nnodes, int ndims, int *dims, int *periodic, omp_grid_topology_idmap_t * idmap) ;
+extern void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method);
+extern void omp_event_record_start(omp_event_t * ev);
+extern void omp_event_record_stop(omp_event_t * ev);
+extern void omp_event_elapsed_ms(omp_event_t * ev);
+
+extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, int nnodes, int ndims, int *dims, int *periodic, omp_grid_topology_idmap_t * idmap);
+/*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
+extern void omp_factor(int n, int factor[], int dims);
 extern void omp_topology_print(omp_grid_topology_t * top);
+
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
 extern void omp_data_map_init_info_dist_straight(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
@@ -352,17 +374,21 @@ extern void omp_data_map_init_info_dist_straight_with_halo(omp_data_map_info_t *
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev,	omp_dev_stream_t * stream);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid);
 extern void omp_print_data_map(omp_data_map_t * map);
-
+extern void omp_map_buffer_malloc(omp_data_map_t * map);
 extern void omp_map_marshal(omp_data_map_t * map);
 extern void omp_map_unmarshal(omp_data_map_t * map);
+extern void omp_map_malloc_dev(omp_data_map_t * map);
+extern void omp_map_memcpy_to(omp_data_map_t * map);
+extern void omp_map_memcpy_to_async(omp_data_map_t * map);
+extern void omp_map_memcpy_from(omp_data_map_t * map);
+extern void omp_map_memcpy_from_async(omp_data_map_t * map) ;
+extern void omp_map_memcpy_DeviceToDevice(omp_data_map_t * dst, omp_data_map_t * src, int size);
+extern void omp_map_memcpy_DeviceToDeviceAsync(omp_data_map_t * dst, omp_data_map_t * src, int size);
+
 extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
 extern void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right);
 extern void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right);
-extern void omp_map_buffer_malloc(omp_data_map_t * map);
-
-extern void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream);
-extern void omp_sync_cleanup(omp_offloading_t * off);
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );
@@ -385,27 +411,12 @@ extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t strea
  *
  */
 extern long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length);
-/*
- * marshalled the array region of the source array, and copy data to to its new location (map_buffer)
- */
-extern void omp_map_malloc_dev(omp_data_map_t * map);
-extern void omp_map_memcpy_to(omp_data_map_t * map);
-extern void omp_map_memcpy_to_async(omp_data_map_t * map);
-extern void omp_map_memcpy_from(omp_data_map_t * map);
-extern void omp_map_memcpy_from_async(omp_data_map_t * map) ;
-extern void omp_map_memcpy_DeviceToDevice(omp_data_map_t * dst, omp_data_map_t * src, int size);
-extern void omp_map_memcpy_DeviceToDeviceAsync(omp_data_map_t * dst, omp_data_map_t * src, int size);
-/* extern void omp_postACCKernel(int num_devices, int num_maps, cudaStream_t dev_stream[num_devices], omp_data_map_t data_map[num_devices][num_maps]);
-*/
-/*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
-extern void omp_factor(int n, int factor[], int dims);
-
-extern void devcall_errchk(int code, char *file, int line, int abort);
-#define devcall_assert(ecode) { devcall_errchk((ecode), __FILE__, __LINE__, 1); }
 
 /* util */
 extern double read_timer_ms();
 extern double read_timer();
+extern void devcall_errchk(int code, char *file, int line, int abort);
+#define devcall_assert(ecode) { devcall_errchk((ecode), __FILE__, __LINE__, 1); }
 
 #ifdef __cplusplus
  }

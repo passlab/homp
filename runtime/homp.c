@@ -108,11 +108,6 @@ void omp_offloading_run(omp_offloading_info_t * off_info, int seqid) {
 void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 	int devid = dev->id;
-#if 0
-	int data_map_buffer_size = 64;
-	omp_data_map_t *data_map_buffer[64]; /* a buffer to maintain a list of data maps for the current offload */
-	int data_map_buffer_index = 0;
-#endif
 	/*************** wait *******************/
 schedule: ;
 	while (dev->offload_info == NULL);
@@ -123,54 +118,82 @@ schedule: ;
 
 	omp_offloading_t * off = &off_info->offloadings[seqid];
 	off->devseqid = seqid;
-#if 0
-	off->num_data_maps = off_info->num_mapped_vars;
-	off->data_maps = &data_map_buffer[data_map_buffer_index];
-#endif
+	omp_dev_stream_t * stream = &off->stream;
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	/* the num_mapped_vars * 2 +4 is the rough number of events needed */
+	int num_events = off_info->num_mapped_vars * 2 + 4;
+	omp_event_t events[num_events];
+	int event_index = 0;
 
 	/* set up stream and event */
-	omp_init_stream(dev, &off->stream);
+	omp_event_init(stream, &events[event_index], OMP_EVENT_HOST_RECORD);
+	omp_event_record_start(&events[event_index]);
+#endif
+	omp_init_stream(dev, stream);
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	for (i=1; i<num_events; i++) {
+		omp_event_init(stream, &events[i], OMP_EVENT_HOST_DEV_RECORD);
+	}
+	omp_event_record_stop(&events[event_index++]);
+#endif
 
 	/* init data map and dev memory allocation */
 	/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 	int i = 0;
-	int event_index = 0;
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 		omp_data_map_t * map = map_info->maps[seqid];
-		omp_data_map_init_map(map, map_info, dev, &off->stream);
+		omp_data_map_init_map(map, map_info, dev, stream);
 		omp_data_map_dist(map, seqid);
 		omp_print_data_map(map);
 		omp_map_buffer_malloc(map);
 		if (map_info->map_type == OMP_DATA_MAP_TO || map_info->map_type == OMP_DATA_MAP_TOFROM) {
-			omp_stream_start_event_record(&off->stream, event_index);
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_event_record_start(&events[event_index]);
+#endif
 			omp_map_memcpy_to_async(map); /* memcpy from host to device */
-			omp_stream_stop_event_record(&off->stream, event_index++);
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_event_record_stop(&events[event_index++]);
+#endif
 		}
 	}
 
 	/* launching the kernel */
 	void * args = off_info->args;
-	void (*kernel_launcher)(omp_offloading_t *, void *, int) = off_info->kernel_launcher;
+	void (*kernel_launcher)(omp_offloading_t *, void *) = off_info->kernel_launcher;
 	if (args == NULL) args = off->args;
 	if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
-	kernel_launcher(off, args, event_index);
-	event_index++;
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[event_index]);
+#endif
+	kernel_launcher(off, args);
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[event_index++]);
+#endif
 
 	/* copy back results */
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 		omp_data_map_t * map = map_info->maps[seqid];
 		if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TOFROM) {
-			omp_stream_start_event_record(&off->stream, event_index);
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_event_record_start(&events[event_index]);
+#endif
 			omp_map_memcpy_from_async(map); /* memcpy from host to device */
-			omp_stream_stop_event_record(&off->stream, event_index++);
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_event_record_stop(&events[event_index++]);
+#endif
 		}
 	}
 
 	/* sync stream to wait for completion */
 	omp_sync_cleanup(off);
 	pthread_barrier_wait(&off_info->barrier);
+#if defined (OMP_BREAKDOWN_TIMING)
+
+#endif
 
 	dev->offload_info = NULL;
 	goto schedule;

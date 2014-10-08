@@ -42,7 +42,7 @@ struct OUT__3__5904__other_args {
 };
 
 /* called by the helper thread */
-void OUT__3__5904__launcher (omp_offloading_t * off, void *args, int event_id) {
+void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
     struct OUT__3__5904__other_args * iargs = (struct OUT__3__5904__other_args*) args; 
     long start_n, length_n;
     double a = iargs->a;
@@ -66,9 +66,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args, int event_id) {
         int _num_blocks_ = xomp_get_max1DBlock(length_n);
 //        printf("device: %d, range: %d:%d\n", __i__, start_n, length_n);
 
-		omp_stream_start_event_record(&off->stream, event_id);
         OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, off->stream.systream.cudaStream>>>(start_n, length_n,a,x,y);
-		omp_stream_stop_event_record(&off->stream, event_id);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_LOCALTH) {
@@ -141,7 +139,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	/* here we do not need sync start */
 	omp_offloading_notify_and_wait_completion(__target_devices__, __num_target_devices__, &__offloading_info__);
 	ompacc_time = omp_get_wtime() - ompacc_time; //(read_timer_ms() - ompacc_time);
-
+#if 0
 	float x_map_to_elapsed[__num_target_devices__];
 	float y_map_to_elapsed[__num_target_devices__];
 	float kernel_elapsed[__num_target_devices__];
@@ -187,4 +185,5 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	printf("==========================================================================================================================================\n");
 
 	return cpu_total;
+#endif
 }

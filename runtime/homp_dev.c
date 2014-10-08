@@ -247,6 +247,14 @@ void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cud
 		result += rdata->input[i];
 	rdata->result = result;
 }
+
+
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
+	float * time = (float*)userData;
+	*time = read_timer_ms();
+}
+#endif
 #endif
 
 void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream) {
@@ -258,100 +266,129 @@ void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream) {
 	if (d->type == OMP_DEVICE_NVGPU) {
 		result = cudaStreamCreate(&stream->systream.cudaStream);
 		devcall_assert(result);
-		for (i=0; i<OMP_DEV_STREAM_NUM_EVENTS; i++) {
-			result = cudaEventCreateWithFlags(&stream->start_event[i], cudaEventBlockingSync);
-			devcall_assert(result);
-			result = cudaEventCreateWithFlags(&stream->stop_event[i], cudaEventBlockingSync);
-			devcall_assert(result);
-			stream->elapsed[i] = 0.0;
-		}
+	} else
+#endif
+	if (d->type == OMP_DEVICE_LOCALTH){
+		/* do nothing */
 	} else {
-		fprintf(stderr, "device type (%d) is not yet supported!\n", d->type);
-	}
-#else
-	/** other type of device stream support */
-#endif
-	for (i=0; i<OMP_DEV_STREAM_NUM_EVENTS; i++) {
-		stream->elapsed[i] = 0.0;
+
 	}
 }
 
+void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method) {
+	ev->stream = stream;
+	ev->record_method = record_method;
+	omp_device_type_t devtype = stream->dev->type;
+	ev->elapsed_dev = ev->elapsed_host = 0.0;
+	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
-	float * time = (float*)userData;
-	*time = read_timer_ms();
+		if (devtype == OMP_DEVICE_NVGPU) {
+			cudaError_t result;
+			result = cudaEventCreateWithFlags(ev->start_event_dev, cudaEventBlockingSync);
+			devcall_assert(result);
+			result = cudaEventCreateWithFlags(ev->stop_event_dev, cudaEventBlockingSync);
+			devcall_assert(result);
+		} else
+#endif
+		if (devtype == OMP_DEVICE_LOCALTH) {
+			/* do nothing */
+		} else {
+			fprintf(stderr, "other type of devices are not yet supported\n");
+		}
+	}
 }
-#endif
-#endif
 
-void omp_stream_start_event_record(omp_dev_stream_t * stream, int event) {
+void omp_event_record_start(omp_event_t * ev) {
+	omp_dev_stream_t * stream = ev->stream;
+	omp_event_record_method_t record_method = ev->record_method;
+	omp_device_type_t devtype = stream->dev->type;
+	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
-    cudaError_t result;
+		if (devtype == OMP_DEVICE_NVGPU) {
+			cudaError_t result;
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->start_time[event], 0);
+			result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->start_time_dev, 0);
 #else
-	result = cudaEventRecord(stream->start_event[event], stream->systream.cudaStream);
+			result = cudaEventRecord(ev->start_event_dev, stream->systream.cudaStream);
 #endif
-    devcall_assert(result);
-#else
-    stream->start_time[event] = read_timer_ms();
+			devcall_assert(result);
+		} else
 #endif
+		if (devtype == OMP_DEVICE_LOCALTH) {
+			ev->start_time_dev = read_timer_ms();
+		} else {
+			fprintf(stderr, "other type of devices are not yet supported\n");
+		}
+	}
+
+	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
+		ev->start_time_host = read_timer_ms();
+	}
 }
 
-void omp_stream_stop_event_record(omp_dev_stream_t * stream, int event) {
+void omp_event_record_stop(omp_event_t * ev) {
+	omp_dev_stream_t * stream = ev->stream;
+	omp_event_record_method_t record_method = ev->record_method;
+	omp_device_type_t devtype = stream->dev->type;
+	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
-	cudaError_t result;
+		if (devtype == OMP_DEVICE_NVGPU) {
+			cudaError_t result;
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &stream->stop_time[event], 0);
+			result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->stop_time_dev, 0);
 #else
-	result = cudaEventRecord(stream->stop_event[event], stream->systream.cudaStream);
+			result = cudaEventRecord(ev->stop_event_dev, stream->systream.cudaStream);
 #endif
-	devcall_assert(result);
-#else
-    stream->stop_time[event] = read_timer_ms();
+			devcall_assert(result);
+		} else
 #endif
+		if (devtype == OMP_DEVICE_LOCALTH) {
+			ev->stop_time_dev = read_timer_ms();
+		} else {
+			fprintf(stderr, "other type of devices are not yet supported\n");
+		}
+	}
+
+	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
+		ev->stop_time_host = read_timer_ms();
+	}
 }
 
 /**
  * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
  */
-float omp_stream_event_elapsed_ms(omp_dev_stream_t * stream, int event) {
+void omp_event_elapsed_ms(omp_event_t * ev) {
+	omp_dev_stream_t * stream = ev->stream;
+	omp_event_record_method_t record_method = ev->record_method;
+	omp_device_type_t devtype = stream->dev->type;
 	float elapse;
+	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
+		if (devtype == OMP_DEVICE_NVGPU) {
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	elapse = stream->stop_time[event] - stream->start_time[event];
+			elapse = ev->stop_time_dev - ev->start_time_dev;
 #else
-	cudaError_t result;
-	result = cudaEventSynchronize(stream->start_event[event]);
-	devcall_assert(result);
-	result = cudaEventSynchronize(stream->stop_event[event]);
-	devcall_assert(result);
-	result = cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
-	devcall_assert(result);
+			cudaError_t result;
+			result = cudaEventSynchronize(ev->start_event_dev);
+			devcall_assert(result);
+			result = cudaEventSynchronize(ev->stop_event_dev);
+			devcall_assert(result);
+			result = cudaEventElapsedTime(&elapse, ev->start_event_dev, ev->stop_event_dev);
+			devcall_assert(result);
+		} else
 #endif
-	stream->elapsed[event] = elapse;
-#else
-	elapse = stream->stop_time[event] - stream->start_time[event];
 #endif
-	return elapse;
-}
+		if (devtype == OMP_DEVICE_LOCALTH) {
+			elapse = ev->stop_time_dev - ev->start_time_dev;
+		} else {
+			fprintf(stderr, "other type of devices are not yet supported\n");
+		}
+		ev->elapsed_dev = elapse;
+	}
 
-/* accumulate the elapsed time of the event to the stream object and return the elapsed of this event
- */
-float omp_stream_event_elapsed_accumulate_ms(omp_dev_stream_t * stream, int event) {
-	float elapse;
-#if defined (DEVICE_NVGPU_SUPPORT)
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-	elapse = stream->stop_time[event] - stream->start_time[event];
-#else
-	cudaEventElapsedTime(&elapse, stream->start_event[event], stream->stop_event[event]);
-#endif
-#else
-	elapse = stream->stop_time[event] - stream->start_time[event];
-#endif
-	stream->elapsed[event] += elapse;
-	return elapse;
+	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
+		ev->elapsed_host = ev->stop_time_host - ev->start_time_host;
+	}
 }
 
 /**
