@@ -200,7 +200,7 @@ schedule: ;
 }
 
 void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *, int), void * args) {
+		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args) {
 	info->top = top;
 	info->targets = targets;
 	info->num_mapped_vars = num_mapped_vars;
@@ -459,7 +459,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 	}
 	map->map_size = map_size;
 	if (!map->marshalled_or_not) {
-		map->map_buffer = sizeof_element * omp_top_offset(info->num_dims, map->map_dim, map->map_offset);
+		map->map_buffer = info->source_ptr + sizeof_element * omp_top_offset(info->num_dims, map->map_dim, map->map_offset);
 	} else {
 		omp_map_marshal(map);
 	}

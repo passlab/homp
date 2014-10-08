@@ -284,9 +284,9 @@ void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_recor
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
 			cudaError_t result;
-			result = cudaEventCreateWithFlags(ev->start_event_dev, cudaEventBlockingSync);
+			result = cudaEventCreateWithFlags(&ev->start_event_dev, cudaEventBlockingSync);
 			devcall_assert(result);
-			result = cudaEventCreateWithFlags(ev->stop_event_dev, cudaEventBlockingSync);
+			result = cudaEventCreateWithFlags(&ev->stop_event_dev, cudaEventBlockingSync);
 			devcall_assert(result);
 		} else
 #endif
