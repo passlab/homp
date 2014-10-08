@@ -250,7 +250,7 @@ typedef struct omp_data_map_info {
 	 * otherwise, we have to iterate the halo_region array to see whether this is one or not */
 	short has_halo_region;
 
-	omp_data_map_t ** maps; /* a list of data maps of this array */
+	omp_data_map_t * maps; /* a list of data maps of this array */
 } omp_data_map_info_t;
 
 /* for each device, we maintain a list such objects, each for one mapped array */
@@ -327,8 +327,8 @@ struct omp_offloading {
 #endif
 
 	/* kernel info */
-	int X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
-	int X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
+	long X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
+	long X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
 	void *args;
 	void (*kernel_launcher)(omp_offloading_t *, void *); /* device specific kernel, if any */
 };

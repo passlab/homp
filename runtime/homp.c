@@ -144,7 +144,7 @@ schedule: ;
 	int i = 0;
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
-		omp_data_map_t * map = map_info->maps[seqid];
+		omp_data_map_t * map = &map_info->maps[seqid];
 		omp_data_map_init_map(map, map_info, dev, stream);
 		omp_data_map_dist(map, seqid);
 		omp_print_data_map(map);
@@ -176,7 +176,7 @@ schedule: ;
 	/* copy back results */
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
-		omp_data_map_t * map = map_info->maps[seqid];
+		omp_data_map_t * map = &map_info->maps[seqid];
 		if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
@@ -256,7 +256,7 @@ void omp_data_map_init_info_dist_straight_with_halo(omp_data_map_info_t *info, o
 void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_type_t map_type, omp_data_map_dist_t * dist) {
 	if (num_dims > 3) {
-		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", dims);
+		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
 		exit(1);
 	}
 	info->top = top;
@@ -300,16 +300,16 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 	int i;
 	for (i = 0; i < info->num_dims; i++) { /* process each dimension */
 		omp_data_map_dist_t * dist = &info->dist[i];
-		int n = dist->start - dist->end;
+		long n = dist->start - dist->end;
 
 		int topdim = dist->topdim;
 		int topdimcoord = coords[topdim];
 		int topdimsize = top->dims[topdim];
 		if (dist->type == OMP_DATA_MAP_DIST_EVEN) { /* even distributions */
 			/* partition the array region into subregion and save it to the map */
-			int remaint = n % topdimsize;
-			int esize = n / topdimsize;
-			int map_dim, map_offset;
+			long remaint = n % topdimsize;
+			long esize = n / topdimsize;
+			long map_dim, map_offset;
 			if (topdimcoord < remaint) { /* each of the first remaint dev has one more element */
 				map_dim = esize + 1;
 				map_offset = (esize + 1) * topdimcoord;
@@ -353,10 +353,10 @@ void omp_map_unmarshal(omp_data_map_t * map) {
 		break;
 	}
 	case 2: {
-		int region_line_size = map->map_dim[1]*sizeof_element;
-		int full_line_size = info->dims[1]*sizeof_element;
-		int region_off = 0;
-		int full_off = 0;
+		long region_line_size = map->map_dim[1]*sizeof_element;
+		long full_line_size = info->dims[1]*sizeof_element;
+		long region_off = 0;
+		long full_off = 0;
 		char * src_ptr = info->source_ptr + sizeof_element*info->dims[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
 		for (i=0; i<map->map_dim[0]; i++) {
 			memcpy(src_ptr+full_off, map->map_buffer+region_off, region_line_size);
@@ -391,10 +391,10 @@ void omp_map_marshal(omp_data_map_t * map) {
 		break;
 	}
 	case 2: {
-		int region_line_size = map->map_dim[1] * sizeof_element;
-		int full_line_size = info->dims[1] * sizeof_element;
-		int region_off = 0;
-		int full_off = 0;
+		long region_line_size = map->map_dim[1] * sizeof_element;
+		long full_line_size = info->dims[1] * sizeof_element;
+		long region_off = 0;
+		long full_off = 0;
 		char * src_ptr = info->source_ptr
 				+ sizeof_element * info->dims[1] * map->map_offset[0]
 				+ sizeof_element * map->map_offset[1];
@@ -422,10 +422,21 @@ void omp_map_marshal(omp_data_map_t * map) {
  * Given an element with index stored in idx array, this function return the offset
  * of that element in row-major. E.g. for an array [3][4][5], element [2][2][3] has offset 53
  */
-int omp_top_offset(int ndims, long int * dims, long int * idx) {
+int omp_top_offset(int ndims, int * dims, int * idx) {
 	int i;
 	int off = 0;
 	int mt = 1;
+	for (i=ndims-1; i>=0; i--) {
+		off += mt * idx[i];
+		mt *= dims[i];
+	}
+	return off;
+}
+
+long omp_array_offset(int ndims, long * dims, long * idx) {
+	int i;
+	long off = 0;
+	long mt = 1;
 	for (i=ndims-1; i>=0; i--) {
 		off += mt * idx[i];
 		mt *= dims[i];
@@ -459,7 +470,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 	}
 	map->map_size = map_size;
 	if (!map->marshalled_or_not) {
-		map->map_buffer = info->source_ptr + sizeof_element * omp_top_offset(info->num_dims, map->map_dim, map->map_offset);
+		map->map_buffer = info->source_ptr + sizeof_element * omp_array_offset(info->num_dims, map->map_dim, map->map_offset);
 	} else {
 		omp_map_marshal(map);
 	}
@@ -902,7 +913,7 @@ int omp_topology_get_coords(omp_grid_topology_t * top, int sid, int ndims, int c
 
 /* return the sequence id of the coord
  */
-int omp_grid_topology_get_devid(omp_grid_topology_t * top, int coords[]) {
+int omp_grid_topology_get_seqid_coords(omp_grid_topology_t * top, int coords[]) {
 /*
 	// TODO: currently only for 2D
 	if (top->ndims == 1) return top->idmap[coords[0]].devid;
@@ -967,9 +978,9 @@ void omp_topology_get_neighbors(omp_grid_topology_t * top, int devsid, int topdi
     	if (rightdimcoord == dimsize)
     		rightdimcoord = 0;
     	coords[topdim] = leftdimcoord;
-    	*left = omp_grid_topology_get_seqid(top, coords);
+    	*left = omp_grid_topology_get_seqid_coords(top, coords);
     	coords[topdim] = rightdimcoord;
-    	*right = omp_grid_topology_get_seqid(top, coords);
+    	*right = omp_grid_topology_get_seqid_coords(top, coords);
     	return;
     } else {
     	if (leftdimcoord < 0) {
@@ -979,18 +990,18 @@ void omp_topology_get_neighbors(omp_grid_topology_t * top, int devsid, int topdi
     			return;
     		} else {
     			coords[topdim] = rightdimcoord;
-    			*right = omp_grid_topology_get_seqid(top, coords);
+    			*right = omp_grid_topology_get_seqid_coords(top, coords);
     			return;
     		}
     	} else {
     		coords[topdim] = leftdimcoord;
-    		*left = omp_grid_topology_get_seqid(top, coords);
+    		*left = omp_grid_topology_get_seqid_coords(top, coords);
     		if (rightdimcoord == dimsize) {
     			*right = -1;
     			return;
     		} else {
     			coords[topdim] = rightdimcoord;
-    			*right = omp_grid_topology_get_seqid(top, coords);
+    			*right = omp_grid_topology_get_seqid_coords(top, coords);
     			return;
     		}
     	}

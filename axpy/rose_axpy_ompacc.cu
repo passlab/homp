@@ -4,10 +4,6 @@
 #include "xomp_cuda_lib_inlined.cu" 
 #include "homp.h"
 
-/* in second */
-#define read_timer() omp_get_wtime()
-/* in ms */
-#define read_timer_ms() (omp_get_wtime()*1000.0)
 #if 0
 void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
 
@@ -28,16 +24,18 @@ void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
  */
 #endif
 
-__global__ void OUT__3__5904__( long start_n,  long len_n,double a,double *_dev_x,double *_dev_y)
+#if defined (DEVICE_NVGPU_SUPPORT)
+__global__ void OUT__3__5904__( long start_n,  long len_n,REAL a,REAL *_dev_x,REAL *_dev_y)
 {
    long _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
   if (_dev_i >= start_n && _dev_i <= start_n + len_n  - 1) {
     _dev_y[_dev_i] += (a * _dev_x[_dev_i]);
   }
 }
+#endif
 
 struct OUT__3__5904__other_args {
-	double a;
+	REAL a;
 	long n;
 };
 
@@ -45,13 +43,13 @@ struct OUT__3__5904__other_args {
 void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
     struct OUT__3__5904__other_args * iargs = (struct OUT__3__5904__other_args*) args; 
     long start_n, length_n;
-    double a = iargs->a;
-    double n = iargs->n;
+    REAL a = iargs->a;
+    REAL n = iargs->n;
     omp_offloading_info_t * off_info = off->off_info;
-    omp_data_map_t * map_x = off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map X */
-    omp_data_map_t * map_y = off_info->data_map_info[1].maps[off->devseqid]; /* 0 means the map X */
-    double * x = (double *)map_x->map_dev_ptr;
-    double * y = (double *)map_y->map_dev_ptr;
+    omp_data_map_t * map_x = &off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map X */
+    omp_data_map_t * map_y = &off_info->data_map_info[1].maps[off->devseqid]; /* 0 means the map X */
+    REAL * x = (REAL *)map_x->map_dev_ptr;
+    REAL * y = (REAL *)map_y->map_dev_ptr;
     
     omp_loop_map_range(map_x, 0, -1, -1, &start_n, &length_n);
     
@@ -78,9 +76,9 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 	}
 }
 
-double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
+REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 {
-	double ompacc_time = omp_get_wtime(); //read_timer_ms();
+	double ompacc_time = read_timer_ms();
 	
     /* get number of target devices specified by the programmers */
     int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
@@ -106,14 +104,14 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_dist_t x_dist[1];
-	omp_data_map_init_info_dist_straight(__info__, &__top__, x, 1, x_dims, sizeof(double), OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
-	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
+	omp_data_map_init_info_dist_straight(__info__, &__top__, x, 1, x_dims, sizeof(REAL), OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
+	__info__->maps = (omp_data_map_t *)alloca(sizeof(omp_data_map_t) * __num_target_devices__);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
 	omp_data_map_dist_t y_dist[1];
-	omp_data_map_init_info_dist_straight(__info__, &__top__, y, 1, y_dims, sizeof(double), OMP_DATA_MAP_TO, y_dist, OMP_DATA_MAP_DIST_EVEN);
-	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
+	omp_data_map_init_info_dist_straight(__info__, &__top__, y, 1, y_dims, sizeof(REAL), OMP_DATA_MAP_TO, y_dist, OMP_DATA_MAP_DIST_EVEN);
+	__info__->maps = (omp_data_map_t *)alloca(sizeof(omp_data_map_t) * __num_target_devices__);
 	
 	struct OUT__3__5904__other_args args;
 	omp_offloading_info_t __offloading_info__;
@@ -138,7 +136,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 #endif
 	/* here we do not need sync start */
 	omp_offloading_notify_and_wait_completion(__target_devices__, __num_target_devices__, &__offloading_info__);
-	ompacc_time = omp_get_wtime() - ompacc_time; //(read_timer_ms() - ompacc_time);
+	ompacc_time = read_timer_ms() - ompacc_time;
 #if 0
 	float x_map_to_elapsed[__num_target_devices__];
 	float y_map_to_elapsed[__num_target_devices__];
@@ -175,7 +173,7 @@ double axpy_ompacc_mdev_v2(double *x, double *y,  long n,double a)
 	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated/__num_target_devices__, y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
 	printf("\t\tbreakdown: map_to (x and y): %4f, kernel: %4f, map_from (y): %f\n", x_map_to_accumulated/__num_target_devices__ + y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
 
-	double cpu_total = ompacc_time*1000;
+	double cpu_total = ompacc_time;
 	printf("----------------------------------------------------------------\n");
 	printf("Total time measured from CPU: %4f\n", cpu_total);
 	printf("Total time measured without streamCreate %4f\n", (cpu_total-streamCreate_accumulated));

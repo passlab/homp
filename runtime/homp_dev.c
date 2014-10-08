@@ -422,7 +422,7 @@ void omp_sync_cleanup(omp_offloading_t * off) {
 	omp_stream_sync(&off->stream, 1);
 
 	for (i = 0; i < off_info->num_mapped_vars; i++) {
-		omp_data_map_t * map = &(off_info->data_map_info[i].maps[off->devseqid]);
+		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
 		omp_map_free_dev(map);
 		if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
 			omp_map_unmarshal(map);
