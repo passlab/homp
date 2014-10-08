@@ -157,18 +157,13 @@ extern omp_device_t * omp_get_device(int id);
 extern omp_device_t * omp_devices; /* an array of all device objects */
 extern int omp_num_devices;
 
-typedef struct omp_grid_topology_idmap {
-	int devid; /* the cooresponding devid */
-	int seqid; /* the seq id in the topology */
-} omp_grid_topology_idmap_t;
-
 /* a topology of devices, or threads or teams */
 typedef struct omp_grid_topology {
 	 int nnodes;     /* Product of dims[*], gives the size of the topology */
 	 int ndims;
 	 int *dims;
 	 int *periodic;
-	 omp_grid_topology_idmap_t * idmap; /* it is an array of nnodes of elements */
+	 int * idmap; /* the seqid is the array index, each element is the mapped devid */
 } omp_grid_topology_t;
 
 /* APIs to support data/array mapping and distribution */
@@ -360,7 +355,7 @@ extern void omp_event_record_start(omp_event_t * ev);
 extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_elapsed_ms(omp_event_t * ev);
 
-extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, int nnodes, int ndims, int *dims, int *periodic, omp_grid_topology_idmap_t * idmap);
+extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, omp_device_t ** devs, int nnodes, int ndims, int *dims, int *periodic, int * idmap);
 /*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
 extern void omp_factor(int n, int factor[], int dims);
 extern void omp_topology_print(omp_grid_topology_t * top);

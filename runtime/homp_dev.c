@@ -70,8 +70,7 @@ int omp_init_devices() {
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 	pthread_setconcurrency(omp_num_devices);
 
-	for (i=0; i<omp_num_devices; i++)
-	{
+	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		dev->id = i;
 		if (i < num_gpudevs) dev->type = OMP_DEVICE_NVGPU;
@@ -164,7 +163,7 @@ void omp_map_memcpy_to_async(omp_data_map_t * map) {
 	} else
 #endif
 	if (devtype == OMP_DEVICE_LOCALTH) {
-		fprintf(stderr, "no async call support, use sync memcpy call\n");
+//		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)map->map_dev_ptr, (const void *)map->map_buffer, map->map_size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -199,8 +198,9 @@ void omp_map_memcpy_from_async(omp_data_map_t * map) {
 	} else
 #endif
 	if (devtype == OMP_DEVICE_LOCALTH) {
-		fprintf(stderr, "no async call support, use sync memcpy call\n");
+//		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)map->map_buffer, (const void *)map->map_dev_ptr, map->map_size);
+//		printf("memcpy from: dest: %X, src: %X, size: %d\n", map->map_buffer, map->map_dev_ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}

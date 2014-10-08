@@ -90,7 +90,7 @@ int omp_get_num_active_devices() {
  */
 void omp_offloading_notify_and_wait_completion(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info) {
 	int i;
-	pthread_barrier_init(&off_info->barrier, NULL, off_info->top->ndims+1);
+	pthread_barrier_init(&off_info->barrier, NULL, off_info->top->nnodes+1);
 	for (i = 0; i < num_targets; i++) {
 		targets[i]->offload_info = off_info;
 	}
@@ -110,15 +110,17 @@ void helper_thread_main(void * arg) {
 	int devid = dev->id;
 	/*************** wait *******************/
 schedule: ;
-	printf("helper threading waiting ....\n");
+//	printf("helper threading (devid: %d) waiting ....\n", devid);
 	while (dev->offload_info == NULL);
 
 	omp_offloading_info_t * off_info = dev->offload_info;
 	omp_grid_topology_t * top = off_info->top;
 	int seqid = omp_grid_topology_get_seqid(top, devid);
+//	printf("devid: %d --> seqid: %d in top: %X\n", devid, seqid, top);
 
 	omp_offloading_t * off = &off_info->offloadings[seqid];
 	off->devseqid = seqid;
+	off->off_info = off_info;
 	omp_dev_stream_t * stream = &off->stream;
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -148,10 +150,9 @@ schedule: ;
 		omp_data_map_t * map = &map_info->maps[seqid];
 		omp_data_map_init_map(map, map_info, dev, stream);
 		omp_data_map_dist(map, seqid);
-#if DEBUG_MSG
-		omp_print_data_map(map);
-#endif
 		omp_map_buffer_malloc(map);
+//		omp_print_data_map(map);
+
 		if (map_info->map_type == OMP_DATA_MAP_TO || map_info->map_type == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
@@ -303,7 +304,7 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 	int i;
 	for (i = 0; i < info->num_dims; i++) { /* process each dimension */
 		omp_data_map_dist_t * dist = &info->dist[i];
-		long n = dist->start - dist->end;
+		long n = dist->end - dist->start + 1;
 
 		int topdim = dist->topdim;
 		int topdimcoord = coords[topdim];
@@ -312,6 +313,7 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 			/* partition the array region into subregion and save it to the map */
 			long remaint = n % topdimsize;
 			long esize = n / topdimsize;
+		//	printf("n: %d, seqid: %d, map_dist: topdimsize: %d, remaint: %d, esize: %d\n", n, seqid, topdimsize, remaint, esize);
 			long map_dim, map_offset;
 			if (topdimcoord < remaint) { /* each of the first remaint dev has one more element */
 				map_dim = esize + 1;
@@ -614,11 +616,11 @@ printf("allocating dim %d halo:%d * %d\n",1, (map->map_dim[0]+(&halo_info[1])->r
 
 void omp_print_data_map(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
-	printf("MAP: %X, source ptr: %X, dim[0]: %ld, dim[1]: %ld, dim[2]: %ld, map_dim[0]: %ld, map_dim[1]: %ld, map_dim[2]: %ld, "
+	printf("devid: %d, MAP: %X, source ptr: %X, dim[0]: %ld, dim[1]: %ld, dim[2]: %ld, map_dim[0]: %ld, map_dim[1]: %ld, map_dim[2]: %ld, "
 				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
-				"map_dev_ptr: %X, stream: %X, map_size: %ld, device_id: %d\n\n", map, info->source_ptr, info->dim[0], info->dim[1], info->dim[2],
+				"map_dev_ptr: %X, stream: %X, map_size: %ld\n\n", map->dev->id, map, info->source_ptr, info->dims[0], info->dims[1], info->dims[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
-				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->map_size, map->devsid);
+				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->map_size);
 }
 
 #if 0
@@ -927,22 +929,24 @@ int omp_grid_topology_get_seqid_coords(omp_grid_topology_t * top, int coords[]) 
 int omp_grid_topology_get_seqid(omp_grid_topology_t * top, int devid) {
 	int i;
 	for (i=0; i<top->nnodes; i++)
-		if (top->idmap[i].devid == devid) return top->idmap[i].seqid;
+		if (top->idmap[i] == devid) return i;
 
 	return -1;
 }
 
 /**
- * simple and common topology setup, i.e. devid is from 0 to n-1, the same id map (seqid) in the topology
+ * simple and common topology setup, i.e. devid is from 0 to n-1
  *
  */
-void omp_grid_topology_init_simple (omp_grid_topology_t * top, int nnodes, int ndims, int *dims, int *periodic, omp_grid_topology_idmap_t * idmap) {
+void omp_grid_topology_init_simple (omp_grid_topology_t * top, omp_device_t **devs, int nnodes, int ndims, int *dims, int *periodic, int * idmap) {
 	int i;
 	omp_factor(nnodes, dims, ndims);
-	for (i=0; i<ndims; i++) periodic[i] = 0;
+	for (i=0; i<ndims; i++) {
+		periodic[i] = 0;
+	}
 
 	for (i=0; i<nnodes; i++) {
-		idmap->devid = idmap->seqid = i;
+		idmap[i] = devs[i]->id;
 	}
 	top->nnodes = nnodes;
 	top->ndims = ndims;
