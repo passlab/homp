@@ -52,9 +52,12 @@ int omp_init_devices() {
 	/* the thread-simulated devices */
 	int num_thsimdev;
 
-	char * num_thsimdev_str = getenv("NUM_THSIM_DEVICES");
-	if (num_thsimdev_str != NULL ) sscanf(num_thsimdev_str, "%d", &num_thsimdev);
-	if (num_thsimdev < 0) num_thsimdev = 0;
+	char * num_thsimdev_str = getenv("OMP_NUM_THSIM_DEVICES");
+	if (num_thsimdev_str != NULL ) {
+		sscanf(num_thsimdev_str, "%d", &num_thsimdev);
+		if (num_thsimdev < 0) num_thsimdev = 1;
+	} else num_thsimdev = 1;
+
 	omp_num_devices += num_thsimdev;
 
 	omp_devices = malloc(sizeof(omp_device_t) * omp_num_devices);
@@ -86,11 +89,12 @@ int omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
+	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_gpudevs, num_thsimdev);
+	printf("The number of THSIM devices can be controlled by setting the OMP_NUM_THSIM_DEVICES env (default 1), \n");
+	printf("and number of active (enabled) devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n");
 	return omp_num_devices;
-	printf("System has total %d devices, %d GPU, %d THSIM devices, and the number of THSIM devices can be controlled by setting the NUM_THSIM_DEVICES env,\
-	  and number of active (enabled) devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n", omp_num_devices, num_gpudevs, num_thsimdev);
-}
 
+}
 
 int omp_set_current_device_dev(omp_device_t * d) {
 #if defined (DEVICE_NVGPU_SUPPORT)
@@ -113,7 +117,7 @@ void omp_map_malloc_dev(omp_data_map_t * map) {
 	} else
 #endif
 	if (devtype == OMP_DEVICE_LOCALTH) {
-		map->mem_dev_ptr = malloc(map->map_size);
+		map->map_dev_ptr = malloc(map->map_size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
@@ -128,7 +132,7 @@ void omp_map_free_dev(omp_data_map_t * map) {
 	} else
 #endif
 	if (devtype == OMP_DEVICE_LOCALTH) {
-		free(map->mem_dev_ptr);
+		free(map->map_dev_ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
