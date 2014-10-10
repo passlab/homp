@@ -362,6 +362,8 @@ extern void omp_topology_print(omp_grid_topology_t * top);
 
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
+extern void void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long end, omp_data_map_dist_type_t dist_type,
+		int halo_left, int halo_right, int halo_cyclic, int topdim);
 extern void omp_data_map_init_info_dist_straight(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
 extern void omp_data_map_init_info_dist_straight_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,

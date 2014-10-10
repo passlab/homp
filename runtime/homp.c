@@ -213,6 +213,17 @@ void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t 
 	info->args = args;
 }
 
+void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long end, omp_data_map_dist_type_t dist_type,
+		int halo_left, int halo_right, int halo_cyclic, int topdim) {
+	dist->start = start;
+	dist->end = end;
+	dist->type = dist_type;
+	dist->halo_left = halo_left;
+	dist->halo_right = halo_right;
+	dist->halo_cyclic = halo_cyclic;
+	dist->topdim = topdim;
+}
+
 /* the dist is straight, i.e.
  * 1. the number of array dimensions is the same as or less than the number of the topology dimensions
  * 2. the full range in each dimension of the array is distributed to the corresponding dimension of the topology
