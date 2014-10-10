@@ -32,7 +32,8 @@
  *       : f(n,m) - Right hand side function
  *************************************************************/
 
-#define REAL float // flexible between float and double
+#define REAL double
+// flexible between REAL and double
 
 
 #define DEFAULT_MSIZE 512
@@ -42,7 +43,7 @@
  * Assumes exact solution is u(x,y) = (1-x^2)*(1-y^2)
  *
  ******************************************************/
-void initialize(long n, long m, float alpha, float *dx, float * dy, float u[n][m], float f[n][m]) {
+void initialize(long n, long m, REAL alpha, REAL *dx, REAL * dy, REAL u[n][m], REAL f[n][m]) {
 	int i;
 	int j;
 	int xx;
@@ -69,13 +70,13 @@ void initialize(long n, long m, float alpha, float *dx, float * dy, float u[n][m
  * Checks error between numerical and exact solution
  *
  ************************************************************/
-void error_check(long n, long m, float alpha, float dx, float dy, float u[n][m], float f[n][m]) {
+void error_check(long n, long m, REAL alpha, REAL dx, REAL dy, REAL u[n][m], REAL f[n][m]) {
 	int i;
 	int j;
-	float xx;
-	float yy;
-	float temp;
-	float error;
+	REAL xx;
+	REAL yy;
+	REAL temp;
+	REAL error;
 	error = 0.0;
 //#pragma omp parallel for private(xx,yy,temp,j,i) reduction(+:error)
 	for (i = 0; i < n; i++)
@@ -86,51 +87,54 @@ void error_check(long n, long m, float alpha, float dx, float dy, float u[n][m],
 			error = (error + (temp * temp));
 		}
 	error = (sqrt(error) / (n * m));
-//	printf("Solution Error :%E \n", error);
+	printf("Solution Error: %2.6g\n", error);
 }
-void jacobi_seq(long n, long m, float dx, float dy, float alpha, float omega, float u[n][m], float f[n][m], float tol, int mits);
-void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omega, float u[n][m], float f[n][m], float tol, int mits);
+void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL u[n][m], REAL f[n][m], REAL tol, int mits);
+void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL u[n][m], REAL f[n][m], REAL tol, int mits);
 
 int main(int argc, char * argv[]) {
 	long n = DEFAULT_MSIZE;
 	long m = DEFAULT_MSIZE;
-	float alpha = 0.0543;
-	float tol = 0.0000000001;
-	float relax = 1.0;
+	REAL alpha = 0.0543;
+	REAL tol = 0.0000000001;
+	REAL relax = 1.0;
 	int mits = 5000;
 
     fprintf(stderr,"Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
     fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
-    fprintf(stderr, "\talpha - Helmholtz constant (always greater than 0.0), default: %f\n", alpha);
-    fprintf(stderr, "\ttol   - error tolerance for iterative solver, default: %f\n", tol);
-    fprintf(stderr, "\trelax - Successice over relaxation parameter, default: %f\n", relax);
+    fprintf(stderr, "\talpha - Helmholtz constant (always greater than 0.0), default: %g\n", alpha);
+    fprintf(stderr, "\ttol   - error tolerance for iterative solver, default: %g\n", tol);
+    fprintf(stderr, "\trelax - Successice over relaxation parameter, default: %g\n", relax);
     fprintf(stderr, "\tmits  - Maximum iterations for iterative solver, default: %d\n", mits);
 
     if (argc == 2)      { sscanf(argv[1], "%d", n); m = n; }
     else if (argc == 3) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); }
-    else if (argc == 4) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%f", alpha); }
-    else if (argc == 5) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%f", alpha); sscanf(argv[4], "%f", tol); }
-    else if (argc == 6) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%f", alpha); sscanf(argv[4], "%f", tol); sscanf(argv[5], "%f", relax); }
-    else if (argc == 7) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%f", alpha); sscanf(argv[4], "%f", tol); sscanf(argv[5], "%f", relax); sscanf(argv[6], "%d", mits); }
+    else if (argc == 4) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%g", alpha); }
+    else if (argc == 5) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%g", alpha); sscanf(argv[4], "%g", tol); }
+    else if (argc == 6) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%g", alpha); sscanf(argv[4], "%g", tol); sscanf(argv[5], "%g", relax); }
+    else if (argc == 7) { sscanf(argv[1], "%d", n); sscanf(argv[2], "%d", m); sscanf(argv[3], "%g", alpha); sscanf(argv[4], "%g", tol); sscanf(argv[5], "%g", relax); sscanf(argv[6], "%d", mits); }
     else {
     	/* the rest of arg ignored */
     }
-    printf("jacobi %d %d %f %f %f %d\n", n, m, alpha, tol, relax, mits);
+    printf("jacobi %d %d %g %g %g %d\n", n, m, alpha, tol, relax, mits);
     printf("------------------------------------------------------------------------------------------------------\n");
 
     /** init the array */
-    float u[n][m];
-    float f[n][m];
-    float dx; /* grid spacing in x direction */
-    float dy; /* grid spacing in y direction */
+    REAL u[n][m];
+    REAL f[n][m];
+    REAL dx; /* grid spacing in x direction */
+    REAL dy; /* grid spacing in y direction */
 
     initialize(n, m, alpha, &dx, &dy, u, f);
 	omp_init_devices();
 
-	float elapsed = read_timer_ms();
+	REAL elapsed = read_timer_ms();
 	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
-	float elasped = read_timer_ms() - elapsed;
+	REAL elasped = read_timer_ms() - elapsed;
+	printf("elasped time(ms): %12.6g\n", elapsed);
+	double mflops = (0.001*mits*(n-2)*(m-2)*13) / elapsed;
+	printf("MFLOPS: %12.6g\n", mflops);
 	error_check(n, m, alpha, dx, dy, u, f);
 
 	return 0;
@@ -156,14 +160,14 @@ int main(int argc, char * argv[]) {
  *
  * Output : u(n,m) - Solution
  *****************************************************************/
-void jacobi_seq(long n, long m, float dx, float dy, float alpha, float omega, float u[n][m], float f[n][m], float tol, int mits) {
+void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL u[n][m], REAL f[n][m], REAL tol, int mits) {
 	int i, j, k;
-	float error;
-	float ax;
-	float ay;
-	float b;
-	float resid;
-	float uold[n][m];
+	REAL error;
+	REAL ax;
+	REAL ay;
+	REAL b;
+	REAL resid;
+	REAL uold[n][m];
 	/*
 	 * Initialize coefficients */
 	/* X-direction coef */
@@ -191,13 +195,13 @@ void jacobi_seq(long n, long m, float dx, float dy, float alpha, float omega, fl
 			}
 		/* Error check */
 		if (k % 500 == 0)
-		printf("Finished %d iteration with error =%f\n", k, error);
+		printf("Finished %d iteration with error: %g\n", k, error);
 		error = sqrt(error) / (n * m);
 
 		k = k + 1;
 	} /*  End iteration loop */
-	printf("Total Number of Iterations:%d\n", k);
-	printf("Residual:%E\n", error);
+	printf("Total Number of Iterations: %d\n", k);
+	printf("Residual: %.15g\n", error);
 }
 
 #if 0
@@ -207,12 +211,12 @@ void jacobi_seq(long n, long m, float dx, float dy, float alpha, float omega, fl
 #define LOOP_COLLAPSE 1
 
 #if !LOOP_COLLAPSE
-__global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
+__global__ void OUT__1__10550__(int start_n, int n,int m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
 {
   int _p_j;
-  float _p_error;
+  REAL _p_error;
   _p_error = 0;
-  float _p_resid;
+  REAL _p_resid;
   long _dev_lower, _dev_upper;
   XOMP_accelerator_loop_default (start_n, n-1, 1, &_dev_lower, &_dev_upper);
   int _dev_i;
@@ -223,20 +227,20 @@ __global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,fl
       _p_error = (_p_error + (_p_resid * _p_resid));
     }
   }
-  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
+  xomp_inner_block_reduction_REAL(_p_error,_dev_per_block_error,6);
 }
 
 #else
-__global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,float ay,float b,float *_dev_per_block_error,float *_dev_u,float *_dev_f,float *_dev_uold)
+__global__ void OUT__1__10550__(int start_n, int n,int m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
 {
   int _dev_i;
   int ij;
   int _p_j;
   int _dev_lower, _dev_upper;
 
-  float _p_error;
+  REAL _p_error;
   _p_error = 0;
-  float _p_resid;
+  REAL _p_resid;
 
   // variables for adjusted loop info considering both original chunk size and step(strip)
   int _dev_loop_chunk_size;
@@ -272,13 +276,13 @@ __global__ void OUT__1__10550__(int start_n, int n,int m,float omega,float ax,fl
     }
   }
 
-  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
+  xomp_inner_block_reduction_REAL(_p_error,_dev_per_block_error,6);
 }
 
 #endif
 
 #if !LOOP_COLLAPSE
-__global__ void OUT__2__10550__(int n,int m,float *_dev_u,float *_dev_uold)
+__global__ void OUT__2__10550__(int n,int m,REAL *_dev_u,REAL *_dev_uold)
 {
   int _p_j;
   int _dev_i ;
@@ -291,7 +295,7 @@ __global__ void OUT__2__10550__(int n,int m,float *_dev_u,float *_dev_uold)
 }
 
 #else
-__global__ void OUT__2__10550__(int n,int m,float *_dev_u,float *_dev_uold)
+__global__ void OUT__2__10550__(int n,int m,REAL *_dev_u,REAL *_dev_uold)
 {
   int _p_j;
   int ij;
@@ -333,14 +337,14 @@ int orig_chunk_size = 1;
 
 #endif /* NVGPU support */
 
-void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omega, float u[n][m], float f[n][m], float tol, int mits) {
+void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL u[n][m], REAL f[n][m], REAL tol, int mits) {
 	int k;
-	float error;
-	float ax;
-	float ay;
-	float b;
+	REAL error;
+	REAL ax;
+	REAL ay;
+	REAL b;
 	omega = relax;
-	float uold[n][m];
+	REAL uold[n][m];
 	/*
 	 * Initialize coefficients */
 	/* X-direction coef */
@@ -386,7 +390,7 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
     /* Error check */
 
     if (k%500==0)
-      printf("Finished %d iteration with error =%f\n",k, error);
+      printf("Finished %d iteration with error =%g\n",k, error);
     error = sqrt(error)/(n*m);
 
     k = k + 1;
@@ -417,16 +421,16 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 	omp_data_map_info_t __data_map_infos__[__num_mapped_variables__];
 
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	omp_data_map_init_info(__info__, __topp__, &f[0][0], sizeof(float), OMP_MAP_TO, n, m, 1);
+	omp_data_map_init_info(__info__, __topp__, &f[0][0], sizeof(REAL), OMP_MAP_TO, n, m, 1);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	__info__ = &__data_map_infos__[1];
-	omp_data_map_init_info(__info__, __topp__, &u[0][0], sizeof(float), OMP_MAP_TOFROM, n, m, 1);
+	omp_data_map_init_info(__info__, __topp__, &u[0][0], sizeof(REAL), OMP_MAP_TOFROM, n, m, 1);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 	omp_map_add_halo_region(__info__, 0, 1, 1, 0, 0);
 
 	__info__ = &__data_map_infos__[2];
-	omp_data_map_init_info(__info__, __topp__, (void*)NULL, sizeof(float), OMP_MAP_ALLOC, n, m, 1);
+	omp_data_map_init_info(__info__, __topp__, (void*)NULL, sizeof(REAL), OMP_MAP_ALLOC, n, m, 1);
 	__info__->maps = (omp_data_map_t **)alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 	/* fill in halo region info here for uold */
 	omp_map_add_halo_region(__info__, 0, 1, 1, 0, 0);
@@ -434,9 +438,9 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 	omp_data_map_t __data_maps__[__num_target_devices__][__num_mapped_variables__];
 
 	/* for reduction */
-	float *_dev_per_block_error[__num_target_devices__];
-	float *_host_per_block_error[__num_target_devices__];
-	omp_reduction_float_t *reduction_callback_args[__num_target_devices__];
+	REAL *_dev_per_block_error[__num_target_devices__];
+	REAL *_host_per_block_error[__num_target_devices__];
+	omp_reduction_REAL_t *reduction_callback_args[__num_target_devices__];
 	double streamCreate_elapsed[__num_target_devices__];
 
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
@@ -501,9 +505,9 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 		omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
 		int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 		int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
-		cudaMalloc(&_dev_per_block_error[__i__], _num_blocks_ * sizeof(float));
-		_host_per_block_error[__i__] = (float*)(malloc(_num_blocks_*sizeof(float)));
-		reduction_callback_args[__i__] = (omp_reduction_float_t*)malloc(sizeof(omp_reduction_float_t));
+		cudaMalloc(&_dev_per_block_error[__i__], _num_blocks_ * sizeof(REAL));
+		_host_per_block_error[__i__] = (REAL*)(malloc(_num_blocks_*sizeof(REAL)));
+		reduction_callback_args[__i__] = (omp_reduction_REAL_t*)malloc(sizeof(omp_reduction_REAL_t));
 	}
 
 	while ((k <= mits)/* && (error > tol)*/) {
@@ -521,7 +525,7 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 			int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
 			omp_stream_start_event_record(&__dev_stream__[__i__], 2);
 			OUT__2__10550__<<<_num_blocks_, _threads_per_block_, 0,__dev_stream__[__i__].systream.cudaStream>>>
-					(length_n, m,(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_uold__->map_dev_ptr);
+					(length_n, m,(REAL*)__dev_map_u__->map_dev_ptr, (REAL*)__dev_map_uold__->map_dev_ptr);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 2);
 		}
 		 /* TODO: here we have to make sure that the remote are finish computation before halo exchange */
@@ -552,7 +556,7 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 			int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
 
-			omp_reduction_float_t * args = reduction_callback_args[__i__];
+			omp_reduction_REAL_t * args = reduction_callback_args[__i__];
 			args->input = _host_per_block_error[__i__];
 			args->num = _num_blocks_;
 			args->opers = 6;
@@ -561,15 +565,15 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 			/* Launch CUDA kernel ... */
 			/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
 			omp_stream_start_event_record(&__dev_stream__[__i__], 4);
-			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(float)),
+			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(REAL)),
 					__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
 					omega, ax, ay, b, _dev_per_block_error[__i__],
-					(float*)__dev_map_u__->map_dev_ptr, (float*)__dev_map_f__->map_dev_ptr,(float*)__dev_map_uold__->map_dev_ptr);
+					(REAL*)__dev_map_u__->map_dev_ptr, (REAL*)__dev_map_f__->map_dev_ptr,(REAL*)__dev_map_uold__->map_dev_ptr);
 			/* copy back the results of reduction in blocks */
-			cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(float)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
-			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, args, 0);
+			cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(REAL)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
+			cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_REAL_stream_callback, args, 0);
 			omp_stream_stop_event_record(&__dev_stream__[__i__], 4);
-			/* xomp_beyond_block_reduction_float(_dev_per_block_error, _num_blocks_, 6); */
+			/* xomp_beyond_block_reduction_REAL(_dev_per_block_error, _num_blocks_, 6); */
 			//xomp_freeDevice(_dev_per_block_error);
 		}
 		/* here we sync the stream and make sure all are complete (including the per-device reduction)
@@ -578,7 +582,7 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 		/* then, we need the reduction from multi-devices */
 		error = 0.0;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
-			omp_reduction_float_t * args = reduction_callback_args[__i__];
+			omp_reduction_REAL_t * args = reduction_callback_args[__i__];
 			error += args->result;
 
 			omp_device_t * __dev__ = __target_devices__[__i__];
@@ -591,7 +595,7 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 		/* Error check */
 /*
 		if ((k % 500) == 0)
-			printf("Finished %d iteration with error =%f\n", k, error);
+			printf("Finished %d iteration with error =%g\n", k, error);
 */
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
@@ -606,7 +610,7 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
         omp_memcpyDeviceToHostAsync(__dev_map_u__);
 		omp_stream_stop_event_record(&__dev_stream__[__i__], 5);
 		cudaFree(_dev_per_block_error[__i__]);
-		omp_reduction_float_t * args = reduction_callback_args[__i__];
+		omp_reduction_REAL_t * args = reduction_callback_args[__i__];
 		free(args);
 		free(_host_per_block_error[__i__]);
 	}
@@ -616,22 +620,22 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 //	printf("Residual:%E\n", error);
 
     /* for profiling */
-	float f_map_to_elapsed[__num_target_devices__]; /* event 0 */
-	float u_map_to_elapsed[__num_target_devices__]; /* event 1 */
-	float kernel_u2uold_elapsed[__num_target_devices__]; /* event 2 */
-	float halo_exchange_elapsed[__num_target_devices__]; /* event 3 */
-	float kernel_jacobi_elapsed[__num_target_devices__]; /* event 4, also including the reduction */
-	float u_map_from_elapsed[__num_target_devices__]; /* event 5 */
+	REAL f_map_to_elapsed[__num_target_devices__]; /* event 0 */
+	REAL u_map_to_elapsed[__num_target_devices__]; /* event 1 */
+	REAL kernel_u2uold_elapsed[__num_target_devices__]; /* event 2 */
+	REAL halo_exchange_elapsed[__num_target_devices__]; /* event 3 */
+	REAL kernel_jacobi_elapsed[__num_target_devices__]; /* event 4, also including the reduction */
+	REAL u_map_from_elapsed[__num_target_devices__]; /* event 5 */
 
 	printf("==============================================================================================================================================================================\n");
 	printf("=========================== GPU Results (%d GPUs) for jacobi: u[][](tofrom), f[][](to), uold[][](alloc) size: [%d][%d], time in ms (s/1000) ===============================\n", __num_target_devices__, n, m);
-	float f_map_to_accumulated = 0.0;
-	float u_map_to_accumulated = 0.0;
-	float kernel_u2uold_accumulated = 0.0;
-	float halo_exchange_accumulated = 0.0;
-	float kernel_jacobi_accumulated = 0.0;
-	float u_map_from_accumulated = 0.0;
-	float streamCreate_accumulated = 0.0;
+	REAL f_map_to_accumulated = 0.0;
+	REAL u_map_to_accumulated = 0.0;
+	REAL kernel_u2uold_accumulated = 0.0;
+	REAL halo_exchange_accumulated = 0.0;
+	REAL kernel_jacobi_accumulated = 0.0;
+	REAL u_map_from_accumulated = 0.0;
+	REAL streamCreate_accumulated = 0.0;
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 		f_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
 		u_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
@@ -639,11 +643,11 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 		halo_exchange_elapsed[__i__] = __dev_stream__[__i__].elapsed[3]; /* event 3 */
 		kernel_jacobi_elapsed[__i__] = __dev_stream__[__i__].elapsed[4]; /* event 4, also including the reduction */
 		u_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 5);
-		float total = f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__] + kernel_u2uold_elapsed[__i__] + halo_exchange_elapsed[__i__] + kernel_jacobi_elapsed[__i__]  + u_map_from_elapsed[__i__];
+		REAL total = f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__] + kernel_u2uold_elapsed[__i__] + halo_exchange_elapsed[__i__] + kernel_jacobi_elapsed[__i__]  + u_map_from_elapsed[__i__];
 		printf("device: %d, total: %4f\n", __i__, total);
 		printf("\t\tstreamCreate overhead: %4f\n", streamCreate_elapsed[__i__]);
-		printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_elapsed[__i__], u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
-		printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
+		printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %g\n", f_map_to_elapsed[__i__], u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
+		printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %g\n", f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
 		f_map_to_accumulated += f_map_to_elapsed[__i__];
 		u_map_to_accumulated += u_map_to_elapsed[__i__];
 		kernel_u2uold_accumulated += kernel_u2uold_elapsed[__i__];
@@ -652,15 +656,15 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 		u_map_from_accumulated += u_map_from_elapsed[__i__];
 		streamCreate_accumulated += streamCreate_elapsed[__i__];
 	}
-	float gpu_total = f_map_to_accumulated + u_map_to_accumulated + kernel_u2uold_accumulated + halo_exchange_accumulated + kernel_jacobi_accumulated + u_map_from_accumulated;
+	REAL gpu_total = f_map_to_accumulated + u_map_to_accumulated + kernel_u2uold_accumulated + halo_exchange_accumulated + kernel_jacobi_accumulated + u_map_from_accumulated;
 	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , gpu_total);
 	printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
-	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_accumulated , u_map_to_accumulated , kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
-	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_accumulated + u_map_to_accumulated, kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
+	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %g\n", f_map_to_accumulated , u_map_to_accumulated , kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
+	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %g\n", f_map_to_accumulated + u_map_to_accumulated, kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
 
 	printf("AVERAGE GPU time (per GPU): %4f\n", gpu_total/__num_target_devices__);
-	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %f\n", f_map_to_accumulated/__num_target_devices__, u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
-	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %f\n", f_map_to_accumulated/__num_target_devices__ + u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
+	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %g\n", f_map_to_accumulated/__num_target_devices__, u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
+	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %g\n", f_map_to_accumulated/__num_target_devices__ + u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
 
 	printf("----------------------------------------------------------------\n");
 	printf("Total time measured from CPU: %4f\n", cpu_total);
@@ -674,15 +678,15 @@ void jacobi_omp_mdev(long n, long m, float dx, float dy, float alpha, float omeg
 
 #if 0
 void jacobi_v3() {
-	float omega;
+	REAL omega;
 	int i;
 	int j;
 	int k;
-	float error;
-	float resid;
-	float ax;
-	float ay;
-	float b;
+	REAL error;
+	REAL resid;
+	REAL ax;
+	REAL ay;
+	REAL b;
 	omega = relax;
 	/*
 	 * Initialize coefficients */
@@ -719,15 +723,15 @@ void jacobi_v3() {
 	omp_data_map_info_t __data_map_infos__[__num_mapped_variables__];
 
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	omp_data_map_init_info(__info__, __topp__, &f[0][0], sizeof(float), OMP_MAP_TO, n, m, 1);
+	omp_data_map_init_info(__info__, __topp__, &f[0][0], sizeof(REAL), OMP_MAP_TO, n, m, 1);
 	__info__->maps = alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	omp_data_map_info_t * __info__ = &__data_map_infos__[1];
-	omp_data_map_init_info(__info__, __topp__, &u[0][0], sizeof(float), OMP_MAP_TOFROM, n, m, 1);
+	omp_data_map_init_info(__info__, __topp__, &u[0][0], sizeof(REAL), OMP_MAP_TOFROM, n, m, 1);
 	__info__->maps = alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 
 	omp_data_map_info_t * __info__ = &__data_map_infos__[2];
-	omp_data_map_init_info(__info__, __topp__, &uold[0][0], sizeof(float), OMP_MAP_ALLOC, n, m, 1);
+	omp_data_map_init_info(__info__, __topp__, &uold[0][0], sizeof(REAL), OMP_MAP_ALLOC, n, m, 1);
 	__info__->maps = alloca(sizeof(omp_data_map_t *) * __num_target_devices__);
 	/* fill in halo region info here for uold */
 	omp_map_add_halo_region(__info__, 0, 1, 1, 0);
@@ -798,17 +802,17 @@ void jacobi_v3() {
 			/* Launch CUDA kernel ... */
 //			_threads_per_block_ = xomp_get_maxThreadsPerBlock();
 			_num_blocks_ = xomp_get_max1DBlock((n / __num_target_devices__ - 1) - 1 - 1 + 1);
-			float *_dev_per_block_error = (float *) (xomp_deviceMalloc(	_num_blocks_ * sizeof(float)));
-			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(float)),
+			REAL *_dev_per_block_error = (REAL *) (xomp_deviceMalloc(	_num_blocks_ * sizeof(REAL)));
+			OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(REAL)),
 					__dev_stream__[__i__]>>>(n / __num_target_devices__, m,
 					omega, ax, ay, b, _dev_per_block_error,
 					__dev_map_u__->map_dev_ptr, __dev_map_f__->map_dev_ptr,__dev_map_uold__->map_dev_ptr);
 			/* copy back the results of reduction in blocks */
-			float * _host_per_block_error = (float*)(malloc(_num_blocks_*sizeof(float)));
-			cudaMemcpyAsync(_host_per_block_error, _dev_per_block_error, sizeof(float)*_num_blocks_, __dev_stream__[__i__]);
-			omp_reduction_t beyond_block_reduction = {_host_per_block_error, _num_blocks_, sizeof(float), 6};
-			cudaStreamAddCallback (__dev_stream__[__i__], xomp_beyond_block_reduction_float, &beyond_block_reduction, 0);
-			/* error = xomp_beyond_block_reduction_float(_dev_per_block_error, _num_blocks_, 6); */
+			REAL * _host_per_block_error = (REAL*)(malloc(_num_blocks_*sizeof(REAL)));
+			cudaMemcpyAsync(_host_per_block_error, _dev_per_block_error, sizeof(REAL)*_num_blocks_, __dev_stream__[__i__]);
+			omp_reduction_t beyond_block_reduction = {_host_per_block_error, _num_blocks_, sizeof(REAL), 6};
+			cudaStreamAddCallback (__dev_stream__[__i__], xomp_beyond_block_reduction_REAL, &beyond_block_reduction, 0);
+			/* error = xomp_beyond_block_reduction_(_dev_per_block_error, _num_blocks_, 6); */
 			//xomp_freeDevice(_dev_per_block_error);
 		}
 		/* here we sync the stream and make sure all are complete (including the per-device reduction)
@@ -818,7 +822,7 @@ void jacobi_v3() {
 
 		/* Error check */
 		if ((k % 500) == 0)
-			printf("Finished %d iteration with error =%f\n", k, error);
+			printf("Finished %d iteration with error =%g\n", k, error);
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */
