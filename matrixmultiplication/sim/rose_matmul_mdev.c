@@ -333,7 +333,7 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 		OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, off->stream.systream.cudaStream>>>(i, j, k, (REAL *)map_A->map_dev_ptr, (REAL *)map_B->map_dev_ptr, (REAL *)map_C->map_dev_ptr);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		long ii, jj, kk;
 		for (ii=0; ii<i; ii++) {
 			for (jj=0; jj<j; jj++) {

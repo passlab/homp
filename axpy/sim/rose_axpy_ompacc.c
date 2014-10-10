@@ -67,7 +67,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
         OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, off->stream.systream.cudaStream>>>(start_n, length_n,a,x,y);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		int i;
 		for (i=start_n; i<start_n + length_n; i++) {
 			y[i] += a*x[i];

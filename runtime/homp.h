@@ -43,7 +43,7 @@ typedef enum omp_device_type {
    OMP_DEVICE_TIDSP,      /* TI DSP */
    OMP_DEVICE_AMPU,       /* AMD APUs */
    OMP_DEVICE_REMOTE,	  /* a remote node */
-   OMP_DEVICE_LOCALTH,	  /* a new thread of the same process, e.g. pthread */
+   OMP_DEVICE_THSIM,	  /* a new thread of the same process, e.g. pthread */
    OMP_DEVICE_LOCALPS,	  /* a new process in the same node, e.g. a new process created using fork) */
    OMP_NUM_DEVICE_TYPES,  /* the total number of types of supported devices */
 } omp_device_type_t;
@@ -75,7 +75,7 @@ typedef struct omp_device {
 	int id; /* the id from omp view */
 	long sysid; /* the handle from the system view, e.g.
 			 device id for NVGPU cudaSetDevice(sysid), 
-			 or pthread_t for LOCALTH. Need type casting to become device-specific id */
+			 or pthread_t for THSIM. Need type casting to become device-specific id */
 	omp_device_type_t type;
 	int status;
 	struct omp_device * next; /* the device list */

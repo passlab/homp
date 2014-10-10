@@ -10,7 +10,7 @@
  * an easy way for defining dev-specific code:
 #if defined (DEVICE_NVGPU_SUPPORT)
 
-#elif defined (DEVICE_LOCALTH)
+#elif defined (DEVICE_THSIM)
 
 #else
 
@@ -27,7 +27,7 @@ inline void devcall_errchk(int code, char *file, int line, int abort) {
 		fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
 		if (abort) exit(code);
 	}
-#elif defined (DEVICE_LOCALTH)
+#elif defined (DEVICE_THSIM)
 	if (code != 0) {
 		fprintf(stderr, "devcal_assert: %d %s %d\n", code, file, line);
 		if (abort) exit(code);
@@ -74,7 +74,7 @@ int omp_init_devices() {
 		omp_device_t * dev = &omp_devices[i];
 		dev->id = i;
 		if (i < num_gpudevs) dev->type = OMP_DEVICE_NVGPU;
-		else dev->type  = OMP_DEVICE_LOCALTH;
+		else dev->type  = OMP_DEVICE_THSIM;
 		dev->status = 1;
 		dev->sysid = i;
 		dev->resident_data_maps = NULL;
@@ -115,7 +115,7 @@ void omp_map_malloc_dev(omp_data_map_t * map) {
 		}
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		map->map_dev_ptr = malloc(map->map_size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -130,7 +130,7 @@ void omp_map_free_dev(omp_data_map_t * map) {
 	    devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		free(map->map_dev_ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -146,7 +146,7 @@ void omp_map_memcpy_to(omp_data_map_t * map) {
 	    devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -162,7 +162,7 @@ void omp_map_memcpy_to_async(omp_data_map_t * map) {
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)map->map_dev_ptr, (const void *)map->map_buffer, map->map_size);
 	} else {
@@ -179,7 +179,7 @@ void omp_map_memcpy_from(omp_data_map_t * map) {
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)map->map_buffer, (const void *)map->map_dev_ptr, map->map_size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -197,7 +197,7 @@ void omp_map_memcpy_from_async(omp_data_map_t * map) {
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_LOCALTH) {
+	if (devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)map->map_buffer, (const void *)map->map_dev_ptr, map->map_size);
 //		printf("memcpy from: dest: %X, src: %X, size: %d\n", map->map_buffer, map->map_dev_ptr);
@@ -217,7 +217,7 @@ void omp_map_memcpy_DeviceToDevice(omp_data_map_t * dst, omp_data_map_t * src, i
 		devcall_assert(result);
 	} else
 #endif
-	if (dst_devtype == OMP_DEVICE_LOCALTH && src_devtype == OMP_DEVICE_LOCALTH) {
+	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)dst->map_dev_ptr, (const void *)src->map_dev_ptr, size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
@@ -235,7 +235,7 @@ void omp_map_memcpy_DeviceToDeviceAsync(omp_data_map_t * dst, omp_data_map_t * s
 		devcall_assert(result);
 	} else
 #endif
-	if (dst_devtype == OMP_DEVICE_LOCALTH && src_devtype == OMP_DEVICE_LOCALTH) {
+	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)dst->map_dev_ptr, (const void *)src->map_dev_ptr, size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
@@ -272,7 +272,7 @@ void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream) {
 		devcall_assert(result);
 	} else
 #endif
-	if (d->type == OMP_DEVICE_LOCALTH){
+	if (d->type == OMP_DEVICE_THSIM){
 		/* do nothing */
 	} else {
 
@@ -294,7 +294,7 @@ void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_recor
 			devcall_assert(result);
 		} else
 #endif
-		if (devtype == OMP_DEVICE_LOCALTH) {
+		if (devtype == OMP_DEVICE_THSIM) {
 			/* do nothing */
 		} else {
 			fprintf(stderr, "other type of devices are not yet supported\n");
@@ -318,7 +318,7 @@ void omp_event_record_start(omp_event_t * ev) {
 			devcall_assert(result);
 		} else
 #endif
-		if (devtype == OMP_DEVICE_LOCALTH) {
+		if (devtype == OMP_DEVICE_THSIM) {
 			ev->start_time_dev = read_timer_ms();
 		} else {
 			fprintf(stderr, "other type of devices are not yet supported\n");
@@ -346,7 +346,7 @@ void omp_event_record_stop(omp_event_t * ev) {
 			devcall_assert(result);
 		} else
 #endif
-		if (devtype == OMP_DEVICE_LOCALTH) {
+		if (devtype == OMP_DEVICE_THSIM) {
 			ev->stop_time_dev = read_timer_ms();
 		} else {
 			fprintf(stderr, "other type of devices are not yet supported\n");
@@ -382,7 +382,7 @@ void omp_event_elapsed_ms(omp_event_t * ev) {
 		} else
 #endif
 #endif
-		if (devtype == OMP_DEVICE_LOCALTH) {
+		if (devtype == OMP_DEVICE_THSIM) {
 			elapse = ev->stop_time_dev - ev->start_time_dev;
 		} else {
 			fprintf(stderr, "other type of devices are not yet supported\n");
