@@ -32,6 +32,17 @@ void init(REAL *A, long n)
     }
 }
 
+void print_array(char * title, char * name, REAL * A, long m, long n) {
+	printf("%s:\n", title);
+	long i, j;
+    for (i = 0; i < m; i++) {
+        for (j = 0; j < n; j++) {
+            printf("%s[%d][%d]:%f\n", name, i, j, A[i * n + j]);
+        }
+    }
+    printf("\n");
+}
+
 double maxerror(REAL *A, REAL *B, long n)
 {
 	long i, j;
@@ -55,25 +66,25 @@ void iter_matmul(float *A,float *B,float *C,long n)
 {
   long i, j, k;
   for (i = 0; i < n; i++) 
-    for (k = 0; k < n; k++) {
+    for (j = 0; j < n; j++) {
       float c = 0.0;
-      for (j = 0; j < n; j++) 
-        c += (A[(i * n) + j] * B[(j * n) + k]);
-      C[(i * n) + k] = c;
+      for (k = 0; k < n; k++)
+        c += (A[(i * n) + k] * B[(k * n) + j]);
+      C[(i * n) + j] = c;
     }
 }
 
 void omp_matmul(REAL *A, REAL *B, REAL *C, long n)
 {
-	long i, j, k;
+    long i, j, k;
 #pragma omp parallel for shared(A, B, C, n) private(i,j,k)
     for (i = 0; i < n; i++)
-        for (k = 0; k < n; k++) {
-            REAL c = 0.0;
-            for (j = 0; j < n; j++)
-                c += A[i * n + j] * B[j * n + k];
-            C[i * n + k] = c;
-        }
+      for (j = 0; j < n; j++) {
+        float c = 0.0;
+        for (k = 0; k < n; k++)
+          c += (A[(i * n) + k] * B[(k * n) + j]);
+        C[(i * n) + j] = c;
+      }
 }
 
 void openacc_matmul(float *A,float *B,float *C,long n)
@@ -174,17 +185,34 @@ int main(int argc,char *argv[])
   n = atoi(argv[1]);
   int dist = 1;
   if (argc == 3) dist = atoi(argv[2]);
+  if (dist != 1 && dist != 2 && dist != 3) {
+	  fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist);
+	  dist = 1;
+  }
 
   A = ((float *)(malloc(((n * n) * sizeof(float )))));
   B = ((float *)(malloc(((n * n) * sizeof(float )))));
   C_seq = ((float *)(malloc(((n * n) * sizeof(float )))));
   C_ompacc = ((float *)(malloc(((n * n) * sizeof(float )))));
   srand48((1 << 12));
+  init(A, n);
+  init(B, n);
+
+#if CORRECTNESS_CHECK
+  print_array("Array A", "A", A, n, n);
+  print_array("Array B", "B", B, n, n);
+#endif
+
+  zero(C_seq, n);
+  zero(C_ompacc, n);
 
 /* sequential run */
   seq_elapsed = read_timer();
   iter_matmul(A, B, C_seq, n);
   seq_elapsed = (read_timer() - seq_elapsed);
+#if CORRECTNESS_CHECK
+  print_array("Array C_seq", "C", C_seq, n, n);
+#endif
 
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 /* openmp acc version */
@@ -192,14 +220,19 @@ int main(int argc,char *argv[])
   ompacc_elapsed = read_timer();
   matmul_ompacc_mdev(A,B,C_ompacc,n, dist);
   ompacc_elapsed = (read_timer() - ompacc_elapsed);
+#if CORRECTNESS_CHECK
+  print_array("Array C_ompacc", "C", C_ompacc, n, n);
+#endif
+
   printf("======================================================================================================\n");
   printf("\tmatmul(%dx%d) example on %d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n",
 		  n,n,omp_get_num_active_devices(), dist);
   printf("------------------------------------------------------------------------------------------------------\n");
-  printf("Performance:\t\tRuntime (ms)\t MFLOPS\t\t\tError\n");
+  printf("Error: %g\n", maxerror(C_seq,C_ompacc,n));
   printf("------------------------------------------------------------------------------------------------------\n");
+  printf("Performance:\t\tRuntime (ms)\t MFLOPS\n");
   printf("Sequential:\t\t%4f\t%4f\n",seq_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * seq_elapsed)));
-  printf("OMP ACC:\t\t%4f\t%4f\t\t%g\n",ompacc_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * ompacc_elapsed)),maxerror(C_seq,C_ompacc,n));
+  printf("OMP ACC:\t\t%4f\t%4f\n",ompacc_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * ompacc_elapsed)));
   free(C_ompacc);
   free(C_seq);
   free(B);
@@ -271,9 +304,14 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
     omp_data_map_t * map_B = &off_info->data_map_info[1].maps[off->devseqid]; /* 1 means the map B */
     omp_data_map_t * map_C = &off_info->data_map_info[2].maps[off->devseqid]; /* 2 means the map C */
 
-    REAL * A = (REAL *)map_A->map_dev_ptr;
-    REAL * B = (REAL *)map_B->map_dev_ptr;
+    REAL * A = (REAL *)map_A->map_dev_ptr; /* A is ixk array */
+    REAL * B = (REAL *)map_B->map_dev_ptr; /* B is kxj array */
     REAL * C = (REAL *)map_C->map_dev_ptr;
+#if CORRECTNESS_CHECK
+    printf("kernel launcher: A: %X, B: %X, C: %X\n", A, B, C);
+    print_array("A in device: ", "Adev", A, i, k);
+    print_array("B in device: ", "Bdev", B, i, k);
+#endif
 
 	long start;
 	if (dist == 1) {
@@ -281,9 +319,10 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 	} else if (dist == 2) {
 		omp_loop_map_range(map_B, 1, -1, -1, &start, &j);
 	} else /* vx == 3) */ {
-		omp_loop_map_range(map_A, 0, -1, -1, &start, &j);
-		omp_loop_map_range(map_B, 1, -1, -1, &start, &k);
+		omp_loop_map_range(map_C, 0, -1, -1, &start, &i);
+		omp_loop_map_range(map_C, 1, -1, -1, &start, &j);
 	}
+	printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
 
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
@@ -300,14 +339,17 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 			for (jj=0; jj<j; jj++) {
 				REAL sum = 0.0;
 				for (kk=0; kk<k; kk++) {
-					sum += A[jj*k+kk] * B[kk*j+jj];
+					sum += A[ii*k+kk] * B[kk*j+jj];
 				}
-				C[ii*j+j] = sum;
+				C[ii*j+jj] = sum;
 			}
 		}
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
+#if CORRECTNESS_CHECK
+	print_array("C in device: ", "Cdev", C, i, j);
+#endif
 }
 
 void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {

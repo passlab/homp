@@ -151,7 +151,9 @@ schedule: ;
 		omp_data_map_init_map(map, map_info, dev, stream);
 		omp_data_map_dist(map, seqid);
 		omp_map_buffer_malloc(map);
-//		omp_print_data_map(map);
+#if DEBUG_MSG
+		omp_print_data_map(map);
+#endif
 
 		if (map_info->map_type == OMP_DATA_MAP_TO || map_info->map_type == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
