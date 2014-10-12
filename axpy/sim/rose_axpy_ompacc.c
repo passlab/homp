@@ -99,9 +99,9 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	int __id_map__[__num_target_devices__];
 	omp_grid_topology_init_simple (&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__, __id_map__);
 
-	int __num_mapped_variables__ = 2; /* XXX: need compiler output */
+	int __num_mapped_array__ = 2; /* XXX: need compiler output */
 
-	omp_data_map_info_t __data_map_infos__[__num_mapped_variables__];
+	omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
 		
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long x_dims[1]; x_dims[0] = n;
@@ -121,7 +121,7 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info (&__offloading_info__, &__top__, __target_devices__, __num_mapped_variables__, __data_map_infos__, OUT__3__5904__launcher, &args);
+	omp_offloading_init_info (&__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args);
 
 #if 0
 	/* we could specify dev-specific args and kernel_launcher */
@@ -139,7 +139,7 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
 	/* here we do not need sync start */
-	omp_offloading_notify_and_wait_completion(__target_devices__, __num_target_devices__, &__offloading_info__);
+	omp_offloading_start(__target_devices__, __num_target_devices__, &__offloading_info__);
 	ompacc_time = read_timer_ms() - ompacc_time;
 	double cpu_total = ompacc_time;
 

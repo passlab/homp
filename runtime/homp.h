@@ -51,22 +51,10 @@ typedef enum omp_device_type {
 extern char * omp_device_type_name[];
 /**
  ********************* Runtime notes ***********************************************
- * runtime may want to have internal array to supports the programming APIs for mulitple devices, e.g.
+ * runtime may want to have internal array to supports the programming APIs for multiple devices, e.g.
  *
  * We have a pthread managing a accelerator device, i.e. responsible of set up the GPU,
  * launching calls for memory allocation, kernel launching as well as timing.
- * A sequence of calls in one offloading involve.
- * set up stream and event for queuing and sync purpose, we currently only one stream per
- * device at a time, i.e. multiple concurrent streams are not supported.
- * 1. compute data mapping region for each variables, allocate device memory to store mapped data
- * 2. copy data from host to device (could happen while allocating device memory)
- * 3. launch the kernel that will work on the data
- * 4. if any, do data exchange between host and devices, and between devices
- * 5. more kernel launch and data exchange
- * 6. copy data from device to host, deallocate memory that will not be used
- *
- * Between each of the above steps, a barrier may be needed.
- * The thread will can be used to a accelerator
  *
  * The helper thread use the offload_queue to keep track of a list of
  * offloading request to this device, see struct_offloading_dev_t struct definition
@@ -80,23 +68,19 @@ typedef struct omp_device {
 	int status;
 	struct omp_device * next; /* the device list */
 	volatile omp_offloading_info_t * offload_info; /* this is the notification flag that the helper thread will pick up the offloading request */
+	omp_offloading_info_t * offload_stack[4];
+	/* the stack for keeping the nested but unfinished offloading request, we actually only need 2 so far.
+	 * However, if we know the current offload_info (being processed) is one that the device will run to completion, we will not put into the stack
+	 * for the purpose of saving the cost of push/pop. Thus the stack only keep those pending offload (e.g. inside a "target data" offload, we have
+	 * a "target" offload, the "target data" offload will be pushed to the stack. The purpose of this stack is to help data mapping inheritance, i.e.
+	 * reuse the data map created in the upper-level enclosing offloading operations (typically target data).
+	 */
+	int offload_stack_top;
 
 	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
 
 	pthread_t helperth;
 } omp_device_t;
-
-typedef enum OMP_OFFLOADING_STEPS {
-	OMP_OFFLOADING_INIT,      /* initialization of device, e.g. stream, host barrier, etc */
-	OMP_OFFLOADING_MAPMEM,    /* compute data map and allocate memory/buffer on host and device */
-	OMP_OFFLOADING_COPYTO,    /* copy data from host to device */
-	OMP_OFFLOADING_KERNEL,    /* kernel execution */
-	OMP_OFFLOADING_EXCHANGE,  /* p2p (dev2dev) and h2d (host2dev) data exchange */
-	OMP_OFFLOADING_COPYFROM,  /* copy data from dev to host */
-	OMP_OFFLOADING_COMPLETE,  /* make grace complete, e.g. deallocate memory and turn off dev */
-	OMP_OFFLOADING_NUM_STEPS, /* total number of steps */
-} OMP_OFFLOADING_STEP_t;
-
 
 #define OMP_DEV_STREAM_NUM_EVENTS 8
 
@@ -271,6 +255,37 @@ struct omp_data_map {
 	omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
 };
 
+typedef enum omp_offloading_type {
+	OMP_OFFLOADING_DATA, /* e.g. omp target data, i.e. only offloading data */
+	OMP_OFFLOADING_DATA_CODE, /* e.g. omp target, i.e. offloading both data and code, and all the data used by the code are specified in this one */
+	OMP_OFFLOADING_CODE, /* e.g. omp target, i.e. offloading code and partical data only, for other data, inherent data offloaded by the enclosing omp target data */
+} omp_offloading_type_t;
+
+/**
+ * A sequence of calls in one offloading involve.
+ * set up stream and event for queuing and sync purpose, we currently only one stream per
+ * device at a time, i.e. multiple concurrent streams are not supported.
+ * 1. compute data mapping region for each variables, allocate device memory to store mapped data
+ * 2. copy data from host to device (could happen while allocating device memory)
+ * 3. launch the kernel that will work on the data
+ * 4. if any, do data exchange between host and devices, and between devices
+ * 5. more kernel launch and data exchange
+ * 6. copy data from device to host, deallocate memory that will not be used
+ *
+ * Between each of the above steps, a barrier may be needed.
+ * The thread will can be used to a accelerator
+ */
+typedef enum omp_offloading_stage {
+	OMP_OFFLOADING_INIT,      /* initialization of device, e.g. stream, host barrier, etc */
+	OMP_OFFLOADING_MAPMEM,    /* compute data map and allocate memory/buffer on host and device */
+	OMP_OFFLOADING_COPYTO,    /* copy data from host to device */
+	OMP_OFFLOADING_KERNEL,    /* kernel execution */
+	OMP_OFFLOADING_EXCHANGE,  /* p2p (dev2dev) and h2d (host2dev) data exchange */
+	OMP_OFFLOADING_COPYFROM,  /* copy data from dev to host */
+	OMP_OFFLOADING_COMPLETE,  /* make grace complete, e.g. deallocate memory and turn off dev */
+	OMP_OFFLOADING_NUM_STEPS, /* total number of steps */
+} omp_offloading_stage_t;
+
 /**
   * info per offloading
   *
@@ -278,12 +293,16 @@ struct omp_data_map {
   * that keeps track of the topology of target devices, the mapped variables and other info.
   *
   * The barrier is used for syncing target devices
+  *
+  * Also each device maintains its own offloading stack, the nest offloading operations to the device, see omp_device object.
   */
 struct omp_offloading_info {
 	/************** per-offloading var, shared by all target devices ******/
 	omp_grid_topology_t * top; /* num of target devices are in this object */
 	omp_device_t ** targets; /* a list of target devices */
 
+	omp_offloading_type_t type;
+	omp_offloading_stage_t stage;
 	int num_mapped_vars;
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
 	omp_offloading_t * offloadings; /* a list of dev-specific offloading objects, num of this is num of targets from top */
@@ -312,6 +331,7 @@ struct omp_offloading {
 	/************** per device var ***************/	
 	omp_dev_stream_t stream;
 	int devseqid; /* device seqid in the top */
+	omp_device_t * dev; /* the dev object, as cached info */
 
 #if 0
 	/* we currently do not use the loal cached copy of the data_maps for each device, but reference to them from map_info object,
@@ -341,9 +361,10 @@ extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
 
-extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void *args);
-extern void omp_offloading_notify_and_wait_completion(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
+extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
+		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args);
+extern void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
+extern void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
 extern void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream);

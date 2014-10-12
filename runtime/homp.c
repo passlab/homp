@@ -85,12 +85,21 @@ int omp_get_num_active_devices() {
 
 /**
  * notifying the helper threads to work on the offloading specified in off_info arg
- *
+ * It always start with copyto and may stops after copyto for target data
  * master is just the thread that will store
  */
-void omp_offloading_notify_and_wait_completion(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info) {
+void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info) {
 	int i;
-	pthread_barrier_init(&off_info->barrier, NULL, off_info->top->nnodes+1);
+	for (i = 0; i < num_targets; i++) {
+		targets[i]->offload_info = off_info;
+	}
+	pthread_barrier_wait(&off_info->barrier);
+}
+
+/* the second step for target data */
+void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info) {
+	int i;
+	off_info->stage = OMP_OFFLOADING_COPYFROM;
 	for (i = 0; i < num_targets; i++) {
 		targets[i]->offload_info = off_info;
 	}
@@ -120,9 +129,11 @@ schedule: ;
 
 	omp_offloading_t * off = &off_info->offloadings[seqid];
 	off->devseqid = seqid;
+	off->dev = dev;
 	off->off_info = off_info;
 	omp_dev_stream_t * stream = &off->stream;
 
+	if (off_info->stage == OMP_OFFLOADING_COPYFROM) goto offload_stage_copyfrom;
 #if defined (OMP_BREAKDOWN_TIMING)
 	/* the num_mapped_vars * 2 +4 is the rough number of events needed */
 	int num_events = off_info->num_mapped_vars * 2 + 4;
@@ -145,6 +156,7 @@ schedule: ;
 	/* init data map and dev memory allocation */
 	/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 	int i = 0;
+offload_stage_copyto: ;
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 		omp_data_map_t * map = &map_info->maps[seqid];
@@ -166,19 +178,31 @@ schedule: ;
 		}
 	}
 
-	/* launching the kernel */
-	void * args = off_info->args;
-	void (*kernel_launcher)(omp_offloading_t *, void *) = off_info->kernel_launcher;
-	if (args == NULL) args = off->args;
-	if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
+offload_stage_kernexe: ;
+	if (off_info->type == OMP_OFFLOADING_DATA_CODE || off_info->type == OMP_OFFLOADING_CODE) {
+		/* launching the kernel */
+		void * args = off_info->args;
+		void (*kernel_launcher)(omp_offloading_t *, void *) = off_info->kernel_launcher;
+		if (args == NULL) args = off->args;
+		if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
 #if defined (OMP_BREAKDOWN_TIMING)
-	omp_event_record_start(&events[event_index]);
+		omp_event_record_start(&events[event_index]);
 #endif
-	kernel_launcher(off, args);
+		kernel_launcher(off, args);
 #if defined (OMP_BREAKDOWN_TIMING)
-	omp_event_record_stop(&events[event_index++]);
+		omp_event_record_stop(&events[event_index++]);
 #endif
+	} else { /* only data offloading, i.e., OMP_OFFLOADING_DATA */
+		/* put in the offloading stack */
+		dev->offload_stack[dev->offload_stack_top++] = off_info;
+		omp_stream_sync(&off->stream, 0);
+		dev->offload_info = NULL;
+		pthread_barrier_wait(&off_info->barrier);
 
+		goto schedule;
+	}
+
+offload_stage_copyfrom: ;
 	/* copy back results */
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
@@ -205,14 +229,17 @@ schedule: ;
 	goto schedule;
 }
 
-void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int num_mapped_vars,
-		omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args) {
+void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
+		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args) {
 	info->top = top;
 	info->targets = targets;
+	info->type = off_type;
 	info->num_mapped_vars = num_mapped_vars;
 	info->data_map_info = data_map_info;
 	info->kernel_launcher = kernel_launcher;
 	info->args = args;
+
+	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
 
 void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long end, omp_data_map_dist_type_t dist_type,
@@ -285,6 +312,44 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->sizeof_element = sizeof_element;
 
 	info->has_halo_region = 0;
+}
+
+/**
+ * Given the host pointer (e.g. an array pointer), find the data map of the array onto a specific device,
+ * which is provided as a off_loading_t object (the off_loading_t has devseq id as well as pointer to the
+ * offloading_info object that a search may need to be performed. If a map_index is provided, the search will
+ * be simpler and efficient, otherwise, it may be costly by comparing host_ptr with the source_ptr of each stored map
+ * in the offloading stack (call chain)
+ */
+omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index) {
+	omp_offloading_info_t * off_info = off->off_info;
+	int devseqid = off->devseqid;
+	if (map_index >= 0) {  /* the fast and common path */
+		omp_data_map_t * map = &off_info->data_map_info[map_index].maps[devseqid];
+		if (map->info->source_ptr == host_ptr) return map;
+	}
+
+	omp_device_t * dev = off->dev;
+	int devid = dev->id;
+	int off_stack_i = dev->offload_stack_top + 1;
+	/* a search now for all maps */
+	do {
+		devseqid = omp_grid_topology_get_seqid(off_info->top, devid);
+		if (devseqid >= 0) {
+			int i; omp_data_map_info_t * dm_info;
+			for (i=0; i<off_info->num_mapped_vars; i++) {
+				dm_info = &off_info->data_map_info[i];
+				if (dm_info->source_ptr == host_ptr) { /* we found */
+					return &dm_info->maps[devseqid];
+				}
+			}
+		}
+		off_stack_i--;
+		off_info = dev->offload_stack[off_stack_i]; /* we actually access the wrong memory location when off_stack_i = -1, but it is a safe place
+		and since we are not changing that location */
+	} while (off_stack_i >= 0);
+
+	return NULL;
 }
 
 void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic) {
