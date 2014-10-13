@@ -145,11 +145,9 @@ void BodySystemCUDA<T>::_initialize(int numBodies)
     else
     {
         m_hPos[0] = new T[m_numBodies*4];
-        m_hPos[1] = new T[m_numBodies*4];
         m_hVel = new T[m_numBodies*4];
 
         memset(m_hPos[0], 0, memSize);
-        memset(m_hPos[1], 0, memSize);
         memset(m_hVel, 0, memSize);
 
         checkCudaErrors(cudaEventCreate(&m_deviceData[0].event));
@@ -178,22 +176,14 @@ void BodySystemCUDA<T>::_initialize(int numBodies)
                                                              m_pbo[i],
                                                              cudaGraphicsMapFlagsNone));
             }
-            checkCudaErrors(cudaMalloc((void **)&m_deviceData[0].dVel, memSize));
         }
         else
         {
-        for (unsigned int i = 0; i < m_numDevices; i++)
-        {
-            if (m_numDevices > 1)
-            {
-                checkCudaErrors(cudaSetDevice(i));
-            }
-            checkCudaErrors(cudaMalloc((void **)&m_deviceData[i].dPos[0], sizeof(T) * 4 * m_deviceData[i].numBodies));
-            checkCudaErrors(cudaMalloc((void **)&m_deviceData[i].dPos[1], sizeof(T) * 4 * m_deviceData[i].numBodies));
-            checkCudaErrors(cudaMalloc((void **)&m_deviceData[i].dVel, sizeof(T) * 4 * m_deviceData[i].numBodies));
-        }
+            checkCudaErrors(cudaMalloc((void **)&m_deviceData[0].dPos[0], memSize));
+            checkCudaErrors(cudaMalloc((void **)&m_deviceData[0].dPos[1], memSize));
         }
 
+        checkCudaErrors(cudaMalloc((void **)&m_deviceData[0].dVel, memSize));
     }
 
     m_bInitialized = true;
@@ -317,14 +307,12 @@ T *BodySystemCUDA<T>::getArray(BodyArray array)
 
     int currentReadHost = m_bUseSysMem ? m_currentRead : 0;
 
-    for (unsigned int dev = 0; dev < m_numDevices; dev++)
-    {
     switch (array)
     {
         default:
         case BODYSYSTEM_POSITION:
             hdata = m_hPos[currentReadHost];
-            ddata = m_deviceData[dev].dPos[m_currentRead];
+            ddata = m_deviceData[0].dPos[m_currentRead];
 
             if (m_bUsePBO)
             {
@@ -335,7 +323,7 @@ T *BodySystemCUDA<T>::getArray(BodyArray array)
 
         case BODYSYSTEM_VELOCITY:
             hdata = m_hVel;
-            ddata = m_deviceData[dev].dVel;
+            ddata = m_deviceData[0].dVel;
             break;
     }
 
@@ -349,14 +337,13 @@ T *BodySystemCUDA<T>::getArray(BodyArray array)
             checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&ddata, &bytes, pgres));
         }
 
-        checkCudaErrors(cudaMemcpy(&hdata[m_deviceData[dev].offset], ddata,
-                                   m_deviceData[dev].numBodies*4*sizeof(T), cudaMemcpyDeviceToHost));
+        checkCudaErrors(cudaMemcpy(hdata, ddata,
+                                   m_numBodies*4*sizeof(T), cudaMemcpyDeviceToHost));
 
         if (pgres)
         {
             checkCudaErrors(cudaGraphicsUnmapResources(1, &pgres, 0));
         }
-    }
     }
 
     return hdata;
@@ -397,21 +384,9 @@ void BodySystemCUDA<T>::setArray(BodyArray array, const T *data)
                         memcpy(m_hPos[m_currentRead], data, m_numBodies * 4 * sizeof(T));
                     }
                     else
-                    {
-                        if (m_numDevices > 1)
-                        {
-                            for (unsigned int dev = 0; dev < m_numDevices; dev++)
-                            {
-                        checkCudaErrors(cudaMemcpy(m_deviceData[dev].dPos[m_currentRead], &data[m_deviceData[dev].offset],
-                                                   m_deviceData[dev].numBodies * 4 * sizeof(T),
-                                                   cudaMemcpyHostToDevice));
-                            }
-                        }
-                        else
                         checkCudaErrors(cudaMemcpy(m_deviceData[0].dPos[m_currentRead], data,
                                                    m_numBodies * 4 * sizeof(T),
                                                    cudaMemcpyHostToDevice));
-                    }
                 }
             }
             break;
@@ -422,19 +397,8 @@ void BodySystemCUDA<T>::setArray(BodyArray array, const T *data)
                 memcpy(m_hVel, data, m_numBodies * 4 * sizeof(T));
             }
             else
-            {
-                if (m_numDevices > 1)
-                {
-                    for (unsigned int dev = 0; dev < m_numDevices; dev++)
-                    {
-                checkCudaErrors(cudaMemcpy(m_deviceData[dev].dVel, &data[m_deviceData[dev].offset], m_deviceData[dev].numBodies * 4 * sizeof(T),
-                                           cudaMemcpyHostToDevice));
-                    }
-                }
-                else
                 checkCudaErrors(cudaMemcpy(m_deviceData[0].dVel, data, m_numBodies * 4 * sizeof(T),
                                            cudaMemcpyHostToDevice));
-            } 
 
             break;
     }

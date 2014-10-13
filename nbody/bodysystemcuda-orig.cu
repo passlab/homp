@@ -423,14 +423,14 @@ void integrateNbodySystem(DeviceData<T> *deviceData,
         // per body is greater than one, so that when it is not we don't have to
         // execute the more complex code required!
         int sharedMemSize = p * q * 4 * sizeof(T); // 4 floats for pos
-/*After distribution, there should be no offset involved.*/
+
         if (grid.x > 0 && threads.y == 1)
         {
             integrateBodies<T, false><<< grid, threads, sharedMemSize >>>
             ((typename vec4<T>::Type *)deviceData[dev].dPos[1-currentRead],
              (typename vec4<T>::Type *)deviceData[dev].dPos[currentRead],
              (typename vec4<T>::Type *)deviceData[dev].dVel,
-             0, deviceData[dev].numBodies,
+             deviceData[dev].offset, deviceData[dev].numBodies,
              deltaTime, damping, numBodies);
         }
         else if (grid.x > 0)
@@ -439,7 +439,7 @@ void integrateNbodySystem(DeviceData<T> *deviceData,
             ((typename vec4<T>::Type *)deviceData[dev].dPos[1-currentRead],
              (typename vec4<T>::Type *)deviceData[dev].dPos[currentRead],
              (typename vec4<T>::Type *)deviceData[dev].dVel,
-             0, deviceData[dev].numBodies,
+             deviceData[dev].offset, deviceData[dev].numBodies,
              deltaTime, damping, numBodies);
         }
 
