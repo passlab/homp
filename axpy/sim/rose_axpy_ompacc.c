@@ -106,13 +106,13 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_dist_t x_dist[1];
-	omp_data_map_init_info_dist_straight(__info__, &__top__, x, 1, x_dims, sizeof(REAL), OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_straight_dist(__info__, &__top__, x, 1, x_dims, sizeof(REAL), OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
 	__info__->maps = (omp_data_map_t *)alloca(sizeof(omp_data_map_t) * __num_target_devices__);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
 	omp_data_map_dist_t y_dist[1];
-	omp_data_map_init_info_dist_straight(__info__, &__top__, y, 1, y_dims, sizeof(REAL), OMP_DATA_MAP_TOFROM, y_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_straight_dist(__info__, &__top__, y, 1, y_dims, sizeof(REAL), OMP_DATA_MAP_TOFROM, y_dist, OMP_DATA_MAP_DIST_EVEN);
 	__info__->maps = (omp_data_map_t *)alloca(sizeof(omp_data_map_t) * __num_target_devices__);
 	
 	struct OUT__3__5904__other_args args;

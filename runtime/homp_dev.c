@@ -107,81 +107,83 @@ int omp_set_current_device_dev(omp_device_t * d) {
 	return d->id;
 }
 
-void omp_map_malloc_dev(omp_data_map_t * map) {
-	omp_device_type_t devtype = map->dev->type;
+void * omp_map_malloc_dev(omp_device_t * dev, long size) {
+	omp_device_type_t devtype = dev->type;
+	void * ptr = NULL;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-		if (cudaErrorMemoryAllocation == cudaMalloc(&map->mem_dev_ptr, map->map_size)) {
+		if (cudaErrorMemoryAllocation == cudaMalloc(&ptr, size)) {
 			fprintf(stderr, "cudaMalloc error to allocate mem on device\n");
 		}
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		map->map_dev_ptr = malloc(map->map_size);
+		ptr = malloc(size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
+	return ptr;
 }
 
-void omp_map_free_dev(omp_data_map_t * map) {
-	omp_device_type_t devtype = map->dev->type;
+void omp_map_free_dev(omp_device_t * dev, void * ptr) {
+	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-	    cudaError_t result = cudaFree(map->mem_dev_ptr);
+	    cudaError_t result = cudaFree(ptr);
 	    devcall_assert(result);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		free(map->map_dev_ptr);
+		free(ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
 }
 
-void omp_map_memcpy_to(omp_data_map_t * map) {
-	omp_device_type_t devtype = map->dev->type;
+void omp_map_memcpy_to(omp_device_t * dev, void * dst, const void * src, long size) {
+	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 	    cudaError_t result;
-	    result = cudaMemcpy((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice);
+	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice);
 	    devcall_assert(result);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		memcpy((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size);
+		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
 }
 
-void omp_map_memcpy_to_async(omp_data_map_t * map) {
-	omp_device_type_t devtype = map->dev->type;
+void omp_map_memcpy_to_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size) {
+	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
-		result = cudaMemcpyAsync((void *)map->map_dev_ptr,(const void *)map->map_buffer,map->map_size, cudaMemcpyHostToDevice, map->stream->systream.cudaStream);
+		result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice, stream->systream.cudaStream);
 		devcall_assert(result);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
-		memcpy((void *)map->map_dev_ptr, (const void *)map->map_buffer, map->map_size);
+		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
 }
 
-void omp_map_memcpy_from(omp_data_map_t * map) {
-	omp_device_type_t devtype = map->dev->type;
+void omp_map_memcpy_from(omp_device_t * dev, void * dst, const void * src, long size) {
+	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
-	    result = cudaMemcpy((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost);
+	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost);
 		devcall_assert(result);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		memcpy((void *)map->map_buffer, (const void *)map->map_dev_ptr, map->map_size);
+		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
@@ -189,55 +191,85 @@ void omp_map_memcpy_from(omp_data_map_t * map) {
 
 /**
  *  device to host, async */
-void omp_map_memcpy_from_async(omp_data_map_t * map) {
-	omp_device_type_t devtype = map->dev->type;
+void omp_map_memcpy_from_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size) {
+	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
-        result = cudaMemcpyAsync((void *)map->map_buffer,(const void *)map->map_dev_ptr,map->map_size, cudaMemcpyDeviceToHost, map->stream->systream.cudaStream);
+		result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost, stream->systream.cudaStream);
 		devcall_assert(result);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
-		memcpy((void *)map->map_buffer, (const void *)map->map_dev_ptr, map->map_size);
+		memcpy((void *)dst,(const void *)src,size);
 //		printf("memcpy from: dest: %X, src: %X, size: %d\n", map->map_buffer, map->map_dev_ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
 }
 
-void omp_map_memcpy_DeviceToDevice(omp_data_map_t * dst, omp_data_map_t * src, int size) {
-	omp_device_type_t dst_devtype = dst->dev->type;
-	omp_device_type_t src_devtype = src->dev->type;
+/**
+ * this should be calling from src for NGVPU implementation
+ */
+int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_device_t * srcdev) {
+	omp_device_type_t dst_devtype = dstdev->type;
+	omp_device_type_t src_devtype = srcdev->type;
+
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
+		int can_access = 0;
+		cudaError_t result;
+		result = cudaDeviceCanAccessPeer(&can_access, srcdev->sysid, dstdev->sysid);
+		devcall_assert(result);
+		if (can_access) {
+			result = cudaDeviceEnablePeerAccess(dstdev->sysid, 0);
+		    if(result != cudaErrorPeerAccessAlreadyEnabled) {
+		    	return 0;
+		    } else return 1;
+		} else return 1;
+	} else
+#endif
+	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
+		return 1;
+	} else {
+		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
+	}
+	return 0;
+}
+
+void omp_map_memcpy_DeviceToDevice(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_data_map_t * src, int size) {
+	omp_device_type_t dst_devtype = dstdev->type;
+	omp_device_type_t src_devtype = srcdev->type;
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
-	    result = cudaMemcpy((void *)dst->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice);
+	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToDevice);
 		devcall_assert(result);
 	} else
 #endif
 	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
-		memcpy((void *)dst->map_dev_ptr, (const void *)src->map_dev_ptr, size);
+		memcpy((void *)dst, (const void *)src, size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
 	}
 }
 
-void omp_map_memcpy_DeviceToDeviceAsync(omp_data_map_t * dst, omp_data_map_t * src, int size) {
-	omp_device_type_t dst_devtype = dst->dev->type;
-	omp_device_type_t src_devtype = src->dev->type;
+/** it is a push operation, i.e. src push data to dst */
+void omp_map_memcpy_DeviceToDeviceAsync(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_dev_stream_t * srcstream, omp_data_map_t * src, int size) {
+	omp_device_type_t dst_devtype = dstdev->type;
+	omp_device_type_t src_devtype = srcdev->type;
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
-	    result = cudaMemcpyAsync((void *)dst->map_dev_ptr,(const void *)src->map_dev_ptr,size, cudaMemcpyDeviceToDevice,src->stream->systream.cudaStream);
+	    result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyDeviceToDevice,srcstream->systream.cudaStream);
 		devcall_assert(result);
 	} else
 #endif
 	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
-		memcpy((void *)dst->map_dev_ptr, (const void *)src->map_dev_ptr, size);
+		memcpy((void *)dst, (const void *)src, size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
 	}
@@ -428,7 +460,7 @@ void omp_sync_cleanup(omp_offloading_t * off) {
 
 	for (i = 0; i < off_info->num_mapped_vars; i++) {
 		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
-		omp_map_free_dev(map);
+		omp_map_free_dev(map->dev, map->map_dev_ptr);
 		if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
 			omp_map_unmarshal(map);
 			free(map->map_buffer);

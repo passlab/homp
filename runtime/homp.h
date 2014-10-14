@@ -167,10 +167,7 @@ typedef enum omp_data_map_dist_type {
 
 typedef struct omp_data_map_dist {
 	long start; /* the start index for the dim of the original array */
-	long end;   /* the end index for the dim of the original array */
-	int halo_left; /* the left halo, # of elements */
-	int halo_right; /* the right halo, # of elements */
-	int halo_cyclic;
+	long length;   /* the length (# element) */
 	omp_data_map_dist_type_t type; /* the dist type */
 	int topdim; /* which top dim to apply dist, for dist_even, copy*/
 } omp_data_map_dist_t;
@@ -178,14 +175,16 @@ typedef struct omp_data_map_dist {
 /**
  * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
  */
-typedef struct omp_data_map_halo_region_info {
+typedef struct omp_data_map_halo_region {
+	/* the info */
 	int left; /* element size */
 	int right; /* element size */
 	short cyclic;
-	int top_dim; /* which dimension of the device topology this halo region is related to */
+	int topdim; /* which dimension of the device topology this halo region is related to, it is the same as the topdim of dist object of the same dimension */
 } omp_data_map_halo_region_info_t;
 
 typedef struct omp_data_map_halo_region_mem {
+	/* the mem for halo management */
 	/* the in/out pointer is the buffer for the halo regions.
 	 * The in ptr is the buffer for halo region that will be copied in,
 	 * and the out is for those that will be copied out.
@@ -196,9 +195,12 @@ typedef struct omp_data_map_halo_region_mem {
 	void * left_in_ptr;
 	long left_in_size; /* for pull update, == right_out_size if push protocol is used */
 	void * left_out_ptr;
+	long left_out_size;
+
 	void * right_in_ptr;
 	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
 	void * right_out_ptr;
+	long right_out_size;
 } omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
@@ -212,24 +214,19 @@ typedef struct omp_data_map_info {
 
 	int sizeof_element;
 	omp_data_map_type_t map_type; /* the map type, to, from, or tofrom */
+	omp_data_map_t * maps; /* a list of data maps of this array */
 
 	/*
-	 * The dist array maintains info on how the array should be distributed among dev topology, including
+	 * The dist array maintains info on how the array should be distributed among dev topology, not including
 	 * the halo region info.
-	 *
-	 * the halo region: halo region is considered out-of-bound access of the main array region,
-	 * thus the index could be -1, -2, or larger than the dimensions. Our memory allocation and pointer
-	 * arithmetic will make sure we do not go out of memory bound
-	 *
-	 * In each dimension, we may have halo region.
 	 */
 	omp_data_map_dist_t *dist;
 
-	/* a quick flag to tell whether this is halo region or not in this map,
-	 * otherwise, we have to iterate the halo_region array to see whether this is one or not */
-	short has_halo_region;
-
-	omp_data_map_t * maps; /* a list of data maps of this array */
+	 /* the halo region: halo region is considered out-of-bound access of the main array region,
+	  * thus the index could be -1, -2, or larger than the dimensions. Our memory allocation and pointer
+	  * arithmetic will make sure we do not go out of memory bound
+	  */
+	omp_data_map_halo_region_info_t * halo_info; /* it is an num_dims array */
 } omp_data_map_info_t;
 
 /* for each device, we maintain a list such objects, each for one mapped array */
@@ -242,17 +239,18 @@ struct omp_data_map {
 	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
 	void * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
 	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
+    void * map_buffer; /* the mapped buffer on host. This pointer is either the	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
 
 	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
+
+	int marshalled_or_not;
+	omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
+
+#if 0
 	long mem_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mem region for both mapped region and halo region */
 	void * mem_dev_ptr; /* the mapped buffer on device, for the mapped array region plus halo region */
 	long mem_size; // = mem_dim[0] * mem_dim[1] * mem_dim[2] * sizeof_element;
-
-    void * map_buffer; /* the mapped buffer on host. This pointer is either the
-	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
-	int marshalled_or_not;
-
-	omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
+#endif
 };
 
 typedef enum omp_offloading_type {
@@ -383,25 +381,28 @@ extern void omp_topology_print(omp_grid_topology_t * top);
 
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
-extern void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long end, omp_data_map_dist_type_t dist_type,
+extern void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type,
 		int halo_left, int halo_right, int halo_cyclic, int topdim);
-extern void omp_data_map_init_info_dist_straight(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+extern void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
-extern void omp_data_map_init_info_dist_straight_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, int halo_left, int halo_right, int halo_cyclic);
+extern void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev,	omp_dev_stream_t * stream);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid);
 extern void omp_print_data_map(omp_data_map_t * map);
 extern void omp_map_buffer_malloc(omp_data_map_t * map);
 extern void omp_map_marshal(omp_data_map_t * map);
+
 extern void omp_map_unmarshal(omp_data_map_t * map);
-extern void omp_map_malloc_dev(omp_data_map_t * map);
-extern void omp_map_memcpy_to(omp_data_map_t * map);
-extern void omp_map_memcpy_to_async(omp_data_map_t * map);
-extern void omp_map_memcpy_from(omp_data_map_t * map);
-extern void omp_map_memcpy_from_async(omp_data_map_t * map) ;
-extern void omp_map_memcpy_DeviceToDevice(omp_data_map_t * dst, omp_data_map_t * src, int size);
-extern void omp_map_memcpy_DeviceToDeviceAsync(omp_data_map_t * dst, omp_data_map_t * src, int size);
+extern void omp_map_free_dev(omp_device_t * dev, void * ptr);
+extern void * omp_map_malloc_dev(omp_device_t * dev, long size);
+extern void omp_map_memcpy_to(omp_device_t * dev, void * dst, const void * src, long size);
+extern void omp_map_memcpy_to_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size);
+extern void omp_map_memcpy_from(omp_device_t * dev, void * dst, const void * src, long size);
+extern void omp_map_memcpy_from_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size);
+extern int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_device_t * srcdev);
+extern void omp_map_memcpy_DeviceToDevice(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_data_map_t * src, int size) ;
+extern void omp_map_memcpy_DeviceToDeviceAsync(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_dev_stream_t * srcstream, omp_data_map_t * src, int size);
 
 extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
