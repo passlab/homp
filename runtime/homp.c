@@ -254,11 +254,11 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->dims = dims;
 	info->map_type = map_type;
 	info->dist = dist;
+	info->halo_info = NULL;
 	info->sizeof_element = sizeof_element;
 }
 
-void omp_data_map__dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type,
-		int halo_left, int halo_right, int halo_cyclic, int topdim) {
+void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type, int topdim) {
 	dist->start = start;
 	dist->length = length;
 	dist->type = dist_type;
