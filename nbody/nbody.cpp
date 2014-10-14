@@ -1098,7 +1098,7 @@ main(int argc, char **argv)
     // data via the host
     if (numDevsRequested > 1)
     {
-        useHostMem = true;
+//        useHostMem = true;
     }
 
     int numDevsAvailable = 0;
