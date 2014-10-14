@@ -431,7 +431,7 @@ void integrateNbodySystem(DeviceData<T> *deviceData,
              (typename vec4<T>::Type *)deviceData[dev].dPos[currentRead],
              (typename vec4<T>::Type *)deviceData[dev].dVel,
              0, deviceData[dev].numBodies,
-             deltaTime, damping, numBodies);
+             deltaTime, damping, deviceData[dev].numBodies);
         }
         else if (grid.x > 0)
         {
@@ -440,7 +440,7 @@ void integrateNbodySystem(DeviceData<T> *deviceData,
              (typename vec4<T>::Type *)deviceData[dev].dPos[currentRead],
              (typename vec4<T>::Type *)deviceData[dev].dVel,
              0, deviceData[dev].numBodies,
-             deltaTime, damping, numBodies);
+             deltaTime, damping, deviceData[dev].numBodies);
         }
 
         if (numDevices > 1)
