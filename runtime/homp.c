@@ -91,9 +91,18 @@ int omp_get_num_active_devices() {
 void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info) {
 	int i;
 	for (i = 0; i < num_targets; i++) {
-		targets[i]->offload_info = off_info;
+		if (targets[i]->offload_request != NULL || targets[i]->data_exchange_request != NULL) {
+			fprintf(stderr, "device %d is not ready for answering your request: %X. It is a bug so far\n", targets[i]->id, off_info);
+		}
+		targets[i]->offload_request = off_info;
+		/* TODO: this is data race if multiple host threads try to offload to the same devices,
+		 * FIX is to use cas operation to update this field
+		 */
 	}
 	pthread_barrier_wait(&off_info->barrier);
+	if (off_info->type != OMP_OFFLOADING_DATA) { /* we are done with this one, so clean up */
+		pthread_barrier_destroy(&off_info->barrier);
+	}
 }
 
 /* the second step for target data */
@@ -101,30 +110,60 @@ void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, om
 	int i;
 	off_info->stage = OMP_OFFLOADING_COPYFROM;
 	for (i = 0; i < num_targets; i++) {
-		targets[i]->offload_info = off_info;
+		if (targets[i]->offload_request != NULL || targets[i]->data_exchange_request != NULL) {
+			fprintf(stderr, "device %d is not ready for answering your request: %X. It is a bug so far\n", targets[i]->id, off_info);
+		}
+		targets[i]->offload_request = off_info;
+		/* TODO: this is data race if multiple host threads try to offload to the same devices,
+		 * FIX is to use cas operation to update this field
+		 */
 	}
 	pthread_barrier_wait(&off_info->barrier);
+	pthread_barrier_destroy(&off_info->barrier);
+}
+
+void omp_data_map_exchange_start(omp_device_t ** targets, int num_targets, omp_data_map_exchange_info_t * x_info) {
+	int i;
+	pthread_barrier_init(&x_info->barrier, NULL, num_targets+1);
+	for (i = 0; i < num_targets; i++) {
+		/* simple check */
+		if (targets[i]->offload_request != NULL || targets[i]->data_exchange_request != NULL) {
+			fprintf(stderr, "device %d is not ready for answering your request: %X. It is a bug so far\n", targets[i]->id, x_info);
+		}
+		targets[i]->data_exchange_request = x_info;
+		/* TODO: this is data race if multiple host threads try to offload to the same devices,
+		* FIX is to use cas operation to update this field
+		*/
+	}
+	pthread_barrier_wait(&x_info->barrier);
+	pthread_barrier_destroy(&x_info->barrier);
 }
 
 /**
- * TODO: extracting main body of helper_thread_main here or not ?????
+ * called by the shepherd thread
  */
-void omp_offloading_run(omp_offloading_info_t * off_info, int seqid) {
+void omp_data_exchange_dev(omp_device_t * dev) {
+	omp_data_map_exchange_info_t * x_info = dev->data_exchange_request;
+	int i;
+	for (i=0; i<x_info->num_maps; i++) {
+		omp_data_map_halo_exchange_t * x_halos = x_info->x_halos[i];
+		omp_data_map_info_t * map_info = x_halos->map_info;
+		int devseqid = omp_grid_topology_get_seqid(map_info->top, dev->id);
 
+		omp_data_map_t * map = &map_info->maps[devseqid];
+		omp_halo_region_pull(map, x_halos->x_dim, x_halos->x_direction);
+	}
+	pthread_barrier_wait(&x_info->barrier);
+	dev->data_exchange_request = NULL;
 }
 
-/* helper thread main */
-void helper_thread_main(void * arg) {
-	omp_device_t * dev = (omp_device_t*)arg;
-	int devid = dev->id;
-	/*************** wait *******************/
-schedule: ;
-//	printf("helper threading (devid: %d) waiting ....\n", devid);
-	while (dev->offload_info == NULL);
-
-	omp_offloading_info_t * off_info = dev->offload_info;
+/**
+ * called by the shepherd thread
+ */
+void omp_offloading_run(omp_device_t * dev) {
+	omp_offloading_info_t * off_info = dev->offload_request;
 	omp_grid_topology_t * top = off_info->top;
-	int seqid = omp_grid_topology_get_seqid(top, devid);
+	int seqid = omp_grid_topology_get_seqid(top, dev->id);
 //	printf("devid: %d --> seqid: %d in top: %X\n", devid, seqid, top);
 
 	omp_offloading_t * off = &off_info->offloadings[seqid];
@@ -196,10 +235,10 @@ offload_stage_kernexe: ;
 		/* put in the offloading stack */
 		dev->offload_stack[dev->offload_stack_top++] = off_info;
 		omp_stream_sync(&off->stream, 0);
-		dev->offload_info = NULL;
+		dev->offload_request = NULL;
 		pthread_barrier_wait(&off_info->barrier);
 
-		goto schedule;
+		return;
 	}
 
 offload_stage_copyfrom: ;
@@ -225,8 +264,21 @@ offload_stage_copyfrom: ;
 
 #endif
 
-	dev->offload_info = NULL;
-	goto schedule;
+	dev->offload_request = NULL;
+}
+
+/* helper thread main */
+void helper_thread_main(void * arg) {
+	omp_device_t * dev = (omp_device_t*)arg;
+	/*************** loop *******************/
+	while (1) {
+		//	printf("helper threading (devid: %d) waiting ....\n", devid);
+		while (dev->offload_request == NULL && dev->data_exchange_request != NULL);
+		if (dev->offload_request != NULL) omp_offloading_run(dev);
+		else if (dev->data_exchange_request) {
+			omp_data_exchange_dev(dev);
+		}
+	}
 }
 
 void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
@@ -771,13 +823,11 @@ void omp_print_data_map(omp_data_map_t * map) {
  * virtual topology and the halo region pull will be based on this coordinate.
  * @param: int dim[ specify which dimension to do the halo region update.
  *      If dim < 0, do all the update of map dimensions that has halo region
- * @param: int from_left_right
- * 		0: from both left and right
- * 		1: from left only
- * 		2: from right only
+ * @param: from_left_right, to do in which direction
+
  *
  */
-void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right) {
+void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_direction_t from_left_right) {
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
 	if (info->num_dims != 2 || dim != 0 || !map->marshalled_or_not) {
@@ -788,7 +838,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right) {
 	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[dim];
 	omp_data_map_t * left_map = halo_mem->left_map;
 	omp_data_map_t * right_map = halo_mem->right_map;
-	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) { /* pull from left */
+	if (left_map != NULL && (from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_ONLY || from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT)) { /* pull from left */
 		if (halo_mem->left_in_host_relay_ptr == NULL) { /* no need host relay */
 			omp_map_memcpy_DeviceToDevice(halo_mem->left_in_ptr, map->dev, left_map->halo_mem[dim].right_out_ptr, left_map->dev, halo_mem->left_in_size);
 		} else { /* need host relay */
@@ -798,7 +848,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right) {
 			omp_map_memcpy_to(halo_mem->left_in_ptr, map->dev, halo_mem->left_in_host_relay_ptr, halo_mem->left_in_size);
 		}
 	}
-	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
+	if (right_map != NULL && (from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_RIGHT_ONLY || from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT)) {
 		if (halo_mem->right_in_host_relay_ptr == NULL) {
 			omp_map_memcpy_DeviceToDevice(halo_mem->right_in_ptr, map->dev, right_map->halo_mem[dim].left_out_ptr, right_map->dev, halo_mem->right_in_size);
 		} else {

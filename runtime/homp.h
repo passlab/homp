@@ -29,6 +29,7 @@ extern int omp_get_num_devices();
 typedef struct omp_data_map omp_data_map_t;
 typedef struct omp_offloading_info omp_offloading_info_t;
 typedef struct omp_offloading omp_offloading_t;
+typedef struct omp_data_map_exchange_info omp_data_map_exchange_info_t;
 
 /**
  * multiple device support
@@ -67,7 +68,9 @@ typedef struct omp_device {
 	omp_device_type_t type;
 	int status;
 	struct omp_device * next; /* the device list */
-	volatile omp_offloading_info_t * offload_info; /* this is the notification flag that the helper thread will pick up the offloading request */
+	volatile omp_offloading_info_t * offload_request; /* this is the notification flag that the helper thread will pick up the offloading request */
+	volatile omp_data_map_exchange_info_t * data_exchange_request; /* this is the notification for exchanging data among devs */
+
 	omp_offloading_info_t * offload_stack[4];
 	/* the stack for keeping the nested but unfinished offloading request, we actually only need 2 so far.
 	 * However, if we know the current offload_info (being processed) is one that the device will run to completion, we will not put into the stack
@@ -260,6 +263,35 @@ struct omp_data_map {
 #endif
 };
 
+/**
+ * the data exchange direction, FROM is for pull, TO is for push
+ */
+typedef enum omp_data_map_exchange_direction {
+	OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT,
+	OMP_DATA_MAP_EXCHANGE_FROM_LEFT_ONLY,
+	OMP_DATA_MAP_EXCHANGE_FROM_RIGHT_ONLY,
+	OMP_DATA_MAP_EXCHANGE_TO_LEFT_RIGHT,
+	OMP_DATA_MAP_EXCHANGE_TO_LEFT_ONLY,
+	OMP_DATA_MAP_EXCHANGE_TO_RIGHT_ONLY,
+} omp_data_map_exchange_direction_t;
+
+/**
+ * the data exchange info, used for forwarding a request to shepherd thread to perform
+ * parallel data exchange between devices, e.g. halo region exchange
+ */
+typedef struct omp_data_map_halo_exchange {
+	omp_data_map_info_t * map_info; /* the map info the exchange needs to perform */
+	int x_dim;
+	omp_data_map_exchange_direction_t x_direction;
+} omp_data_map_halo_exchange_t;
+
+struct omp_data_map_exchange_info {
+	omp_data_map_halo_exchange_t ** x_halos;
+	int num_maps;
+
+	pthread_barrier_t barrier;
+};
+
 typedef enum omp_offloading_type {
 	OMP_OFFLOADING_DATA, /* e.g. omp target data, i.e. only offloading data */
 	OMP_OFFLOADING_DATA_CODE, /* e.g. omp target, i.e. offloading both data and code, and all the data used by the code are specified in this one */
@@ -317,7 +349,7 @@ struct omp_offloading_info {
 	void * args;
 	void (*kernel_launcher)(omp_offloading_t *, void *); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
 
-	/* the parcipating barrier */
+	/* the participating barrier */
 	pthread_barrier_t barrier;
 };
 
@@ -412,7 +444,7 @@ extern void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev
 
 extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
-extern void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right);
+extern void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_direction_t from_left_right);
 extern void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right);
 
 #if defined (DEVICE_NVGPU_SUPPORT)

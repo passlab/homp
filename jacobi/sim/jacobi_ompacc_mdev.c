@@ -659,29 +659,29 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_1__);
 
 		/** halo exchange */
-#if 0
-		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
-			omp_device_t * __dev__ = __target_devices__[__i__];
-			omp_set_current_device(__dev__);
-			omp_data_map_t * __dev_map_uold__ = &__data_maps__[__i__][2]; /* 2 is given by compiler here */
+	  	omp_data_map_exchange_info_t uold_xchange;
+	  	omp_data_map_halo_exchange_t *halo_maps[1]; halo_maps[0]->map_info = &__data_map_infos__[2]; halo_maps[0]->x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT;
+	  	if (dist == 1) halo_maps[0]->x_dim = 0;
+	  	else if (dist == 2) halo_maps[0]->x_dim = 1;
+	  	else halo_maps[0]->x_dim = -1; /* means all the dimension */
 
-			/* halo exchange here, we do a pull protocol, thus the receiver move data from the source */
-			omp_stream_start_event_record(&__dev_stream__[__i__], 3);
-			omp_halo_region_pull_async(__dev_map_uold__, 0, 0);
-			omp_stream_stop_event_record(&__dev_stream__[__i__], 3);
-		}
-#endif
+	  	uold_xchange.x_halos = halo_maps;
+	  	uold_xchange.num_maps = 1;
+	  	omp_data_map_exchange_start(__target_devices__, __num_target_devices__, &uold_xchange);
+
 		/* jacobi */
 	  	omp_offloading_info_t __off_info_2__;
 	  	omp_offloading_t __offs_2__[__num_target_devices__];
 	  	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
 	  	struct OUT__1__10550__args args_2;
 	  	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;
+
 	  	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
 	  	int __i__;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			__reduction_error__[__i__] = error;
 		}
+
 	  	omp_offloading_init_info(&__off_info_2__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__1__10550__launcher, &args_2);
 	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_2__);
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {

@@ -79,7 +79,8 @@ int omp_init_devices() {
 		dev->sysid = i;
 		dev->resident_data_maps = NULL;
 		dev->next = &omp_devices[i+1];
-		dev->offload_info = NULL;
+		dev->offload_request = NULL;
+		dev->data_exchange_request = NULL;
 		dev->offload_stack_top = -1;
 
 		int rt = pthread_create(&dev->helperth, &attr, (void *(*)(void *))helper_thread_main, (void *) dev);
