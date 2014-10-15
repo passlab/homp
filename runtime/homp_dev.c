@@ -140,8 +140,8 @@ void omp_map_free_dev(omp_device_t * dev, void * ptr) {
 	}
 }
 
-void omp_map_memcpy_to(omp_device_t * dev, void * dst, const void * src, long size) {
-	omp_device_type_t devtype = dev->type;
+void omp_map_memcpy_to(void * dst, omp_device_t * dstdev, const void * src, long size) {
+	omp_device_type_t devtype = dstdev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 	    cudaError_t result;
@@ -156,8 +156,8 @@ void omp_map_memcpy_to(omp_device_t * dev, void * dst, const void * src, long si
 	}
 }
 
-void omp_map_memcpy_to_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size) {
-	omp_device_type_t devtype = dev->type;
+void omp_map_memcpy_to_async(void * dst, omp_device_t * dstdev, const void * src, long size, omp_dev_stream_t * stream) {
+	omp_device_type_t devtype = dstdev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
@@ -173,8 +173,8 @@ void omp_map_memcpy_to_async(omp_device_t * dev, omp_dev_stream_t * stream, void
 	}
 }
 
-void omp_map_memcpy_from(omp_device_t * dev, void * dst, const void * src, long size) {
-	omp_device_type_t devtype = dev->type;
+void omp_map_memcpy_from(void * dst, const void * src, omp_device_t * srcdev, long size) {
+	omp_device_type_t devtype = srcdev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
@@ -191,8 +191,8 @@ void omp_map_memcpy_from(omp_device_t * dev, void * dst, const void * src, long 
 
 /**
  *  device to host, async */
-void omp_map_memcpy_from_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size) {
-	omp_device_type_t devtype = dev->type;
+void omp_map_memcpy_from_async(void * dst, const void * src, omp_device_t * srcdev, long size, omp_dev_stream_t * stream) {
+	omp_device_type_t devtype = srcdev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
@@ -238,7 +238,7 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_device_t * s
 	return 0;
 }
 
-void omp_map_memcpy_DeviceToDevice(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_data_map_t * src, int size) {
+void omp_map_memcpy_DeviceToDevice(void * dst, omp_device_t * dstdev, void * src, omp_device_t * srcdev, int size) {
 	omp_device_type_t dst_devtype = dstdev->type;
 	omp_device_type_t src_devtype = srcdev->type;
 
@@ -246,6 +246,7 @@ void omp_map_memcpy_DeviceToDevice(omp_device_t * dstdev, void * dst, omp_device
 	if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToDevice);
+//		result = cudaMemcpyPeer(dst, dstdev->sysid, src, srcdev->sysid, size);
 		devcall_assert(result);
 	} else
 #endif
@@ -257,7 +258,7 @@ void omp_map_memcpy_DeviceToDevice(omp_device_t * dstdev, void * dst, omp_device
 }
 
 /** it is a push operation, i.e. src push data to dst */
-void omp_map_memcpy_DeviceToDeviceAsync(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_dev_stream_t * srcstream, omp_data_map_t * src, int size) {
+void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void * src, omp_device_t * srcdev, int size, omp_dev_stream_t * srcstream) {
 	omp_device_type_t dst_devtype = dstdev->type;
 	omp_device_type_t src_devtype = srcdev->type;
 
@@ -265,6 +266,8 @@ void omp_map_memcpy_DeviceToDeviceAsync(omp_device_t * dstdev, void * dst, omp_d
 	if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
 	    result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyDeviceToDevice,srcstream->systream.cudaStream);
+	    //result = cudaMemcpyPeerAsync(dst, dstdev->sysid, src, srcdev->sysid, size, srcstream->systream.cudaStream);
+
 		devcall_assert(result);
 	} else
 #endif

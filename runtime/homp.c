@@ -171,7 +171,7 @@ offload_stage_copyto: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
 #endif
-			omp_map_memcpy_to_async(dev, stream, map->map_dev_ptr, map->map_buffer, map->map_size); /* memcpy from host to device */
+			omp_map_memcpy_to_async(map->map_dev_ptr, dev, map->map_buffer, map->map_size, stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);
 #endif
@@ -211,7 +211,7 @@ offload_stage_copyfrom: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
 #endif
-			omp_map_memcpy_from_async(dev, stream, map->map_buffer, map->map_dev_ptr, map->map_size); /* memcpy from host to device */
+			omp_map_memcpy_from_async(map->map_buffer, map->map_dev_ptr, dev, map->map_size, stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);
 #endif
@@ -606,37 +606,56 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 
 	/** memory management for halo region */
 
+
+	/** TODO:  this is only for 2-d array
+	 * For 3-D array, it becomes more complicated
+	 * For 1-D array, we will not need allocate buffer for the halo region. but we still need to update the left/right in/out ptr to the
+	 * correct location.
+	 *
+	 * There may be a uniformed way of dealing with this (for at least 1/2/3-d array
+	 *
+	 * The halo memory management is use a attached approach, i.e. the halo region is part of the main computation subregion, and those
+	 * left/right in/out are buffers for gathering and scattering halo region elements to its correct location.
+	 *
+	 * We may use a detached approach, i.e. just use the halo buffer for computation, however, that will involve more complicated
+	 * array index calculation.
+	 */
+
+	/** FIXME: so far, we only have 2-d row distribution working, i.e. no need to allocate halo region buffer */
 	for (i=0; i<info->num_dims; i++) {
 		omp_data_map_halo_region_info_t * halo_info = &info->halo_info[i];
 		if (halo_info->left != 0 || halo_info->right != 0) { /* there is halo region in this dimension */
 			omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[i];
-			int can_access = 0;
 			if (halo_mem->left_map != NULL) {
-				if (!omp_map_enable_memcpy_DeviceToDevice(halo_mem->left_map->dev, map->dev)) { /* no peer2peer access available, use host relay */
-					/* TODO */
+				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
+					halo_mem->left_in_size = halo_info->left*map->map_dim[1]*sizeof_element;
+					halo_mem->left_in_ptr = map->map_buffer;
+					halo_mem->left_out_size = halo_info->right*map->map_dim[1]*sizeof_element;
+					halo_mem->left_out_ptr = map->map_buffer - halo_mem->left_in_size;
+				} else {
+					fprintf(stderr, "current dist/map setting does not support halo region\n");
 				}
+
+				if (!omp_map_enable_memcpy_DeviceToDevice(halo_mem->left_map->dev, map->dev)) { /* no peer2peer access available, use host relay */
+					halo_mem->left_in_host_relay_ptr = malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
+				} else halo_mem->left_in_host_relay_ptr = NULL;
 			}
-			if (halo_mem->left_map != NULL) {
-				if (!omp_map_enable_memcpy_DeviceToDevice(halo_mem->left_map->dev, map->dev)) { /* no peer2peer access available, use host relay */
-					/* TODO */
+			if (halo_mem->right_map != NULL) {
+				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
+					halo_mem->right_in_size = halo_info->right*map->map_dim[1]*sizeof_element;
+					halo_mem->right_in_ptr = map->map_buffer + map->map_size - halo_mem->right_in_size;
+					halo_mem->right_out_size = halo_info->left*map->map_dim[1]*sizeof_element;
+					halo_mem->right_out_ptr = halo_mem->right_in_ptr - halo_mem->right_out_size;
+				} else {
+					fprintf(stderr, "current dist/map setting does not support halo region\n");
 				}
+				if (!omp_map_enable_memcpy_DeviceToDevice(halo_mem->right_map->dev, map->dev)) { /* no peer2peer access available, use host relay */
+					halo_mem->right_in_host_relay_ptr = malloc(halo_mem->right_in_size); /** FIXME, mem leak here and we have not thought where to free */
+				} else halo_mem->right_in_host_relay_ptr = NULL;
 			}
 
-			/** TODO: far this is only for 2-d array
-			 * For 3-D array, it becomes more complicated
-			 * For 1-D array, we will not need allocate buffer for the halo region. but we still need to update the left/right in/out ptr to the
-			 * correct location.
-			 *
-			 * There may be a uniformed way of dealing with this (for at least 1/2/3-d array
-			 *
-			 * The halo memory management is use a attached approach, i.e. the halo region is part of the main computation subregion, and those
-			 * left/right in/out are buffers for gathering and scattering halo region elements to its correct location.
-			 *
-			 * We may use a detached approach, i.e. just use the halo buffer for computation, however, that will involve more complicated
-			 * array index calculation.
-			 */
-
-			if (i == 0 || i == 1) { /* first dim of 2-D array */
+#if 0
+			if (i == 0 || i == 1) { /* just for 2-D array */
 				int rc = 1-i; /* row/column switch */
 				if (halo_mem->left_map != NULL) {
 					halo_mem->left_in_size = halo_info->left*map->map_dim[rc]*sizeof_element;
@@ -652,6 +671,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map) {
 					halo_mem->right_out_ptr = omp_map_malloc_dev(map->dev, halo_mem->right_out_size);
 				}
 			}
+#endif
 		}
 	}
 #if 0
@@ -747,7 +767,6 @@ void omp_print_data_map(omp_data_map_t * map) {
 				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->map_size);
 }
 
-#if 0
 /* do a halo regin pull for data map of devid. If top is not NULL, devid will be translated to coordinate of the
  * virtual topology and the halo region pull will be based on this coordinate.
  * @param: int dim[ specify which dimension to do the halo region update.
@@ -759,35 +778,40 @@ void omp_print_data_map(omp_data_map_t * map) {
  *
  */
 void omp_halo_region_pull(omp_data_map_t * map, int dim, int from_left_right) {
-        cudaError_t result;
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
-	if (info->dim[2] != 1) {
-		fprintf(stderr, "we only handle 2-d array so far!\n");
+	if (info->num_dims != 2 || dim != 0 || !map->marshalled_or_not) {
+		fprintf(stderr, "we only handle 2-d array, dist/halo at 0-d and non-marshalling so far!\n");
 		return;
 	}
 
-	if (dim != 0) {
-		fprintf(stderr, "we only handle 0-dim halo region so far \n");
-		return;
-	}
-
-	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[0];
+	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[dim];
 	omp_data_map_t * left_map = halo_mem->left_map;
 	omp_data_map_t * right_map = halo_mem->right_map;
-	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) {
-//		cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream.systream.cudaStream);
-		result = cudaMemcpyPeer(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size);
-                gpuErrchk(result); 
+	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) { /* pull from left */
+		if (halo_mem->left_in_host_relay_ptr == NULL) { /* no need host relay */
+			omp_map_memcpy_DeviceToDevice(halo_mem->left_in_ptr, map->dev, left_map->halo_mem[dim].right_out_ptr, left_map->dev, halo_mem->left_in_size);
+		} else { /* need host relay */
+			omp_set_current_device_dev(left_map->dev);
+			omp_map_memcpy_from(halo_mem->left_in_host_relay_ptr, left_map->halo_mem[dim].right_out_ptr, left_map->dev, halo_mem->left_in_size);
+			omp_set_current_device_dev(map->dev);
+			omp_map_memcpy_to(halo_mem->left_in_ptr, map->dev, halo_mem->left_in_host_relay_ptr, halo_mem->left_in_size);
+		}
 	}
 	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
-//		cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream.systream.cudaStream);
-		result = cudaMemcpyPeer(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size);
-                gpuErrchk(result); 
+		if (halo_mem->right_in_host_relay_ptr == NULL) {
+			omp_map_memcpy_DeviceToDevice(halo_mem->right_in_ptr, map->dev, right_map->halo_mem[dim].left_out_ptr, right_map->dev, halo_mem->right_in_size);
+		} else {
+			omp_set_current_device_dev(right_map->dev);
+			omp_map_memcpy_from(halo_mem->right_in_host_relay_ptr, right_map->halo_mem[dim].left_out_ptr, right_map->dev, halo_mem->right_in_size);
+			omp_set_current_device_dev(map->dev);
+			omp_map_memcpy_to(halo_mem->right_in_ptr, map->dev, halo_mem->right_in_host_relay_ptr, halo_mem->right_in_size);
+		}
 	}
 	return;
 }
 
+#if 0
 void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right) {
         cudaError_t result;
 	omp_data_map_info_t * info = map->info;
@@ -855,7 +879,7 @@ printf("CPUSync from %d to %d\n",map->devsid,  right_map->devsid);
 	}
 }
 
-#endif /* if 0 */
+#endif
 
 /**
  * return the mapped range index from the iteration range of the original array

@@ -201,6 +201,13 @@ typedef struct omp_data_map_halo_region_mem {
 	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
 	void * right_out_ptr;
 	long right_out_size;
+
+	/* if p2p communication is not available, we will need buffer at host to relay the halo exchange.
+	 * Each data map only maintains the relay pointers for halo that they need, i.e. a pull
+	 * protocol should be applied for halo exchange.
+	 */
+	void * left_in_host_relay_ptr;
+	void * right_in_host_relay_ptr;
 } omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
@@ -395,13 +402,13 @@ extern void omp_map_marshal(omp_data_map_t * map);
 extern void omp_map_unmarshal(omp_data_map_t * map);
 extern void omp_map_free_dev(omp_device_t * dev, void * ptr);
 extern void * omp_map_malloc_dev(omp_device_t * dev, long size);
-extern void omp_map_memcpy_to(omp_device_t * dev, void * dst, const void * src, long size);
-extern void omp_map_memcpy_to_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size);
-extern void omp_map_memcpy_from(omp_device_t * dev, void * dst, const void * src, long size);
-extern void omp_map_memcpy_from_async(omp_device_t * dev, omp_dev_stream_t * stream, void * dst, const void * src, long size);
+extern void omp_map_memcpy_to(void * dst, omp_device_t * dstdev, const void * src, long size);
+extern void omp_map_memcpy_to_async(void * dst, omp_device_t * dstdev, const void * src, long size, omp_dev_stream_t * stream);
+extern void omp_map_memcpy_from(void * dst, const void * src, omp_device_t * srcdev, long size);
+extern void omp_map_memcpy_from_async(void * dst, const void * src, omp_device_t * srcdev, long size, omp_dev_stream_t * stream);
 extern int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_device_t * srcdev);
-extern void omp_map_memcpy_DeviceToDevice(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_data_map_t * src, int size) ;
-extern void omp_map_memcpy_DeviceToDeviceAsync(omp_device_t * dstdev, void * dst, omp_device_t * srcdev, omp_dev_stream_t * srcstream, omp_data_map_t * src, int size);
+extern void omp_map_memcpy_DeviceToDevice(void * dst, omp_device_t * dstdev, void * src, omp_device_t * srcdev, int size) ;
+extern void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void * src, omp_device_t * srcdev, int size, omp_dev_stream_t * srcstream);
 
 extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
