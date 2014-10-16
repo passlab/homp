@@ -383,22 +383,22 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	/* A map info */
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long A_dims[2];A_dims[0] = n;A_dims[1] = n;
+	omp_data_map_t A_maps[__num_target_devices__];
 	omp_data_map_dist_t A_dist[2];
-	omp_data_map_init_info(__info__, &__top__, A, 2, A_dims, sizeof(REAL), OMP_DATA_MAP_TO, A_dist);
-	__info__->maps = (omp_data_map_t *) alloca(sizeof(omp_data_map_t) * __num_target_devices__);
+	omp_data_map_init_info(__info__, &__top__, A, 2, A_dims, sizeof(REAL), A_maps, OMP_DATA_MAP_TO, A_dist);
 
 	/* B map info */
 	__info__ = &__data_map_infos__[1];
 	long B_dims[2];B_dims[0] = n;B_dims[1] = n;
+	omp_data_map_t B_maps[__num_target_devices__];
 	omp_data_map_dist_t B_dist[2];
-	omp_data_map_init_info(__info__, &__top__, B, 2, B_dims, sizeof(REAL),OMP_DATA_MAP_TO, B_dist);
-	__info__->maps = (omp_data_map_t *) alloca(sizeof(omp_data_map_t) * __num_target_devices__);
+	omp_data_map_init_info(__info__, &__top__, B, 2, B_dims, sizeof(REAL),B_maps, OMP_DATA_MAP_TO, B_dist);
 
 	__info__ = &__data_map_infos__[2];
 	long C_dims[2];C_dims[0] = n; C_dims[1] = n;
+	omp_data_map_t C_maps[__num_target_devices__];
 	omp_data_map_dist_t C_dist[2];
-	omp_data_map_init_info(__info__, &__top__, C, 2, C_dims, sizeof(REAL),OMP_DATA_MAP_FROM, C_dist);
-	__info__->maps = (omp_data_map_t *) alloca(sizeof(omp_data_map_t) * __num_target_devices__);
+	omp_data_map_init_info(__info__, &__top__, C, 2, C_dims, sizeof(REAL),C_maps, OMP_DATA_MAP_FROM, C_dist);
 
 	/**************************************** dist-specific *****************************************/
 	if (dist == 1) {
