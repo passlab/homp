@@ -433,6 +433,10 @@ extern void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *i
 extern void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type, int topdim);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev,	omp_dev_stream_t * stream, omp_offloading_t * off);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid, omp_offloading_t * off) ;
+extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);
+extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
+extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
+
 extern omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index);
 extern void omp_print_data_map(omp_data_map_t * map);
 extern void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off);

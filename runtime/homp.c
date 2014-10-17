@@ -125,11 +125,13 @@ void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, om
 void omp_data_map_exchange_start(omp_device_t ** targets, int num_targets, omp_data_map_exchange_info_t * x_info) {
 	int i;
 	pthread_barrier_init(&x_info->barrier, NULL, num_targets+1);
+
 	for (i = 0; i < num_targets; i++) {
 		/* simple check */
 		if (targets[i]->data_exchange_request != NULL) {
 			fprintf(stderr, "device %d is not ready for answering your request, exchange: %X. It is a bug so far\n", targets[i]->id, x_info);
 		}
+//		printf("notifying dev: %d for data exchange: %X\n", i, x_info);
 		targets[i]->data_exchange_request = x_info;
 		/* TODO: this is data race if multiple host threads try to offload to the same devices,
 		* FIX is to use cas operation to update this field
@@ -144,6 +146,7 @@ void omp_data_map_exchange_start(omp_device_t ** targets, int num_targets, omp_d
  */
 void omp_data_exchange_dev(omp_device_t * dev) {
 	omp_data_map_exchange_info_t * x_info = dev->data_exchange_request;
+	//printf("handling halo region by dev: %d, num_maps: %d\n", dev->id, x_info->num_maps);
 	int i;
 	for (i=0; i<x_info->num_maps; i++) {
 		omp_data_map_halo_exchange_t * x_halos = &x_info->x_halos[i];
@@ -151,11 +154,11 @@ void omp_data_exchange_dev(omp_device_t * dev) {
 		int devseqid = omp_grid_topology_get_seqid(map_info->top, dev->id);
 
 		omp_data_map_t * map = &map_info->maps[devseqid];
-		printf("dev: %d (seqid: %d) holo region pull\n", dev->id, devseqid);
+		//printf("dev: %d (seqid: %d) holo region pull\n", dev->id, devseqid);
 		omp_halo_region_pull(map, x_halos->x_dim, x_halos->x_direction);
 	}
-	pthread_barrier_wait(&x_info->barrier);
 	dev->data_exchange_request = NULL;
+	pthread_barrier_wait(&x_info->barrier);
 }
 
 /**
@@ -167,15 +170,15 @@ void omp_offloading_run(omp_device_t * dev) {
 	int seqid = omp_grid_topology_get_seqid(top, dev->id);
 	omp_offloading_t * off = &off_info->offloadings[seqid];
 	//printf("devid: %d --> seqid: %d in top: %X, off: %X, off_info: %X\n", dev->id, seqid, top, off, off_info);
+	omp_dev_stream_t * stream = &off->stream;
 
+	if (off_info->stage == OMP_OFFLOADING_COPYFROM) goto offload_stage_copyfrom;
 	off->devseqid = seqid;
 	off->dev = dev;
 	off->off_info = off_info;
 	off->map_list = NULL;
 	off->num_maps = 0;
-	omp_dev_stream_t * stream = &off->stream;
 
-	if (off_info->stage == OMP_OFFLOADING_COPYFROM) goto offload_stage_copyfrom;
 #if defined (OMP_BREAKDOWN_TIMING)
 	/* the num_mapped_vars * 2 +4 is the rough number of events needed */
 	int num_events = off_info->num_mapped_vars * 2 + 4;
@@ -263,12 +266,12 @@ offload_stage_copyfrom: ;
 
 	/* sync stream to wait for completion */
 	omp_sync_cleanup(off);
+	dev->offload_request = NULL;
 	pthread_barrier_wait(&off_info->barrier);
 #if defined (OMP_BREAKDOWN_TIMING)
 
 #endif
 
-	dev->offload_request = NULL;
 }
 
 /* helper thread main */
@@ -277,9 +280,10 @@ void helper_thread_main(void * arg) {
 	/*************** loop *******************/
 	while (1) {
 		//	printf("helper threading (devid: %d) waiting ....\n", devid);
-		while (dev->offload_request == NULL && dev->data_exchange_request != NULL);
+		while (dev->offload_request == NULL && dev->data_exchange_request == NULL);
+
 		if (dev->offload_request != NULL) omp_offloading_run(dev);
-		else if (dev->data_exchange_request) {
+		else if (dev->data_exchange_request != NULL) {
 			omp_data_exchange_dev(dev);
 		}
 	}
@@ -313,6 +317,32 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->dist = dist;
 	info->halo_info = NULL;
 	info->sizeof_element = sizeof_element;
+}
+
+
+void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info) {
+	if (num_dims > 3) {
+		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
+		exit(1);
+	}
+	int i;
+	for (i=0; i<num_dims; i++) {
+		halo_info[i].left = 0;
+		halo_info[i].right = 0;
+		halo_info[i].cyclic = 0;
+		halo_info[i].topdim = -1;
+	}
+
+	info->top = top;
+	info->source_ptr = source_ptr;
+	info->num_dims = num_dims;
+	info->dims = dims;
+	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * top->nnodes);
+	info->map_type = map_type;
+	info->dist = dist;
+	info->sizeof_element = sizeof_element;
+	info->halo_info = halo_info;
 }
 
 void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type, int topdim) {
@@ -373,29 +403,20 @@ void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, om
 	info->halo_info = halo_info;
 }
 
-void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info) {
-	if (num_dims > 3) {
-		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
-		exit(1);
-	}
-	int i;
-	for (i=0; i<num_dims; i++) {
-		halo_info[i].left = 0;
-		halo_info[i].right = 0;
-		halo_info[i].cyclic = 0;
-		halo_info[i].topdim = -1;
-	}
+int omp_data_map_has_halo(omp_data_map_info_t * info, int dim) {
+	if (info->halo_info == NULL) return 0;
+	if (info->halo_info[dim].left == 0 && info->halo_info[dim].right == 0) return 0;
+	return 1;
+}
 
-	info->top = top;
-	info->source_ptr = source_ptr;
-	info->num_dims = num_dims;
-	info->dims = dims;
-	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * top->nnodes);
-	info->map_type = map_type;
-	info->dist = dist;
-	info->sizeof_element = sizeof_element;
-	info->halo_info = halo_info;
+int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim) {
+	if (omp_data_map_has_halo(map->info, dim) == 0) return -1;
+	return (map->halo_mem[dim].left_dev_seqid);
+}
+
+int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim) {
+	if (omp_data_map_has_halo(map->info, dim) == 0) return -1;
+	return (map->halo_mem[dim].right_dev_seqid);
 }
 
 /**
@@ -869,7 +890,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 	}
 
 	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[dim];
-	printf("dev: %d, map: %X, left: %d, right: %d\n", map->dev->id, map, halo_mem->left_dev_seqid, halo_mem->right_dev_seqid);
+	//printf("dev: %d, map: %X, left: %d, right: %d\n", map->dev->id, map, halo_mem->left_dev_seqid, halo_mem->right_dev_seqid);
 
 	if (halo_mem->left_dev_seqid >= 0 && (from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_ONLY || from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT)) { /* pull from left */
 		omp_data_map_t * left_map = &info->maps[halo_mem->left_dev_seqid];
