@@ -216,6 +216,7 @@ offload_stage_copyto: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
 #endif
+			printf("memcpy: %X <------- %X, size: %d\n", map->map_dev_ptr, map->map_buffer, map->map_size);
 			omp_map_memcpy_to_async(map->map_dev_ptr, dev, map->map_buffer, map->map_size, stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);

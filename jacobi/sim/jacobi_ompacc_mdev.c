@@ -35,15 +35,16 @@
 #define REAL double
 // flexible between REAL and double
 int dist = 1; /* 1, 2, or 3; 1: row major; 2: column major; 3: row-column */
-#define DEFAULT_MSIZE 512
+#define DEFAULT_MSIZE 256
 
 void print_array(char * title, char * name, REAL * A, long n, long m) {
 	printf("%s:\n", title);
 	long i, j;
     for (i = 0; i < n; i++) {
         for (j = 0; j < m; j++) {
-            printf("%s[%d][%d]:%f\n", name, i, j, A[i * m + j]);
+            printf("%s[%d][%d]:%f  ", name, i, j, A[i * m + j]);
         }
+        printf("\n");
     }
     printf("\n");
 }
@@ -109,7 +110,7 @@ int main(int argc, char * argv[]) {
 	REAL alpha = 0.0543;
 	REAL tol = 0.0000000001;
 	REAL relax = 1.0;
-	int mits = 200;
+	int mits = 2;
 
     fprintf(stderr,"Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
@@ -134,12 +135,13 @@ int main(int argc, char * argv[]) {
     /** init the array */
     //REAL u[n][m];
     //REAL f[n][m];
+	omp_init_devices();
 
-    REAL * u = malloc(sizeof(REAL)*n*m);
-    REAL * f = malloc(sizeof(REAL)*n*m);
+    REAL * u = (REAL *)malloc(sizeof(REAL)*n*m);
+    REAL * f = (REAL *)malloc(sizeof(REAL)*n*m);
 
-    REAL *udev = malloc(sizeof(REAL)*n*m);
-    REAL *fdev = malloc(sizeof(REAL)*n*m);
+    REAL *udev = (REAL *)malloc(sizeof(REAL)*n*m);
+    REAL *fdev = (REAL *)malloc(sizeof(REAL)*n*m);
 
     REAL dx; /* grid spacing in x direction */
     REAL dy; /* grid spacing in y direction */
@@ -148,24 +150,31 @@ int main(int argc, char * argv[]) {
 
     memcpy(udev, u, n*m*sizeof(REAL));
     memcpy(fdev, f, n*m*sizeof(REAL));
-	omp_init_devices();
-
+	print_array("Before Run", "u",(REAL*)u, n, m);
+	print_array("Before Run", "u",(REAL*)udev, n, m);
+    int i, j;
+    for (i=0; i<n*m; i++) {
+    	udev[i] = u[i];
+    	fdev[i] = f[i];
+    }
 	REAL elapsed = read_timer_ms();
-	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
+	//jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
 	elapsed = read_timer_ms() - elapsed;
 	printf("seq elasped time(ms): %12.6g\n", elapsed);
 	double mflops = (0.001*mits*(n-2)*(m-2)*13) / elapsed;
 	printf("MFLOPS: %12.6g\n", mflops);
 
 	elapsed = read_timer_ms();
+
+
 	jacobi_omp_mdev(n, m, dx, dy, alpha, relax, udev, fdev, tol, mits);
 	elapsed = read_timer_ms() - elapsed;
 	printf("mdev elasped time(ms): %12.6g\n", elapsed);
 	mflops = (0.001*mits*(n-2)*(m-2)*13) / elapsed;
 	printf("MFLOPS: %12.6g\n", mflops);
 
-	print_array("Sequential Run", "u",(REAL*)u, n, m);
-	print_array("Mdev Run", "udev", (REAL*)udev, n, m);
+	//print_array("Sequential Run", "u",(REAL*)u, n, m);
+	//print_array("Mdev Run", "udev", (REAL*)udev, n, m);
 
 	error_check(n, m, alpha, dx, dy, u, f);
 	free(u); free(f);
@@ -399,8 +408,8 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 
     REAL (*uold)[uold_1_length] = (REAL(*)[uold_1_length])uold_p; /** cast a pointer to a 2-D array */
 
-#if CORRECTNESS_CHECK
     printf("kernel launcher: u: %X, uold: %X\n", u, uold);
+#if CORRECTNESS_CHECK
     print_array("u in device: ", "udev", u, n, m);
     print_array("uold in device: ", "uolddev", uold, n, m);
 #endif
@@ -434,6 +443,9 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
+
+	printf("udev: %d\n", off->devseqid);
+	print_array("udev", "u",(REAL*)u, n, m);
 
 	//printf("OUT__2__10550__launcher done\n");
 }
@@ -749,6 +761,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		/** halo exchange */
 		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
 
+	  	while(1);
 	  	omp_data_map_exchange_info_t u_uold_xchange;
 	  	omp_data_map_halo_exchange_t x_halos[1];
 	  	x_halos[0].map_info = &__data_map_infos__[0]; x_halos[1].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
