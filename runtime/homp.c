@@ -28,6 +28,7 @@ int omp_get_num_devices() {
 
 omp_device_t * omp_devices;
 int omp_num_devices;
+volatile omp_printf_turn = 0; /* a simple mechanims to allow multiple dev shepherd threads to print in turn so the output do not scrambled together */
 char * omp_device_type_name[OMP_NUM_DEVICE_TYPES];
 
 /* APIs to support multiple devices: */
@@ -159,6 +160,7 @@ void omp_data_exchange_dev(omp_device_t * dev) {
 	}
 	dev->data_exchange_request = NULL;
 	pthread_barrier_wait(&x_info->barrier);
+
 }
 
 /**
@@ -216,7 +218,6 @@ offload_stage_copyto: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
 #endif
-			printf("memcpy: %X <------- %X, size: %d\n", map->map_dev_ptr, map->map_buffer, map->map_size);
 			omp_map_memcpy_to_async(map->map_dev_ptr, dev, map->map_buffer, map->map_size, stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);
@@ -726,12 +727,21 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 		omp_data_map_halo_region_info_t * halo_info = &info->halo_info[i];
 		if (halo_info->left != 0 || halo_info->right != 0) { /* there is halo region in this dimension */
 			omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[i];
+#if CORRECTNESS_CHECK
+		    BEGIN_SERIALIZED_PRINTF(off->devseqid);
+		    printf("map: %X, dev_ptr: %X\n", map, map->map_dev_ptr);
+#endif
 			if (halo_mem->left_dev_seqid >= 0) {
 				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
 					halo_mem->left_in_size = halo_info->left*map->map_dim[1]*sizeof_element;
-					halo_mem->left_in_ptr = map->map_buffer;
+					halo_mem->left_in_ptr = map->map_dev_ptr;
 					halo_mem->left_out_size = halo_info->right*map->map_dim[1]*sizeof_element;
-					halo_mem->left_out_ptr = map->map_buffer - halo_mem->left_in_size;
+					halo_mem->left_out_ptr = &((char*)map->map_dev_ptr)[halo_mem->left_in_size];
+#if CORRECTNESS_CHECK
+
+					printf("dev: %d, halo left in size: %d, left in ptr: %X, left out size: %d, left out ptr: %X\n", off->devseqid,
+							halo_mem->left_in_size,halo_mem->left_in_ptr,halo_mem->left_out_size,halo_mem->left_out_ptr);
+#endif
 				} else {
 					fprintf(stderr, "current dist/map setting does not support halo region\n");
 				}
@@ -739,15 +749,21 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				omp_device_t * leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
 					halo_mem->left_in_host_relay_ptr = malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
+#if CORRECTNESS_CHECK
 					printf("dev: %d, map: %X, left: %d, left host relay buffer allocated\n", off->devseqid, map, halo_mem->left_dev_seqid);
+#endif
 				} else halo_mem->left_in_host_relay_ptr = NULL;
 			}
 			if (halo_mem->right_dev_seqid >= 0) {
 				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
 					halo_mem->right_in_size = halo_info->right*map->map_dim[1]*sizeof_element;
-					halo_mem->right_in_ptr = map->map_buffer + map->map_size - halo_mem->right_in_size;
+					halo_mem->right_in_ptr = &((char *)map->map_dev_ptr)[map->map_size - halo_mem->right_in_size];
 					halo_mem->right_out_size = halo_info->left*map->map_dim[1]*sizeof_element;
-					halo_mem->right_out_ptr = halo_mem->right_in_ptr - halo_mem->right_out_size;
+					halo_mem->right_out_ptr = &((char *)halo_mem->right_in_ptr)[0 - halo_mem->right_out_size];
+#if CORRECTNESS_CHECK
+					printf("dev: %d, halo right in size: %d, right in ptr: %X, right out size: %d, right out ptr: %X\n", off->devseqid,
+												halo_mem->right_in_size,halo_mem->right_in_ptr,halo_mem->right_out_size,halo_mem->right_out_ptr);
+#endif
 				} else {
 					fprintf(stderr, "current dist/map setting does not support halo region\n");
 				}
@@ -757,6 +773,10 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 					printf("dev: %d, map: %X, left: %d, right host relay buffer allocated\n", off->devseqid, map, halo_mem->right_dev_seqid);
 				} else halo_mem->right_in_host_relay_ptr = NULL;
 			}
+#if CORRECTNESS_CHECK
+		    END_SERIALIZED_PRINTF();
+#endif
+
 
 #if 0
 			if (i == 0 || i == 1) { /* just for 2-D array */
@@ -891,12 +911,18 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 	}
 
 	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[dim];
-	//printf("dev: %d, map: %X, left: %d, right: %d\n", map->dev->id, map, halo_mem->left_dev_seqid, halo_mem->right_dev_seqid);
+#if CORRECTNESS_CHECK
+    BEGIN_SERIALIZED_PRINTF(map->dev->id);
+	printf("dev: %d, map: %X, left: %d, right: %d\n", map->dev->id, map, halo_mem->left_dev_seqid, halo_mem->right_dev_seqid);
+#endif
 
 	if (halo_mem->left_dev_seqid >= 0 && (from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_ONLY || from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT)) { /* pull from left */
 		omp_data_map_t * left_map = &info->maps[halo_mem->left_dev_seqid];
 		if (halo_mem->left_in_host_relay_ptr == NULL) { /* no need host relay */
 			omp_map_memcpy_DeviceToDevice(halo_mem->left_in_ptr, map->dev, left_map->halo_mem[dim].right_out_ptr, left_map->dev, halo_mem->left_in_size);
+#if CORRECTNESS_CHECK
+			printf("dev: %d, dev2dev memcpy from left: %X <----- %X\n", map->dev->id, halo_mem->left_in_ptr, left_map->halo_mem[dim].right_out_ptr);
+#endif
 		} else { /* need host relay */
 			omp_set_current_device_dev(left_map->dev);
 			omp_map_memcpy_from(halo_mem->left_in_host_relay_ptr, left_map->halo_mem[dim].right_out_ptr, left_map->dev, halo_mem->left_in_size);
@@ -908,6 +934,10 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 		omp_data_map_t * right_map = &info->maps[halo_mem->right_dev_seqid];
 		if (halo_mem->right_in_host_relay_ptr == NULL) {
 			omp_map_memcpy_DeviceToDevice(halo_mem->right_in_ptr, map->dev, right_map->halo_mem[dim].left_out_ptr, right_map->dev, halo_mem->right_in_size);
+#if CORRECTNESS_CHECK
+			printf("dev: %d, dev2dev memcpy from right: %X <----- %X\n", map->dev->id, halo_mem->right_in_ptr, right_map->halo_mem[dim].left_out_ptr);
+#endif
+
 		} else {
 			omp_set_current_device_dev(right_map->dev);
 			omp_map_memcpy_from(halo_mem->right_in_host_relay_ptr, right_map->halo_mem[dim].left_out_ptr, right_map->dev, halo_mem->right_in_size);
@@ -915,6 +945,9 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 			omp_map_memcpy_to(halo_mem->right_in_ptr, map->dev, halo_mem->right_in_host_relay_ptr, halo_mem->right_in_size);
 		}
 	}
+#if CORRECTNESS_CHECK
+	END_SERIALIZED_PRINTF();
+#endif
 	return;
 }
 

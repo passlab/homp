@@ -49,6 +49,19 @@ void print_array(char * title, char * name, REAL * A, long n, long m) {
     printf("\n");
 }
 
+void print_array_dev(char * title, int dev, char * name, REAL * A, long n, long m) {
+	printf("%s, dev: %d\n", title, dev);
+	long i, j;
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < m; j++) {
+            printf("%s%d[%d][%d]:%f  ", name, dev,i, j, A[i * m + j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+
 /*      subroutine initialize (n,m,alpha,dx,dy,u,f)
  ******************************************************
  * Initializes data
@@ -110,7 +123,7 @@ int main(int argc, char * argv[]) {
 	REAL alpha = 0.0543;
 	REAL tol = 0.0000000001;
 	REAL relax = 1.0;
-	int mits = 2;
+	int mits = 5000;
 
     fprintf(stderr,"Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
@@ -146,27 +159,23 @@ int main(int argc, char * argv[]) {
     REAL dx; /* grid spacing in x direction */
     REAL dy; /* grid spacing in y direction */
 
-    initialize(n, m, alpha, &dx, &dy, u, f);
+    initialize(n, m, alpha, &dx, &dy, (REAL(*)[m])u, (REAL(*)[m])f);
 
     memcpy(udev, u, n*m*sizeof(REAL));
     memcpy(fdev, f, n*m*sizeof(REAL));
-	print_array("Before Run", "u",(REAL*)u, n, m);
-	print_array("Before Run", "u",(REAL*)udev, n, m);
-    int i, j;
-    for (i=0; i<n*m; i++) {
-    	udev[i] = u[i];
-    	fdev[i] = f[i];
-    }
+
 	REAL elapsed = read_timer_ms();
-	//jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
+	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
 	elapsed = read_timer_ms() - elapsed;
 	printf("seq elasped time(ms): %12.6g\n", elapsed);
 	double mflops = (0.001*mits*(n-2)*(m-2)*13) / elapsed;
 	printf("MFLOPS: %12.6g\n", mflops);
 
+#if CORRECTNESS_CHECK
+	print_array("udev", "udev", (REAL*)udev, n, m);
+#endif
+
 	elapsed = read_timer_ms();
-
-
 	jacobi_omp_mdev(n, m, dx, dy, alpha, relax, udev, fdev, tol, mits);
 	elapsed = read_timer_ms() - elapsed;
 	printf("mdev elasped time(ms): %12.6g\n", elapsed);
@@ -174,7 +183,6 @@ int main(int argc, char * argv[]) {
 	printf("MFLOPS: %12.6g\n", mflops);
 
 	//print_array("Sequential Run", "u",(REAL*)u, n, m);
-	//print_array("Mdev Run", "udev", (REAL*)udev, n, m);
 
 	error_check(n, m, alpha, dx, dy, u, f);
 	free(u); free(f);
@@ -232,6 +240,7 @@ void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL u
 		for (i = 1; i < (n - 1); i++)
 			for (j = 1; j < (m - 1); j++) {
 				resid = (ax * (uold[i - 1][j] + uold[i + 1][j]) + ay * (uold[i][j - 1] + uold[i][j + 1]) + b * uold[i][j] - f[i][j]) / b;
+				//printf("i: %d, j: %d, resid: %f\n", i, j, resid);
 
 				u[i][j] = uold[i][j] - omega * resid;
 				error = error + resid * resid;
@@ -382,12 +391,29 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
     long n = iargs->n;
     long m = iargs->m;
 
+
     omp_offloading_info_t * off_info = off->off_info;
 //    printf("IN LAUNCHER: dev: %d, off: %X, off_info: %X\n", off->devseqid, off, off_info);
 
     omp_data_map_t * map_u = omp_map_get_map(off, iargs->u, -1); /* 1 means the map u */
     omp_data_map_t * map_uold = omp_map_get_map(off, iargs->uold, -1); /* 2 means the map uold */
 
+    /* get the right length for each dimension */
+	long start;
+	if (dist == 1) {
+		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
+	} else if (dist == 2) {
+		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
+	} else /* vx == 3) */ {
+		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
+		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
+	}
+
+	/* get the right base address, and offset in each dimension,
+	 * since uold has halo region, we need to deal it with carefully.
+	 * for u, it is just the map_dev_ptr
+	 * */
+	int i, j;
     REAL * u_p = (REAL *)map_u->map_dev_ptr;
     REAL (*u)[m] = (REAL(*)[m])u_p;
 
@@ -399,6 +425,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
     if (omp_data_map_get_halo_left_devseqid(map_uold, 0) >= 0) {
     	uold_0_offset = map_uold->info->halo_info[0].left;
     } else uold_0_offset = 0;
+
     if (omp_data_map_get_halo_left_devseqid(map_uold, 1) >= 0) {
         uold_1_offset = map_uold->info->halo_info[1].left;
     } else uold_1_offset = 0;
@@ -408,21 +435,12 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 
     REAL (*uold)[uold_1_length] = (REAL(*)[uold_1_length])uold_p; /** cast a pointer to a 2-D array */
 
-    printf("kernel launcher: u: %X, uold: %X\n", u, uold);
 #if CORRECTNESS_CHECK
-    print_array("u in device: ", "udev", u, n, m);
-    print_array("uold in device: ", "uolddev", uold, n, m);
+    BEGIN_SERIALIZED_PRINTF((off->devseqid));
+	printf("devsid: %d, 0-d off: %d, 1-d off: %d\n", off->devseqid, uold_0_offset, uold_1_offset);
+	END_SERIALIZED_PRINTF();
 #endif
 
-	long start;
-	if (dist == 1) {
-		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
-	} else if (dist == 2) {
-		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
-	} else /* vx == 3) */ {
-		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
-		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
-	}
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
@@ -434,18 +452,23 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		int i, j;
-		for (i = 0; i < n; i++)
-			for (j = 0; j < m; j++) {
+		for (i=0; i < n; i++)
+			for (j=0; j < m; j++) {
 				/* since uold has halo region, here we need to adjust index to reflect the new offset */
 				uold[i+uold_0_offset][j+uold_1_offset] = u[i][j];
 			}
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
-
-	printf("udev: %d\n", off->devseqid);
-	print_array("udev", "u",(REAL*)u, n, m);
+#if CORRECTNESS_CHECK
+    BEGIN_SERIALIZED_PRINTF(off->devseqid);
+	printf("udev: dev: %d, %dX%d\n", off->devseqid, n, m);
+	print_array_dev("udev", off->devseqid, "u",(REAL*)u, n, m);
+	printf("uolddev: dev: %d, %dX%d\n", off->devseqid, uold_0_length, uold_1_length);
+	print_array_dev("uolddev", off->devseqid, "uold",(REAL*)uold, uold_0_length, uold_1_length);
+	printf("uold: left_in_ptr: %X, left_out_ptr: %X, right_in_ptr: %X, right_out_ptr: %X\n", uold, &uold[1][0], &uold[uold_0_length-1][0],&uold[uold_0_length-2][0]);
+	END_SERIALIZED_PRINTF();
+#endif
 
 	//printf("OUT__2__10550__launcher done\n");
 }
@@ -519,6 +542,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
 		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
 	}
+
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
@@ -557,30 +581,46 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		int i, j;
+		int i_start, j_start;
 		REAL resid;
 		REAL error;
 	    if (omp_data_map_get_halo_left_devseqid(map_uold, 0) >= 0) {
-	    	i = 0;
-	    } else i = 1;
+	    	i_start = 0;
+	    } else i_start = 1;
+
+	    if (omp_data_map_get_halo_left_devseqid(map_uold, 1) >= 0) {
+	    	j_start = 0;
+	    } else j_start = 1;
 
 	    if (omp_data_map_get_halo_right_devseqid(map_uold, 0) >= 0) {
 	    } else n = n - 1;
 
-	    if (omp_data_map_get_halo_left_devseqid(map_uold, 1) >= 0) {
-	    	j = 0;
-	    } else j = 1;
 	    if (omp_data_map_get_halo_right_devseqid(map_uold, 1) >= 0) {
 	    } else m = m - 1;
 
-		for (; i <n; i++)
-			for (; j <m; j++) {
+#if CORRECTNESS_CHECK
+	    BEGIN_SERIALIZED_PRINTF(off->devseqid);
+		printf("udev: dev: %d, %dX%d\n", off->devseqid, n, m);
+		print_array_dev("udev", off->devseqid, "u",(REAL*)u, n, m);
+		printf("uolddev: dev: %d, %dX%d\n", off->devseqid, uold_0_length, uold_1_length);
+		print_array_dev("uolddev", off->devseqid, "uold",(REAL*)uold, uold_0_length, uold_1_length);
+		printf("i_start: %d, j_start: %d, n: %d, m: %d, uold_0_offset: %d, uold_1_offset: %d\n", i_start, j_start, n, m, uold_0_offset, uold_1_offset);
+		print_array_dev("f", off->devseqid, "f",(REAL*)f, map_f->map_dim[0], map_f->map_dim[1]);
+
+		END_SERIALIZED_PRINTF();
+#endif
+
+		int i, j;
+		for (i=i_start; i <n; i++) {
+			for (j=j_start; j <m; j++) {
 				resid = (ax * (uold[i - 1 + uold_0_offset][j + uold_1_offset] + uold[i + 1 + uold_0_offset][j+uold_1_offset]) + ay * (uold[i+uold_0_offset][j - 1+uold_1_offset] + uold[i+uold_0_offset][j + 1+uold_1_offset]) + b * uold[i+uold_0_offset][j+uold_1_offset] - f[i][j]) / b;
 
 				u[i][j] = uold[i+uold_0_offset][j+uold_1_offset] - omega * resid;
 				error = error + resid * resid;
 			}
+		}
 		iargs->error[off->devseqid] = error;
+
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
 	}
@@ -605,7 +645,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	k = 1;
 #if 0
 #pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f{0}[0:m]>>{:}) map(tofrom:u{0:n}[0:m]>>{:}) map(alloc:uold{0:n|1}[0:m]>>{:})
-  while ((k<=mits)&&(error>tol))
+  while ((k<=mits) /* &&(error>tol) */)
   {
     error = 0.0;
 
@@ -747,7 +787,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	omp_offloading_start(__target_devices__,__num_target_devices__, &__offloading_info__);
 	printf("----- data copyin .... \n");
 
-	while ((k <= mits)/* && (error > tol)*/) {
+	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
 	  	omp_offloading_info_t __off_info_1__;
@@ -761,17 +801,14 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		/** halo exchange */
 		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
 
-	  	while(1);
 	  	omp_data_map_exchange_info_t u_uold_xchange;
 	  	omp_data_map_halo_exchange_t x_halos[1];
-	  	x_halos[0].map_info = &__data_map_infos__[0]; x_halos[1].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
+	  	x_halos[0].map_info = &__data_map_infos__[2]; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
 	  	if (dist == 1) {
 	  		x_halos[0].x_dim = 0;
-	  	}
-	  	else if (dist == 2) {
+	  	} else if (dist == 2) {
 	  		x_halos[0].x_dim = 1;
-	  	}
-	  	else {
+	  	} else {
 	  		x_halos[0].x_dim = -1; /* means all the dimension */
 	  	}
 
@@ -799,19 +836,21 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		}
 
 		/* Error check */
-		if ((k % 500) == 0) printf("Finished %d iteration with error =%g\n", k, error);
+		if ((k % 500) == 0)
+		printf("Finished %d iteration with error %g\n", k, error);
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */
 	}
 	/* copy back u from each device and free others */
 	omp_offloading_finish_copyfrom(__target_devices__,__num_target_devices__, &__offloading_info__);
+	printf("Total Number of Iterations:%d\n", k);
+	printf("Residual:%E\n", error);
 
 	/*
 	ompacc_time = read_timer_ms() - ompacc_time;
 	double cpu_total = ompacc_time;
-	printf("Total Number of Iterations:%d\n", k);
-	printf("Residual:%E\n", error);
+
 */
 #if 0
     /* for profiling */

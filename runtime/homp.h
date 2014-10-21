@@ -143,6 +143,9 @@ extern int omp_get_devices(omp_device_type_t type, int *devnum_array, int ndev);
 extern omp_device_t * omp_get_device(int id);
 extern omp_device_t * omp_devices; /* an array of all device objects */
 extern int omp_num_devices;
+extern volatile int omp_printf_turn;
+#define BEGIN_SERIALIZED_PRINTF(myturn) while (omp_printf_turn != myturn);
+#define END_SERIALIZED_PRINTF() omp_printf_turn = (omp_printf_turn + 1)%omp_num_devices;
 
 /* a topology of devices, or threads or teams */
 typedef struct omp_grid_topology {
