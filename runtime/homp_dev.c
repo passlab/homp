@@ -40,25 +40,35 @@ inline void devcall_errchk(int code, char *file, int line, int abort) {
  */
 int omp_init_devices() {
 	/* query hardware device */
-	int num_gpudevs = 0;
 	omp_num_devices = 0;
+
+	/* the thread-simulated devices */
+	int num_thsim_dev;
+
+	char * num_thsim_dev_str = getenv("OMP_NUM_THSIM_DEVICES");
+	if (num_thsim_dev_str != NULL ) {
+		sscanf(num_thsim_dev_str, "%d", &num_thsim_dev);
+		if (num_thsim_dev < 0) num_thsim_dev = 0;
+	} else num_thsim_dev = 0;
+
+	omp_num_devices += num_thsim_dev;
+
+	/* for NVDIA GPU devices */
+	int total_gpudevs = 0;
 #if defined (DEVICE_NVGPU_SUPPORT)
-	cudaError_t result = cudaGetDeviceCount(&num_gpudevs);
+	cudaError_t result = cudaGetDeviceCount(&total_gpudevs);
 	devcall_assert(result);
-	omp_num_devices += num_gpudevs;
 #endif
 	/* query other type of device */
 
-	/* the thread-simulated devices */
-	int num_thsimdev;
+	int num_nvgpu_dev;
+	char * num_nvgpu_dev_str = getenv("OMP_NUM_NVGPU_DEVICES");
+	if (num_nvgpu_dev_str != NULL ) {
+		sscanf(num_nvgpu_dev_str, "%d", &num_nvgpu_dev);
+		if (num_nvgpu_dev > total_gpudevs || num_nvgpu_dev < 0) num_nvgpu_dev = total_gpudevs;
+	} else num_nvgpu_dev = total_gpudevs;
 
-	char * num_thsimdev_str = getenv("OMP_NUM_THSIM_DEVICES");
-	if (num_thsimdev_str != NULL ) {
-		sscanf(num_thsimdev_str, "%d", &num_thsimdev);
-		if (num_thsimdev < 0) num_thsimdev = 1;
-	} else num_thsimdev = 1;
-
-	omp_num_devices += num_thsimdev;
+	omp_num_devices += num_nvgpu_dev;
 
 	omp_devices = malloc(sizeof(omp_device_t) * omp_num_devices);
 	int i;
@@ -73,7 +83,7 @@ int omp_init_devices() {
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		dev->id = i;
-		if (i < num_gpudevs) dev->type = OMP_DEVICE_NVGPU;
+		if (i < num_nvgpu_dev) dev->type = OMP_DEVICE_NVGPU;
 		else dev->type  = OMP_DEVICE_THSIM;
 		dev->status = 1;
 		dev->sysid = i;
@@ -90,9 +100,11 @@ int omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
-	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_gpudevs, num_thsimdev);
-	printf("The number of THSIM devices can be controlled by setting the OMP_NUM_THSIM_DEVICES env (default 1), \n");
-	printf("and number of active (enabled) devices can be controlled by setting OMP_NUM_ACTIVE_DEVICES variable\n");
+	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
+	printf("The number of each type of devices can be controlled by environment variables:\n");
+	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
+	printf("\tOMP_NUM_NVGPU_DEVICES for active NVIDIA GPU devices (default, system available)\n");
+	printf("\tTo make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)\n");
 	return omp_num_devices;
 
 }
