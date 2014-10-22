@@ -64,10 +64,10 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 //    printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
     
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
-	int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
-	int teams_per_league = (length_n + threads_per_team - 1) / threads_per_team;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
+		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
+		int teams_per_league = (length_n + threads_per_team - 1) / threads_per_team;
         OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream.systream.cudaStream>>>(start_n, length_n,a,x,y);
 	} else
 #endif

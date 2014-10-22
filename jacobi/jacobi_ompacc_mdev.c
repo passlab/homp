@@ -68,11 +68,14 @@ void print_array_dev(char * title, int dev, char * name, REAL * A, long n, long 
  * Assumes exact solution is u(x,y) = (1-x^2)*(1-y^2)
  *
  ******************************************************/
-void initialize(long n, long m, REAL alpha, REAL *dx, REAL * dy, REAL u[n][m], REAL f[n][m]) {
-	int i;
-	int j;
-	int xx;
-	int yy;
+void initialize(long n, long m, REAL alpha, REAL *dx, REAL * dy, REAL * u_p, REAL * f_p) {
+	long i;
+	long j;
+	long xx;
+	long yy;
+    REAL (*u)[m] = (REAL(*)[m])u_p;
+    REAL (*f)[m] = (REAL(*)[m])f_p;
+
 //double PI=3.1415926;
 	*dx = (2.0 / (n - 1));
 	*dy = (2.0 / (m - 1));
@@ -95,7 +98,7 @@ void initialize(long n, long m, REAL alpha, REAL *dx, REAL * dy, REAL u[n][m], R
  * Checks error between numerical and exact solution
  *
  ************************************************************/
-void error_check(long n, long m, REAL alpha, REAL dx, REAL dy, REAL u[n][m], REAL f[n][m]) {
+void error_check(long n, long m, REAL alpha, REAL dx, REAL dy, REAL * u_p, REAL * f_p) {
 	int i;
 	int j;
 	REAL xx;
@@ -103,6 +106,8 @@ void error_check(long n, long m, REAL alpha, REAL dx, REAL dy, REAL u[n][m], REA
 	REAL temp;
 	REAL error;
 	error = 0.0;
+	REAL (*u)[m] = (REAL(*)[m])u_p;
+	REAL (*f)[m] = (REAL(*)[m])f_p;
 //#pragma omp parallel for private(xx,yy,temp,j,i) reduction(+:error)
 	for (i = 0; i < n; i++)
 		for (j = 0; j < m; j++) {
@@ -114,8 +119,8 @@ void error_check(long n, long m, REAL alpha, REAL dx, REAL dy, REAL u[n][m], REA
 	error = (sqrt(error) / (n * m));
 	printf("Solution Error: %2.6g\n", error);
 }
-void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL u[n][m], REAL f[n][m], REAL tol, int mits);
-void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL u[n][m], REAL f[n][m], REAL tol, int mits);
+void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL * u_p, REAL * f_p, REAL tol, int mits);
+void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL * u_p, REAL * f_p, REAL tol, int mits);
 
 int main(int argc, char * argv[]) {
 	long n = DEFAULT_MSIZE;
@@ -159,7 +164,7 @@ int main(int argc, char * argv[]) {
     REAL dx; /* grid spacing in x direction */
     REAL dy; /* grid spacing in y direction */
 
-    initialize(n, m, alpha, &dx, &dy, (REAL(*)[m])u, (REAL(*)[m])f);
+    initialize(n, m, alpha, &dx, &dy, u, f);
 
     memcpy(udev, u, n*m*sizeof(REAL));
     memcpy(fdev, f, n*m*sizeof(REAL));
@@ -211,14 +216,16 @@ int main(int argc, char * argv[]) {
  *
  * Output : u(n,m) - Solution
  *****************************************************************/
-void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL u[n][m], REAL f[n][m], REAL tol, int mits) {
-	int i, j, k;
+void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL * u_p, REAL * f_p, REAL tol, int mits) {
+	long i, j, k;
 	REAL error;
 	REAL ax;
 	REAL ay;
 	REAL b;
 	REAL resid;
 	REAL uold[n][m];
+    REAL (*u)[m] = (REAL(*)[m])u_p;
+    REAL (*f)[m] = (REAL(*)[m])f_p;
 	/*
 	 * Initialize coefficients */
 	/* X-direction coef */
@@ -257,12 +264,14 @@ void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL u
 }
 
 #if defined (DEVICE_NVGPU_SUPPORT)
+#include "xomp_cuda_lib_inlined.cu"
+
 #define LOOP_COLLAPSE 1
 #if !LOOP_COLLAPSE
-__global__ void OUT__2__10550__(int n,int m,REAL *_dev_u,REAL *_dev_uold)
+__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold)
 {
-  int _p_j;
-  int _dev_i ;
+  long _p_j;
+  long _dev_i ;
   long _dev_lower, _dev_upper;
   XOMP_accelerator_loop_default (0, n-1, 1, &_dev_lower, &_dev_upper);
   for (_dev_i = _dev_lower ; _dev_i <= _dev_upper; _dev_i++) {
@@ -271,15 +280,15 @@ __global__ void OUT__2__10550__(int n,int m,REAL *_dev_u,REAL *_dev_uold)
   }
 }
 
-__global__ void OUT__1__10550__(int start_n, int n,int m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
+__global__ void OUT__1__10550__(long start_n, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
 {
-  int _p_j;
+	long _p_j;
   REAL _p_error;
   _p_error = 0;
   REAL _p_resid;
   long _dev_lower, _dev_upper;
   XOMP_accelerator_loop_default (start_n, n-1, 1, &_dev_lower, &_dev_upper);
-  int _dev_i;
+  long _dev_i;
   for (_dev_i = _dev_lower; _dev_i<= _dev_upper; _dev_i ++) {
     for (_p_j = 1; _p_j < (m - 1); _p_j++) {
       _p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
@@ -290,27 +299,27 @@ __global__ void OUT__1__10550__(int start_n, int n,int m,REAL omega,REAL ax,REAL
   xomp_inner_block_reduction_REAL(_p_error,_dev_per_block_error,6);
 }
 #else
-__global__ void OUT__2__10550__(int n,int m,REAL *_dev_u,REAL *_dev_uold)
+__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold)
 {
-  int _p_j;
-  int ij;
-  int _dev_lower, _dev_upper;
+	long _p_j;
+	long ij;
+	long _dev_lower, _dev_upper;
 
-  int _dev_i ;
+	long _dev_i ;
 
  // variables for adjusted loop info considering both original chunk size and step(strip)
- int _dev_loop_chunk_size;
- int _dev_loop_sched_index;
- int _dev_loop_stride;
+	long _dev_loop_chunk_size;
+	long _dev_loop_sched_index;
+	long _dev_loop_stride;
 
 // 1-D thread block:
-int _dev_thread_num = gridDim.x * blockDim.x;
-int _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+	long _dev_thread_num = gridDim.x * blockDim.x;
+	long _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 
-int orig_start =0;
-int orig_end = n*m-1; // inclusive upper bound
-int orig_step = 1;
-int orig_chunk_size = 1;
+	long orig_start =0;
+	long orig_end = n*m-1; // inclusive upper bound
+	long orig_step = 1;
+	long orig_chunk_size = 1;
 
  XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
                          & _dev_loop_chunk_size , & _dev_loop_sched_index, & _dev_loop_stride);
@@ -329,31 +338,31 @@ int orig_chunk_size = 1;
   }
  }
 
-__global__ void OUT__1__10550__(int start_n, int n,int m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
+__global__ void OUT__1__10550__(long start_n, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
 {
-  int _dev_i;
-  int ij;
-  int _p_j;
-  int _dev_lower, _dev_upper;
+	long _dev_i;
+	long ij;
+	long _p_j;
+	long _dev_lower, _dev_upper;
 
   REAL _p_error;
   _p_error = 0;
   REAL _p_resid;
 
   // variables for adjusted loop info considering both original chunk size and step(strip)
-  int _dev_loop_chunk_size;
-  int _dev_loop_sched_index;
-  int _dev_loop_stride;
+  long _dev_loop_chunk_size;
+  long _dev_loop_sched_index;
+  long _dev_loop_stride;
 
   // 1-D thread block:
-  int _dev_thread_num = gridDim.x * blockDim.x;
-  int _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+  long _dev_thread_num = gridDim.x * blockDim.x;
+  long _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 
   //TODO: adjust bound to be inclusive later
-  int orig_start =start_n;
-  int orig_end = (n)*m-1;
-  int orig_step = 1;
-  int orig_chunk_size = 1;
+  long orig_start =start_n;
+  long orig_end = (n)*m-1;
+  long orig_step = 1;
+  long orig_chunk_size = 1;
 
   XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
       & _dev_loop_chunk_size , & _dev_loop_sched_index, & _dev_loop_stride);
@@ -446,9 +455,9 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-		int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-		int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
-		OUT__2__10550__<<<_num_blocks_, _threads_per_block_, 0,off->stream.systream.cudaStream>>>(n, m,u,uold);
+		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
+		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
+		OUT__2__10550__<<<teams_per_league, threads_per_team, 0,off->stream.systream.cudaStream>>>(n, m,u,uold);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
@@ -626,7 +635,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 	}
 }
 
-void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL u[n][m], REAL f[n][m], REAL tol, int mits) {
+void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL * u_p, REAL * f_p, REAL tol, int mits) {
 	int i, j, k;
 	REAL error;
 	REAL ax;
