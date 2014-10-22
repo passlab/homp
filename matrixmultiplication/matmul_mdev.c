@@ -241,6 +241,7 @@ int main(int argc,char *argv[])
 }
 
 #if defined (DEVICE_NVGPU_SUPPORT)
+#include "xomp_cuda_lib_inlined.cu"
 __global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_b,float *_dev_c)
 {
   long ij;
@@ -252,14 +253,14 @@ __global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_
   long _dev_loop_stride;
 
   // 1-D thread block: 
-  int _dev_thread_num = gridDim.x * blockDim.x;
-  int _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+  long _dev_thread_num = gridDim.x * blockDim.x;
+  long _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 
   //adjust bound to be inclusive later
-  int orig_start =0;
-  int orig_end = i*j-1;
-  int orig_step = 1;
-  int orig_chunk_size = 1;
+  long orig_start =0;
+  long orig_end = i*j-1;
+  long orig_step = 1;
+  long orig_chunk_size = 1;
 
 //  XOMP_accelerator_loop_default (0, MSIZE*MSIZE -1 , 1, &_dev_lower, &_dev_upper);
   XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
