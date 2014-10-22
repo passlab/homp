@@ -334,8 +334,8 @@ void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream) {
 	int i;
 
 #if defined (DEVICE_NVGPU_SUPPORT)
-	cudaError_t result;
 	if (d->type == OMP_DEVICE_NVGPU) {
+		cudaError_t result;
 		result = cudaStreamCreate(&stream->systream.cudaStream);
 		devcall_assert(result);
 	} else
@@ -469,16 +469,19 @@ void omp_event_elapsed_ms(omp_event_t * ev) {
  * if destroy_stream != 0; the stream will be destroyed.
  */
 void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream) {
+	omp_device_type_t devtype = st->dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
-	cudaError_t result;
-	if (destroy_stream) {
-		result = cudaStreamSynchronize(st->systream.cudaStream);
-		devcall_assert(result);
-		result = cudaStreamDestroy(st->systream.cudaStream);
-		devcall_assert(result);
-	} else {
-		result = cudaStreamSynchronize(st->systream.cudaStream);
-		devcall_assert(result);
+	if (devtype == OMP_DEVICE_NVGPU) {
+		cudaError_t result;
+		if (destroy_stream) {
+			result = cudaStreamSynchronize(st->systream.cudaStream);
+			devcall_assert(result);
+			result = cudaStreamDestroy(st->systream.cudaStream);
+			devcall_assert(result);
+		} else {
+			result = cudaStreamSynchronize(st->systream.cudaStream);
+			devcall_assert(result);
+		}
 	}
 #else
 #endif

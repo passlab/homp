@@ -287,6 +287,7 @@ offload_stage_copyfrom: ;
 /* helper thread main */
 void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
+	omp_set_current_device_dev(dev);
 	/*************** loop *******************/
 	while (1) {
 		//	printf("helper threading (devid: %d) waiting ....\n", devid);
