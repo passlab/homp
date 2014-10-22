@@ -1,11 +1,16 @@
 TEST_INCLUDES = -I../runtime -I.
 TEST_LINK = -lpthread -lm
 
-matmul:	
+NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
+
+matmul-thsim:	
 #	gcc $(TEST_INCLUDES) -DDEBUG_MSG -g ../../runtime/homp.c ../../runtime/homp_dev.c matmul_mdev.c -c
 	gcc $(TEST_INCLUDES) -g ../runtime/homp.c ../runtime/homp_dev.c matmul_mdev.c -c
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
-clean:
-	rm -rf *.o matmul
+matmul-nvgpu:
+	nvcc $(TEST_INCLUDES) -I${NVGPU_CUDA_PATH}/include -DDEVICE_NVGPU_SUPPORT=1 ../runtime/homp.c ../runtime/homp_dev.c matmul_mdev.cu  -c
+	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
+clean:
+	rm -rf *.o matmul-*
