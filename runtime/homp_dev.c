@@ -39,7 +39,7 @@ void * omp_get_device_properties(omp_device_t * dev) {
 	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-		dev->dev_properties = (cudaDeviceProp*)malloc(sizeof(cudaDeviceProp));
+		dev->dev_properties = (struct cudaDeviceProp*)malloc(sizeof(struct cudaDeviceProp));
 		cudaSetDevice(dev->sysid);
 		cudaGetDeviceProperties(dev->dev_properties, dev->sysid);
 	} else
