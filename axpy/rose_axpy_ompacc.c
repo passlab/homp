@@ -46,7 +46,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
     REAL a = iargs->a;
     REAL n = iargs->n;
     omp_offloading_info_t * off_info = off->off_info;
-    printf("off: %X, off_info: %X, devseqid: %d\n", off, off_info, off->devseqid);
+    //printf("off: %X, off_info: %X, devseqid: %d\n", off, off_info, off->devseqid);
     omp_data_map_t * map_x = omp_map_get_map(off, iargs->x, -1);
     //omp_data_map_t * map_x = &off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map X */
     omp_data_map_t * map_y = omp_map_get_map(off, iargs->y, -1);
@@ -54,8 +54,8 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 
     //printf("x: %X, x2: %X, y: %X, y2: %X\n", map_x, map_x2, map_y, map_y2);
 
-    omp_print_data_map(map_x);
-    omp_print_data_map(map_y);
+    //omp_print_data_map(map_x);
+    //omp_print_data_map(map_y);
 
     REAL * x = (REAL *)map_x->map_dev_ptr;
     REAL * y = (REAL *)map_y->map_dev_ptr;
@@ -64,17 +64,11 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 //    printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
     
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
+	int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
+	int teams_per_league = (length_n + threads_per_team - 1) / threads_per_team;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-        /* Launch CUDA kernel ... */
-        /* the argu for this function should be the original pointer (x in this example) and the runtime should search and retrieve the
-         * device map object
-         */
-        int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-        int _num_blocks_ = xomp_get_max1DBlock(length_n);
-//        printf("device: %d, range: %d:%d\n", __i__, start_n, length_n);
-
-        OUT__3__5904__<<<_num_blocks_,_threads_per_block_, 0, off->stream.systream.cudaStream>>>(start_n, length_n,a,x,y);
+        OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream.systream.cudaStream>>>(start_n, length_n,a,x,y);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {

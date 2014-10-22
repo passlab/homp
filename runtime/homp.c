@@ -29,7 +29,15 @@ int omp_get_num_devices() {
 omp_device_t * omp_devices;
 int omp_num_devices;
 volatile omp_printf_turn = 0; /* a simple mechanims to allow multiple dev shepherd threads to print in turn so the output do not scrambled together */
-char * omp_device_type_name[OMP_NUM_DEVICE_TYPES];
+omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
+	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", 0},
+	{OMP_DEVICE_ITLMIC, "OMP_DEVICE_ITLMIC", 0},
+	{OMP_DEVICE_TIDSP, "OMP_DEVICE_TIDSP", 0},
+	{OMP_DEVICE_AMDAPU, "OMP_DEVICE_AMDAPU", 0},
+	{OMP_DEVICE_THSIM, "OMP_DEVICE_THSIM", 0},
+	{OMP_DEVICE_REMOTE, "OMP_DEVICE_REMOTE", 0},
+	{OMP_DEVICE_LOCALPS, "OMP_DEVICE_LOCALPS", 0}
+};
 
 /* APIs to support multiple devices: */
 char * omp_supported_device_types() { /* return a list of devices supported by the compiler in the format of TYPE1:TYPE2 */

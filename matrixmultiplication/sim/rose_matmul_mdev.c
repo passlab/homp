@@ -322,15 +322,15 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 		omp_loop_map_range(map_C, 0, -1, -1, &start, &i);
 		omp_loop_map_range(map_C, 1, -1, -1, &start, &j);
 	}
-	printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
+	//printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
 
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
+	int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
+	int teams_per_league = (i*j + threads_per_team - 1) / threads_per_team;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-		int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-		int _num_blocks_ = xomp_get_max1DBlock(length_i*n);
 		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
-		OUT__1__11058__<<<_num_blocks_,_threads_per_block_, 0, off->stream.systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
+		OUT__1__11058__<<<teams_per_league,threads_per_team, 0, off->stream.systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {

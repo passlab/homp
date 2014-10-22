@@ -42,7 +42,7 @@ typedef enum omp_device_type {
    OMP_DEVICE_NVGPU,      /* NVIDIA GPGPUs */
    OMP_DEVICE_ITLMIC,     /* Intel MIC */
    OMP_DEVICE_TIDSP,      /* TI DSP */
-   OMP_DEVICE_AMPU,       /* AMD APUs */
+   OMP_DEVICE_AMDAPU,       /* AMD APUs */
    OMP_DEVICE_REMOTE,	  /* a remote node */
    OMP_DEVICE_THSIM,	  /* a new thread of the same process, e.g. pthread */
    OMP_DEVICE_LOCALPS,	  /* a new process in the same node, e.g. a new process created using fork) */
@@ -50,6 +50,12 @@ typedef enum omp_device_type {
 } omp_device_type_t;
 
 extern char * omp_device_type_name[];
+typedef struct omp_device_type_info {
+	omp_device_type_t type;
+	char name[32];
+	int num_devs;
+} omp_device_type_info_t;
+extern omp_device_type_info_t omp_device_types[];
 /**
  ********************* Runtime notes ***********************************************
  * runtime may want to have internal array to supports the programming APIs for multiple devices, e.g.
@@ -66,6 +72,7 @@ typedef struct omp_device {
 			 device id for NVGPU cudaSetDevice(sysid), 
 			 or pthread_t for THSIM. Need type casting to become device-specific id */
 	omp_device_type_t type;
+	void * dev_properties; /* a pointer to the device-specific properties object */
 	int status;
 	struct omp_device * next; /* the device list */
 	volatile omp_offloading_info_t * offload_request; /* this is the notification flag that the helper thread will pick up the offloading request */
@@ -84,8 +91,6 @@ typedef struct omp_device {
 
 	pthread_t helperth;
 } omp_device_t;
-
-#define OMP_DEV_STREAM_NUM_EVENTS 8
 
 /**
  * each stream also provide a limited number of event objects for collecting timing
@@ -460,6 +465,11 @@ extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int lef
 extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
 extern void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_direction_t from_left_right);
 extern void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right);
+
+extern int omp_get_max_threads_per_team(omp_device_t * dev);
+extern int omp_get_optimal_threads_per_team(omp_device_t * dev);
+extern int omp_get_max_teams_per_league(omp_device_t * dev);
+extern int omp_get_optimal_teams_per_league(omp_device_t * dev);
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );

@@ -35,6 +35,23 @@ inline void devcall_errchk(int code, char *file, int line, int abort) {
 #endif
 }
 
+void * omp_get_device_properties(omp_device_t * dev) {
+	omp_device_type_t devtype = dev->type;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (devtype == OMP_DEVICE_NVGPU) {
+		dev->dev_properties = (cudaDeviceProp*)malloc(sizeof(cudaDeviceProp));
+		cudaSetDevice(dev->sysid);
+		cudaGetDeviceProperties(dev->dev_properties, dev->sysid);
+	} else
+#endif
+	if (devtype == OMP_DEVICE_THSIM) {
+		dev->dev_properties = &dev->helperth; /* make it point to the thread id */
+	} else {
+
+	}
+	return dev->dev_properties;
+}
+
 /* init the device objects, num_of_devices, default_device_var ICV etc
  *
  */
@@ -52,16 +69,15 @@ int omp_init_devices() {
 	} else num_thsim_dev = 0;
 
 	omp_num_devices += num_thsim_dev;
+	omp_device_types[OMP_DEVICE_THSIM].num_devs = num_thsim_dev;
 
 	/* for NVDIA GPU devices */
-	int total_gpudevs = 0;
+	int num_nvgpu_dev = 0;
 #if defined (DEVICE_NVGPU_SUPPORT)
+	int total_gpudevs = 0;
 	cudaError_t result = cudaGetDeviceCount(&total_gpudevs);
 	devcall_assert(result);
-#endif
-	/* query other type of device */
 
-	int num_nvgpu_dev;
 	char * num_nvgpu_dev_str = getenv("OMP_NUM_NVGPU_DEVICES");
 	if (num_nvgpu_dev_str != NULL ) {
 		sscanf(num_nvgpu_dev_str, "%d", &num_nvgpu_dev);
@@ -69,6 +85,8 @@ int omp_init_devices() {
 	} else num_nvgpu_dev = total_gpudevs;
 
 	omp_num_devices += num_nvgpu_dev;
+	omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpu_dev;
+#endif
 
 	omp_devices = malloc(sizeof(omp_device_t) * omp_num_devices);
 	int i;
@@ -83,7 +101,7 @@ int omp_init_devices() {
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		dev->id = i;
-		if (i < num_nvgpu_dev) dev->type = OMP_DEVICE_NVGPU;
+		if (i < omp_device_types[OMP_DEVICE_NVGPU].num_devs) dev->type = OMP_DEVICE_NVGPU;
 		else dev->type  = OMP_DEVICE_THSIM;
 		dev->status = 1;
 		dev->sysid = i;
@@ -92,6 +110,7 @@ int omp_init_devices() {
 		dev->offload_request = NULL;
 		dev->data_exchange_request = NULL;
 		dev->offload_stack_top = -1;
+		omp_get_device_properties(dev);
 
 		int rt = pthread_create(&dev->helperth, &attr, (void *(*)(void *))helper_thread_main, (void *) dev);
 		if (rt) {fprintf(stderr, "cannot create helper threads for devices.\n"); exit(1); }
@@ -292,6 +311,7 @@ void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void 
 }
 
 #if defined (DEVICE_NVGPU_SUPPORT)
+
 void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
 	omp_reduction_float_t * rdata = (omp_reduction_float_t*)userData;
 	float result = 0.0;
@@ -300,7 +320,6 @@ void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cud
 		result += rdata->input[i];
 	rdata->result = result;
 }
-
 
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
 void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
@@ -484,4 +503,30 @@ void omp_sync_cleanup(omp_offloading_t * off) {
 	}
 }
 
+int omp_get_max_threads_per_team(omp_device_t * dev) {
+	return 0;
+}
+
+int omp_get_optimal_threads_per_team(omp_device_t * dev) {
+	omp_device_type_t devtype = dev->type;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (devtype == OMP_DEVICE_NVGPU) {
+		return 256; /*TODO, or 128, 512 */
+	} else
+#endif
+	if (devtype == OMP_DEVICE_THSIM) {
+		return 1;
+	} else {
+
+	}
+	return 0;
+}
+
+int omp_get_max_teams_per_league(omp_device_t * dev) {
+	return 0;
+}
+
+int omp_get_optimal_teams_per_league(omp_device_t * dev) {
+	return 0;
+}
 
