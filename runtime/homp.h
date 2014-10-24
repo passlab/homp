@@ -399,14 +399,6 @@ struct omp_offloading {
 	void (*kernel_launcher)(omp_offloading_t *, void *); /* device specific kernel, if any */
 };
 
-/** temp solution */
-typedef struct omp_reduction_float {
-				float result;
-				float *input;
-				int num;
-				int opers;
-} omp_reduction_float_t;
-
 extern int omp_init_devices(); /* return # of devices initialized */
 extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */

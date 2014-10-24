@@ -310,6 +310,7 @@ void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void 
 	}
 }
 
+#if 0
 #if defined (DEVICE_NVGPU_SUPPORT)
 
 void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
@@ -326,6 +327,7 @@ void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, vo
 	float * time = (float*)userData;
 	*time = read_timer_ms();
 }
+#endif
 #endif
 #endif
 

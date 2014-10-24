@@ -103,7 +103,23 @@ __device__ void xomp_inner_block_reduction_##dtype(dtype local_value, dtype * gr
   { \
     grid_level_results[blockIdx.x*gridDim.y + blockIdx.y] = sdata_##dtype[0]; \
   } \
-}
+}; \
+\
+struct omp_reduction_##dtype {\
+			dtype result; \
+			dtype *input; \
+			int num; \
+			int opers; \
+}; \
+\
+void xomp_beyond_block_reduction_stream_callback_##dtype(cudaStream_t stream,  cudaError_t status, void*  userData ) { \
+	struct omp_reduction_##dtype * rdata = (struct omp_reduction_##dtype *)userData; \
+	dtype result = 0.0; \
+	int i; \
+	for (i=0; i<rdata->num; i++) \
+		result += rdata->input[i]; \
+	rdata->result = result; \
+};
 
 XOMP_INNER_BLOCK_REDUCTION_DEF(int)
 XOMP_INNER_BLOCK_REDUCTION_DEF(float)

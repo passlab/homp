@@ -268,7 +268,7 @@ void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL *
 
 #define LOOP_COLLAPSE 1
 #if !LOOP_COLLAPSE
-__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold)
+__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold,long uold_m, int uold_0_offset, int uold_1_offset)
 {
   long _p_j;
   long _dev_i ;
@@ -276,30 +276,34 @@ __global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold)
   XOMP_accelerator_loop_default (0, n-1, 1, &_dev_lower, &_dev_upper);
   for (_dev_i = _dev_lower ; _dev_i <= _dev_upper; _dev_i++) {
     for (_p_j = 0; _p_j < m; _p_j++)
-      _dev_uold[_dev_i * MSIZE + _p_j] = _dev_u[_dev_i * MSIZE + _p_j];
+      _dev_uold[(_dev_i+uold_0_offset) * uold_m + _p_j+uold_1_offset] = _dev_u[_dev_i * m + _p_j];
   }
 }
 
-__global__ void OUT__1__10550__(long start_n, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
+__global__ void OUT__1__10550__(long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_u,REAL *_dev_f, REAL *_dev_uold,
+		long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error)
+
 {
 	long _p_j;
   REAL _p_error;
   _p_error = 0;
   REAL _p_resid;
   long _dev_lower, _dev_upper;
-  XOMP_accelerator_loop_default (start_n, n-1, 1, &_dev_lower, &_dev_upper);
+  XOMP_accelerator_loop_default (start_i, n-1, 1, &_dev_lower, &_dev_upper);
   long _dev_i;
   for (_dev_i = _dev_lower; _dev_i<= _dev_upper; _dev_i ++) {
-    for (_p_j = 1; _p_j < (m - 1); _p_j++) {
-      _p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
-      _dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
+    for (_p_j = 1; _p_j < (m - 1); _p_j++) { /* this only works for dist=1 partition */
+      _p_resid = (((((ax * (_dev_uold[(_dev_i - 1 + uold_0_offset) * uold_m + _p_j+uold_1_offset] + _dev_uold[(_dev_i + 1+uold_0_offset) * uold_m + _p_j+uold_1_offset])) +
+    		  (ay * (_dev_uold[(_dev_i+uold_0_offset) * uold_m + (_p_j - 1+uold_1_offset)] + _dev_uold[(_dev_i + uold_0_offset) * uold_m + (_p_j + 1+uold_1_offset)]))) + (b * _dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset])) -
+    		  _dev_f[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset]) / b);
+      _dev_u[_dev_i * uold_m + _p_j] = (_dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j + uold_1_offset] - (omega * _p_resid));
       _p_error = (_p_error + (_p_resid * _p_resid));
     }
   }
-  xomp_inner_block_reduction_REAL(_p_error,_dev_per_block_error,6);
+  xomp_inner_block_reduction_double(_p_error,_dev_per_block_error,6);
 }
 #else
-__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold)
+__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold,long uold_m, int uold_0_offset, int uold_1_offset)
 {
 	long _p_j;
 	long ij;
@@ -333,12 +337,14 @@ __global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold)
      //    for (_p_j = 0; _p_j < m; _p_j++)
      _dev_i = ij/m;
      _p_j = ij%m;
-     _dev_uold[_dev_i * MSIZE + _p_j] = _dev_u[_dev_i * MSIZE + _p_j];
+     _dev_uold[(_dev_i+uold_0_offset) * uold_m + _p_j+uold_1_offset] = _dev_u[_dev_i * m + _p_j];
+
    }
   }
  }
 
-__global__ void OUT__1__10550__(long start_n, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_per_block_error,REAL *_dev_u,REAL *_dev_f,REAL *_dev_uold)
+__global__ void OUT__1__10550__(long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_u,REAL *_dev_f, REAL *_dev_uold,
+		long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error)
 {
 	long _dev_i;
 	long ij;
@@ -359,8 +365,8 @@ __global__ void OUT__1__10550__(long start_n, long n,long m,REAL omega,REAL ax,R
   long _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 
   //TODO: adjust bound to be inclusive later
-  long orig_start =start_n;
-  long orig_end = (n)*m-1;
+  long orig_start =start_i*m;
+  long orig_end = (n - start_i)*m-1; /* Linearized iteration space */
   long orig_step = 1;
   long orig_chunk_size = 1;
 
@@ -374,16 +380,18 @@ __global__ void OUT__1__10550__(long start_n, long n,long m,REAL omega,REAL ax,R
       _dev_i = ij/(m-1);
       _p_j = ij%(m-1);
 
-      if (_dev_i>=start_n && _dev_i< (n) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
+      if (_dev_i>=start_i && _dev_i< (n) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
       {
-	_p_resid = (((((ax * (_dev_uold[(_dev_i - 1) * MSIZE + _p_j] + _dev_uold[(_dev_i + 1) * MSIZE + _p_j])) + (ay * (_dev_uold[_dev_i * MSIZE + (_p_j - 1)] + _dev_uold[_dev_i * MSIZE + (_p_j + 1)]))) + (b * _dev_uold[_dev_i * MSIZE + _p_j])) - _dev_f[_dev_i * MSIZE + _p_j]) / b);
-	_dev_u[_dev_i * MSIZE + _p_j] = (_dev_uold[_dev_i * MSIZE + _p_j] - (omega * _p_resid));
-	_p_error = (_p_error + (_p_resid * _p_resid));
+    	  _p_resid = (((((ax * (_dev_uold[(_dev_i - 1 + uold_0_offset) * uold_m + _p_j+uold_1_offset] + _dev_uold[(_dev_i + 1+uold_0_offset) * uold_m + _p_j+uold_1_offset])) +
+	    		  (ay * (_dev_uold[(_dev_i+uold_0_offset) * uold_m + (_p_j - 1+uold_1_offset)] + _dev_uold[(_dev_i + uold_0_offset) * uold_m + (_p_j + 1+uold_1_offset)]))) + (b * _dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset])) -
+	    		  _dev_f[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset]) / b);
+	      _dev_u[_dev_i * uold_m + _p_j] = (_dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j + uold_1_offset] - (omega * _p_resid));
+	      _p_error = (_p_error + (_p_resid * _p_resid));
       }
     }
   }
 
-  xomp_inner_block_reduction_REAL(_p_error,_dev_per_block_error,6);
+  xomp_inner_block_reduction_double(_p_error,_dev_per_block_error,6);
 }
 #endif /* LOOP_CLAPSE */
 #endif /* NVGPU support */
@@ -422,7 +430,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	 * since uold has halo region, we need to deal it with carefully.
 	 * for u, it is just the map_dev_ptr
 	 * */
-	int i, j;
+	long i, j;
     REAL * u_p = (REAL *)map_u->map_dev_ptr;
     REAL (*u)[m] = (REAL(*)[m])u_p;
 
@@ -439,8 +447,8 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
         uold_1_offset = map_uold->info->halo_info[1].left;
     } else uold_1_offset = 0;
 
-    int uold_0_length = map_uold->map_dim[0];
-    int uold_1_length = map_uold->map_dim[1];
+    long uold_0_length = map_uold->map_dim[0];
+    long uold_1_length = map_uold->map_dim[1];
 
     REAL (*uold)[uold_1_length] = (REAL(*)[uold_1_length])uold_p; /** cast a pointer to a 2-D array */
 
@@ -457,7 +465,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
-		OUT__2__10550__<<<teams_per_league, threads_per_team, 0,off->stream.systream.cudaStream>>>(n, m,u,uold);
+		OUT__2__10550__<<<teams_per_league, threads_per_team, 0,off->stream.systream.cudaStream>>>(n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
@@ -552,60 +560,57 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
 	}
 
+	int i_start, j_start;
+
+    if (omp_data_map_get_halo_left_devseqid(map_uold, 0) >= 0) {
+    	i_start = 0;
+    } else i_start = 1;
+
+    if (omp_data_map_get_halo_left_devseqid(map_uold, 1) >= 0) {
+    	j_start = 0;
+    } else j_start = 1;
+
+    if (omp_data_map_get_halo_right_devseqid(map_uold, 0) >= 0) {
+    } else n = n - 1;
+
+    if (omp_data_map_get_halo_right_devseqid(map_uold, 1) >= 0) {
+    } else m = m - 1;
+
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
 	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-	/* for reduction operation */
-	long start_n, length_n;
-	omp_loop_map_range(__dev_map_u__, 0, -1, -1, &start_n, &length_n);
-	int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-	int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
-	cudaMalloc(&_dev_per_block_error[__i__], _num_blocks_ * sizeof(REAL));
-	_host_per_block_error[__i__] = (REAL*)(malloc(_num_blocks_*sizeof(REAL)));
-	reduction_callback_args[__i__] = (omp_reduction_REAL_t*)malloc(sizeof(omp_reduction_REAL_t));
+		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
+		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
 
-	int _threads_per_block_ = xomp_get_maxThreadsPerBlock();
-	int _num_blocks_ = xomp_get_max1DBlock(length_n*m);
+		/* for reduction operation */
+		void * _dev_per_block_error = omp_map_malloc_dev(off->dev, _num_blocks_ * sizeof(REAL));
+		void * _host_per_block_error = (REAL*)(malloc(_num_blocks_*sizeof(REAL)));
+		struct omp_reduction_double args;
 
-	omp_reduction_REAL_t * args = reduction_callback_args[__i__];
-	args->input = _host_per_block_error[__i__];
-	args->num = _num_blocks_;
-	args->opers = 6;
-	//printf("%d device: original offset: %d, mapped_offset: %d, length: %d\n", __i__, offset_n, start_n, length_n);
+		args.input = _host_per_block_error;
+		args->num = teams_per_league;
+		args->opers = 6;
+		//printf("%d device: original offset: %d, mapped_offset: %d, length: %d\n", __i__, offset_n, start_n, length_n);
 
-	/* Launch CUDA kernel ... */
-	/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
-	OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(REAL)),
-			__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
-			omega, ax, ay, b, _dev_per_block_error[__i__],
-			(REAL*)__dev_map_u__->map_dev_ptr, (REAL*)__dev_map_f__->map_dev_ptr,(REAL*)__dev_map_uold__->map_dev_ptr);
-	/* copy back the results of reduction in blocks */
-	cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(REAL)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
-	cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_REAL_stream_callback, args, 0);
-	/* xomp_beyond_block_reduction_REAL(_dev_per_block_error, _num_blocks_, 6); */
-	//xomp_freeDevice(_dev_per_block_error);
+		/* Launch CUDA kernel ... */
+		/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
+		OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(REAL)),
+				__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
+				omega, ax, ay, b, _dev_per_block_error[__i__],
+				(REAL*)__dev_map_u__->map_dev_ptr, (REAL*)__dev_map_f__->map_dev_ptr,(REAL*)__dev_map_uold__->map_dev_ptr);
+		/* copy back the results of reduction in blocks */
+		cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(REAL)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
+		cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_double_stream_callback, args, 0);
+		/* xomp_beyond_block_reduction_double(_dev_per_block_error, _num_blocks_, 6); */
+		//xomp_freeDevice(_dev_per_block_error);
 
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		int i_start, j_start;
 		REAL resid;
 		REAL error;
-	    if (omp_data_map_get_halo_left_devseqid(map_uold, 0) >= 0) {
-	    	i_start = 0;
-	    } else i_start = 1;
-
-	    if (omp_data_map_get_halo_left_devseqid(map_uold, 1) >= 0) {
-	    	j_start = 0;
-	    } else j_start = 1;
-
-	    if (omp_data_map_get_halo_right_devseqid(map_uold, 0) >= 0) {
-	    } else n = n - 1;
-
-	    if (omp_data_map_get_halo_right_devseqid(map_uold, 1) >= 0) {
-	    } else m = m - 1;
 
 #if CORRECTNESS_CHECK
 	    BEGIN_SERIALIZED_PRINTF(off->devseqid);
@@ -726,7 +731,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	long f_dims[2];f_dims[0] = n;f_dims[1] = m;
   	omp_data_map_t f_maps[__num_target_devices__];
   	omp_data_map_dist_t f_dist[2];
-  	omp_data_map_init_info(__info__, &__top__, f, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, f_dist);
+  	omp_data_map_init_info(__info__, &__top__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, f_dist);
 
   	/* u map info */
   	__info__ = &__data_map_infos__[1];
@@ -734,7 +739,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_t u_maps[__num_target_devices__];
   	omp_data_map_dist_t u_dist[2];
   	//omp_data_map_halo_region_info_t u_halo[2];
-  	omp_data_map_init_info(__info__, &__top__, u, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, u_dist);
+  	omp_data_map_init_info(__info__, &__top__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, u_dist);
 
   	/* uold map info */
   	__info__ = &__data_map_infos__[2];
@@ -803,7 +808,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	  	omp_offloading_t __offs_1__[__num_target_devices__];
 	  	__off_info_1__.offloadings = __offs_1__;
 	  	/* we use universal args and launcher because axpy can do it */
-	  	struct OUT__2__10550__args args_1; args_1.n = n; args_1.m = m;args_1.u = (REAL*)u; args_1.uold = (REAL*)uold;
+	  	struct OUT__2__10550__args args_1; args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
 	  	omp_offloading_init_info(&__off_info_1__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__2__10550__launcher, &args_1);
 	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_1__);
 
@@ -830,7 +835,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	  	omp_offloading_t __offs_2__[__num_target_devices__];
 	  	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
 	  	struct OUT__1__10550__args args_2;
-	  	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f;
+	  	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
 
 	  	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
 	  	int __i__;
