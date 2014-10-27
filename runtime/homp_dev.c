@@ -21,16 +21,16 @@
 #include <stdlib.h>
 #include "homp.h"
 
-inline void devcall_errchk(int code, char *file, int line, int abort) {
+inline void devcall_errchk(int code, char *file, int line, int ab) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (code != cudaSuccess) {
 		fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-		if (abort) exit(code);
+		if (ab) { abort();}
 	}
 #elif defined (DEVICE_THSIM)
 	if (code != 0) {
 		fprintf(stderr, "devcal_assert: %d %s %d\n", code, file, line);
-		if (abort) exit(code);
+		if (ab) { abort();}
 	}
 #endif
 }

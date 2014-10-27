@@ -731,14 +731,11 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 	/*********************************************************************************************************************************************************/
 
 	/** FIXME: so far, we only have 2-d row distribution working, i.e. no need to allocate halo region buffer */
+//        BEGIN_SERIALIZED_PRINTF(off->devseqid);
 	for (i=0; i<info->num_dims; i++) {
 		omp_data_map_halo_region_info_t * halo_info = &info->halo_info[i];
 		if (halo_info->left != 0 || halo_info->right != 0) { /* there is halo region in this dimension */
 			omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[i];
-#if CORRECTNESS_CHECK
-		    BEGIN_SERIALIZED_PRINTF(off->devseqid);
-		    printf("map: %X, dev_ptr: %X\n", map, map->map_dev_ptr);
-#endif
 			if (halo_mem->left_dev_seqid >= 0) {
 				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
 					halo_mem->left_in_size = halo_info->left*map->map_dim[1]*sizeof_element;
@@ -757,10 +754,11 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				omp_device_t * leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
 					halo_mem->left_in_host_relay_ptr = malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
-#if CORRECTNESS_CHECK
 					printf("dev: %d, map: %X, left: %d, left host relay buffer allocated\n", off->devseqid, map, halo_mem->left_dev_seqid);
-#endif
-				} else halo_mem->left_in_host_relay_ptr = NULL;
+				} else {
+					printf("dev: %d, map: %X, left: %d, left dev: p2p enabled\n", off->devseqid, map, halo_mem->left_dev_seqid);
+					halo_mem->left_in_host_relay_ptr = NULL;
+				}
 			}
 			if (halo_mem->right_dev_seqid >= 0) {
 				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
@@ -778,12 +776,12 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				omp_device_t * rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
 					halo_mem->right_in_host_relay_ptr = malloc(halo_mem->right_in_size); /** FIXME, mem leak here and we have not thought where to free */
-					printf("dev: %d, map: %X, left: %d, right host relay buffer allocated\n", off->devseqid, map, halo_mem->right_dev_seqid);
-				} else halo_mem->right_in_host_relay_ptr = NULL;
+					printf("dev: %d, map: %X, right: %d, right host relay buffer allocated\n", off->devseqid, map, halo_mem->right_dev_seqid);
+				} else {
+					printf("dev: %d, map: %X, right: %d, right host p2p enabled\n", off->devseqid, map, halo_mem->right_dev_seqid);
+					halo_mem->right_in_host_relay_ptr = NULL;
+				}
 			}
-#if CORRECTNESS_CHECK
-		    END_SERIALIZED_PRINTF();
-#endif
 
 
 #if 0
@@ -806,6 +804,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 #endif
 		}
 	}
+//	END_SERIALIZED_PRINTF();
 
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_4;
 #if 0
