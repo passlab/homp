@@ -330,7 +330,6 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->sizeof_element = sizeof_element;
 }
 
-
 void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info) {
 	if (num_dims > 3) {

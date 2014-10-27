@@ -426,6 +426,8 @@ extern void omp_topology_print(omp_grid_topology_t * top);
 
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
+extern void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info);
 extern void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
 extern void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
@@ -436,6 +438,7 @@ extern void omp_data_map_dist(omp_data_map_t *map, int seqid, omp_offloading_t *
 extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);
 extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
+extern void omp_data_map_exchange_start(omp_device_t ** targets, int num_targets, omp_data_map_exchange_info_t * x_info);
 
 extern omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index);
 extern void omp_print_data_map(omp_data_map_t * map);

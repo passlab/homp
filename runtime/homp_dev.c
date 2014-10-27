@@ -311,6 +311,10 @@ void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void 
 }
 
 #if 0
+/* In the current implementation of the runtime, we will NOT use stream callback to do the timing and others such as reduction operation.
+ * The reason is because CUDA use a driver thread to handle callback, which become not necessnary since we have a dedicated helper thread
+ * for each GPU and the helper thread could do this kind of work
+ */
 #if defined (DEVICE_NVGPU_SUPPORT)
 
 void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {

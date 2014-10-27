@@ -585,33 +585,27 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
 
 		/* for reduction operation */
-		void * _dev_per_block_error = omp_map_malloc_dev(off->dev, _num_blocks_ * sizeof(REAL));
-		void * _host_per_block_error = (REAL*)(malloc(_num_blocks_*sizeof(REAL)));
-		struct omp_reduction_double args;
+		REAL * _dev_per_block_error = (REAL*)omp_map_malloc_dev(off->dev, teams_per_league * sizeof(REAL));
+		REAL _host_per_block_error[teams_per_league];
 
-		args.input = _host_per_block_error;
-		args->num = teams_per_league;
-		args->opers = 6;
 		//printf("%d device: original offset: %d, mapped_offset: %d, length: %d\n", __i__, offset_n, start_n, length_n);
-
 		/* Launch CUDA kernel ... */
 		/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
-		OUT__1__10550__<<<_num_blocks_, _threads_per_block_,(_threads_per_block_ * sizeof(REAL)),
-				__dev_stream__[__i__].systream.cudaStream>>>(start_n, length_n, m,
-				omega, ax, ay, b, _dev_per_block_error[__i__],
-				(REAL*)__dev_map_u__->map_dev_ptr, (REAL*)__dev_map_f__->map_dev_ptr,(REAL*)__dev_map_uold__->map_dev_ptr);
+		OUT__1__10550__<<<teams_per_league, threads_per_team,(teams_per_league * sizeof(REAL)),
+				off->stream.systream.cudaStream>>>(n, m,
+				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error);
+
 		/* copy back the results of reduction in blocks */
-		cudaMemcpyAsync(_host_per_block_error[__i__], _dev_per_block_error[__i__], sizeof(REAL)*_num_blocks_, cudaMemcpyDeviceToHost, __dev_stream__[__i__].systream.cudaStream);
-		cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_double_stream_callback, args, 0);
-		/* xomp_beyond_block_reduction_double(_dev_per_block_error, _num_blocks_, 6); */
-		//xomp_freeDevice(_dev_per_block_error);
+		omp_map_memcpy_from_async(_host_per_block_error, _dev_per_block_error, off->dev, sizeof(REAL)*teams_per_league, &off->stream);
+		omp_stream_sync(&off->stream, 0);
+
+		xomp_beyond_block_reduction_double(_host_per_block_error, teams_per_league, XOMP_REDUCTION_PLUS);
+		//cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_double_stream_callback, args, 0);
+		omp_map_free_dev(off->dev, _dev_per_block_error);
 
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
-		REAL resid;
-		REAL error;
-
 #if CORRECTNESS_CHECK
 	    BEGIN_SERIALIZED_PRINTF(off->devseqid);
 		printf("udev: dev: %d, %dX%d\n", off->devseqid, n, m);

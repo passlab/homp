@@ -112,14 +112,31 @@ struct omp_reduction_##dtype {\
 			int opers; \
 }; \
 \
-void xomp_beyond_block_reduction_stream_callback_##dtype(cudaStream_t stream,  cudaError_t status, void*  userData ) { \
-	struct omp_reduction_##dtype * rdata = (struct omp_reduction_##dtype *)userData; \
+dtype xomp_beyond_block_reduction_##dtype(dtype * data, long num, int oper) {\
 	dtype result = 0.0; \
 	int i; \
-	for (i=0; i<rdata->num; i++) \
-		result += rdata->input[i]; \
-	rdata->result = result; \
-};
+	for (i=0; i<num; i++) { \
+      switch (oper){ \
+        case XOMP_REDUCTION_PLUS: \
+        case XOMP_REDUCTION_MINUS: \
+            result += data[i]; \
+            break; \
+         /*  TODO add support for more operations*/ \
+         default:  \
+            { \
+              /* TODO: add assertion or set cudaError with an error code */ \
+              /* cannot call a host function */ \
+              /* fprintf (stderr, "Error. xomp_inner_block_reduction() unhandled reduction operation:%d\n",reduction_op); */ \
+              /* assert (false); */ \
+             } \
+      } /* end switch */ \
+	}\
+	return result;\
+};\
+void xomp_beyond_block_reduction_stream_callback_##dtype(cudaStream_t stream,  cudaError_t status, void*  userData ) { \
+	struct omp_reduction_##dtype * rdata = (struct omp_reduction_##dtype *)userData; \
+	rdata->result = xomp_beyond_block_reduction_##dtype(rdata->input, rdata->num, rdata->opers); \
+}; \
 
 XOMP_INNER_BLOCK_REDUCTION_DEF(int)
 XOMP_INNER_BLOCK_REDUCTION_DEF(float)
