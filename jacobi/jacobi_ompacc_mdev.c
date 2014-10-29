@@ -584,17 +584,18 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
 		/* for reduction operation */
-		REAL * _dev_per_block_error = (REAL*)omp_map_malloc_dev(off->dev, teams_per_league * sizeof(REAL));
-		printf("dev: %d teams per league, err block mem: %X\n", teams_per_league, _dev_per_block_error);
-		REAL _host_per_block_error[teams_per_league];
+		REAL * _dev_per_block_error = (REAL*)omp_map_malloc_dev(off->dev, teams_per_league * sizeof(REAL) * 2);
+		//printf("dev: %d teams per league, err block mem: %X\n", teams_per_league, _dev_per_block_error);
+		REAL _host_per_block_error[teams_per_league*2];
 		//printf("%d device: original offset: %d, mapped_offset: %d, length: %d\n", __i__, offset_n, start_n, length_n);
 		/* Launch CUDA kernel ... */
 		/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
-		OUT__1__10550__<<<teams_per_league, threads_per_team,(teams_per_league * sizeof(REAL)),
+		OUT__1__10550__<<<teams_per_league, threads_per_team,(threads_per_team * sizeof(REAL)),
 				off->stream.systream.cudaStream>>>(n, m,
 				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error);
 
 		/* copy back the results of reduction in blocks */
+		//printf("copy back reduced error: %X <-- %X\n", _host_per_block_error, _dev_per_block_error);
 		omp_map_memcpy_from_async(_host_per_block_error, _dev_per_block_error, off->dev, sizeof(REAL)*teams_per_league, &off->stream);
 		omp_stream_sync(&off->stream, 0);
 
