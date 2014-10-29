@@ -584,9 +584,9 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
 		/* for reduction operation */
-		REAL * _dev_per_block_error = (REAL*)omp_map_malloc_dev(off->dev, teams_per_league * sizeof(REAL) * 2);
+		REAL * _dev_per_block_error = (REAL*)omp_map_malloc_dev(off->dev, teams_per_league * sizeof(REAL));
 		//printf("dev: %d teams per league, err block mem: %X\n", teams_per_league, _dev_per_block_error);
-		REAL _host_per_block_error[teams_per_league*2];
+		REAL _host_per_block_error[teams_per_league];
 		//printf("%d device: original offset: %d, mapped_offset: %d, length: %d\n", __i__, offset_n, start_n, length_n);
 		/* Launch CUDA kernel ... */
 		/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
@@ -793,7 +793,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 #endif
 	/* here we do not need sync start */
 	omp_offloading_start(__target_devices__,__num_target_devices__, &__offloading_info__);
-	printf("----- data copyin .... \n");
+	//printf("----- data copyin .... \n");
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;

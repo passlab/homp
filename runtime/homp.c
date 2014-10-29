@@ -754,9 +754,9 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				omp_device_t * leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
 					halo_mem->left_in_host_relay_ptr = malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
-					printf("dev: %d, map: %X, left: %d, left host relay buffer allocated\n", off->devseqid, map, halo_mem->left_dev_seqid);
+					//printf("dev: %d, map: %X, left: %d, left host relay buffer allocated\n", off->devseqid, map, halo_mem->left_dev_seqid);
 				} else {
-					printf("dev: %d, map: %X, left: %d, left dev: p2p enabled\n", off->devseqid, map, halo_mem->left_dev_seqid);
+					//printf("dev: %d, map: %X, left: %d, left dev: p2p enabled\n", off->devseqid, map, halo_mem->left_dev_seqid);
 					halo_mem->left_in_host_relay_ptr = NULL;
 				}
 			}
@@ -776,32 +776,12 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				omp_device_t * rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
 					halo_mem->right_in_host_relay_ptr = malloc(halo_mem->right_in_size); /** FIXME, mem leak here and we have not thought where to free */
-					printf("dev: %d, map: %X, right: %d, right host relay buffer allocated\n", off->devseqid, map, halo_mem->right_dev_seqid);
+					//printf("dev: %d, map: %X, right: %d, right host relay buffer allocated\n", off->devseqid, map, halo_mem->right_dev_seqid);
 				} else {
-					printf("dev: %d, map: %X, right: %d, right host p2p enabled\n", off->devseqid, map, halo_mem->right_dev_seqid);
+					//printf("dev: %d, map: %X, right: %d, right host p2p enabled\n", off->devseqid, map, halo_mem->right_dev_seqid);
 					halo_mem->right_in_host_relay_ptr = NULL;
 				}
 			}
-
-
-#if 0
-			if (i == 0 || i == 1) { /* just for 2-D array */
-				int rc = 1-i; /* row/column switch */
-				if (halo_mem->left_map != NULL) {
-					halo_mem->left_in_size = halo_info->left*map->map_dim[rc]*sizeof_element;
-					printf("Allocating dim %d halo region buffer:%dx%d for array %X mapped to device %d\n", 0, halo_info->left, map->map_dim[rc], info->source_ptr, map->dev->id);
-					halo_mem->left_in_ptr = omp_map_malloc_dev(map->dev, halo_mem->left_in_size);
-					halo_mem->left_out_size = halo_info->right*map->map_dim[rc]*sizeof_element;
-					halo_mem->left_out_ptr = omp_map_malloc_dev(map->dev, halo_mem->left_out_size);
-				}
-				if (halo_mem->right_map != NULL) {
-					halo_mem->right_in_size = halo_info->right*map->map_dim[rc]*sizeof_element;
-					halo_mem->right_in_ptr = omp_map_malloc_dev(map->dev, halo_mem->right_in_size);
-					halo_mem->right_out_size = halo_info->left*map->map_dim[rc]*sizeof_element;
-					halo_mem->right_out_ptr = omp_map_malloc_dev(map->dev, halo_mem->right_out_size);
-				}
-			}
-#endif
 		}
 	}
 //	END_SERIALIZED_PRINTF();
@@ -860,34 +840,7 @@ printf("allocating dim %d halo:%d * %d\n",1, (map->map_dim[0]+(&halo_info[1])->r
                         gpuErrchk(cudaErrorMemoryAllocation);
                 	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
                 }
-//		map->map_dev_ptr = map->mem_dev_ptr;
-//		if (halo_mem->left_map)
-//		  map->map_dev_ptr =  map->map_dev_ptr + (halo_info->left*sizeof_element);
 	}
-//	if (map->mem_dim[0] != map->map_dim[0]) { /* there is halo region */
-//		halo_mem = &halo_mem[0];
-//		halo_mem->left_in_ptr = map->mem_dev_ptr;
-//		halo_mem->left_in_size = halo_info->left*map->map_dim[1]*sizeof_element;
-//		halo_mem->left_out_ptr = map->mem_dev_ptr + halo_mem->left_in_size;
-//		/* we calculate from the end of the address */
-//		halo_mem->right_in_ptr = map->mem_dev_ptr + map->map_size - halo_info->right*map->map_dim[1]*sizeof_element;
-//		halo_mem->right_in_size = halo_info->right*map->map_dim[1]*sizeof_element;
-//		halo_mem->right_out_ptr = halo_mem->right_in_ptr - halo_info->left*map->map_dim[1]*sizeof_element;
-//
-//		if (halo_mem->left_map)
-//			map->map_dev_ptr = halo_mem->left_out_ptr;
-//		else map->map_dev_ptr = map->mem_dev_ptr;
-//	}
-//	if (map->mem_dim[1] != map->map_dim[1]) { /* there is halo region */
-//		halo_info = &halo_info[1];
-//		int buffer_size = sizeof_element*map->map_dim[0]*(halo_info->left+halo_info->right);
-//		result = cudaMalloc(&halo_mem->left_in_ptr, buffer_size);
-//                gpuErrchk(result);
-//		halo_mem->left_out_ptr = halo_mem->left_in_ptr + sizeof_element*halo_info->left*map->map_dim[0];
-//		result = cudaMalloc(&halo_mem->right_out_ptr, buffer_size);
-//                gpuErrchk(result);
-//		halo_mem->right_in_ptr = halo_mem->right_out_ptr + sizeof_element*halo_info->left*map->map_dim[0];
-//	}
 #endif
 }
 
