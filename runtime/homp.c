@@ -754,6 +754,9 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				omp_device_t * leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
 					halo_mem->left_in_host_relay_ptr = malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
+					halo_mem->left_in_data_in_relay_pushed = 0;
+					halo_mem->left_in_data_in_relay_pulled = 0;
+
 					//printf("dev: %d, map: %X, left: %d, left host relay buffer allocated\n", off->devseqid, map, halo_mem->left_dev_seqid);
 				} else {
 					//printf("dev: %d, map: %X, left: %d, left dev: p2p enabled\n", off->devseqid, map, halo_mem->left_dev_seqid);
@@ -776,6 +779,9 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				omp_device_t * rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
 					halo_mem->right_in_host_relay_ptr = malloc(halo_mem->right_in_size); /** FIXME, mem leak here and we have not thought where to free */
+					halo_mem->right_in_data_in_relay_pushed = 0;
+					halo_mem->right_in_data_in_relay_pulled = 0;
+
 					//printf("dev: %d, map: %X, right: %d, right host relay buffer allocated\n", off->devseqid, map, halo_mem->right_dev_seqid);
 				} else {
 					//printf("dev: %d, map: %X, right: %d, right host p2p enabled\n", off->devseqid, map, halo_mem->right_dev_seqid);
@@ -878,30 +884,61 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 
 	if (halo_mem->left_dev_seqid >= 0 && (from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_ONLY || from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT)) { /* pull from left */
 		omp_data_map_t * left_map = &info->maps[halo_mem->left_dev_seqid];
+		omp_data_map_halo_region_mem_t * left_halo_mem = &left_map->halo_mem[dim];
+
+		/* if I need to push right_out data to the host relay buffer for the left_map, I should do it first */
+		if (left_halo_mem->right_in_host_relay_ptr != NULL) {
+			/* wait make sure the data in the right_in_host_relay buffer is already pulled */
+			while (left_halo_mem->right_in_data_in_relay_pushed > left_halo_mem->right_in_data_in_relay_pulled);
+			omp_map_memcpy_from(left_halo_mem->right_in_host_relay_ptr, halo_mem->left_out_ptr, map->dev, halo_mem->left_out_size);
+			left_halo_mem->right_in_data_in_relay_pushed ++;
+		} else {
+			/* do nothing here because the left_map helper thread will do a direct device-to-device pull */
+		}
+
 		if (halo_mem->left_in_host_relay_ptr == NULL) { /* no need host relay */
-			omp_map_memcpy_DeviceToDevice(halo_mem->left_in_ptr, map->dev, left_map->halo_mem[dim].right_out_ptr, left_map->dev, halo_mem->left_in_size);
+			omp_map_memcpy_DeviceToDevice(halo_mem->left_in_ptr, map->dev, left_halo_mem->right_out_ptr, left_map->dev, halo_mem->left_in_size);
 #if CORRECTNESS_CHECK
-			printf("dev: %d, dev2dev memcpy from left: %X <----- %X\n", map->dev->id, halo_mem->left_in_ptr, left_map->halo_mem[dim].right_out_ptr);
+			printf("dev: %d, dev2dev memcpy from left: %X <----- %X\n", map->dev->id, halo_mem->left_in_ptr, left_halo_mem->right_out_ptr);
 #endif
 		} else { /* need host relay */
+			/*
 			omp_set_current_device_dev(left_map->dev);
 			omp_map_memcpy_from(halo_mem->left_in_host_relay_ptr, left_map->halo_mem[dim].right_out_ptr, left_map->dev, halo_mem->left_in_size);
 			omp_set_current_device_dev(map->dev);
+			*/
+			while (halo_mem->left_in_data_in_relay_pushed <= halo_mem->left_in_data_in_relay_pulled); /* wait for the data to be ready in the relay buffer on host */
+			/* wait for the data in the relay buffer is ready */
 			omp_map_memcpy_to(halo_mem->left_in_ptr, map->dev, halo_mem->left_in_host_relay_ptr, halo_mem->left_in_size);
+			halo_mem->left_in_data_in_relay_pulled++;
 		}
 	}
 	if (halo_mem->right_dev_seqid >= 0 && (from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_RIGHT_ONLY || from_left_right == OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT)) {
 		omp_data_map_t * right_map = &info->maps[halo_mem->right_dev_seqid];
+		omp_data_map_halo_region_mem_t * right_halo_mem = &right_map->halo_mem[dim];
+
+		/* if I need to push left_out data to the host relay buffer for the right_map, I should do it first */
+		if (right_halo_mem->left_in_host_relay_ptr != NULL) {
+			while (right_halo_mem->left_in_data_in_relay_pushed > right_halo_mem->left_in_data_in_relay_pulled);
+			omp_map_memcpy_from(right_halo_mem->left_in_host_relay_ptr, halo_mem->right_out_ptr, map->dev, halo_mem->right_out_size);
+			right_halo_mem->left_in_data_in_relay_pushed ++;
+		} else {
+			/* do nothing here because the left_map helper thread will do a direct device-to-device pull */
+		}
+
 		if (halo_mem->right_in_host_relay_ptr == NULL) {
-			omp_map_memcpy_DeviceToDevice(halo_mem->right_in_ptr, map->dev, right_map->halo_mem[dim].left_out_ptr, right_map->dev, halo_mem->right_in_size);
+			omp_map_memcpy_DeviceToDevice(halo_mem->right_in_ptr, map->dev, right_halo_mem->left_out_ptr, right_map->dev, halo_mem->right_in_size);
 #if CORRECTNESS_CHECK
-			printf("dev: %d, dev2dev memcpy from right: %X <----- %X\n", map->dev->id, halo_mem->right_in_ptr, right_map->halo_mem[dim].left_out_ptr);
+			printf("dev: %d, dev2dev memcpy from right: %X <----- %X\n", map->dev->id, halo_mem->right_in_ptr, right_halo_mem->left_out_ptr);
 #endif
 
 		} else {
+			/*
 			omp_set_current_device_dev(right_map->dev);
 			omp_map_memcpy_from(halo_mem->right_in_host_relay_ptr, right_map->halo_mem[dim].left_out_ptr, right_map->dev, halo_mem->right_in_size);
 			omp_set_current_device_dev(map->dev);
+			*/
+			while (halo_mem->right_in_data_in_relay_pushed <= halo_mem->right_in_data_in_relay_pulled); /* wait for the data to be ready in the relay buffer on host */
 			omp_map_memcpy_to(halo_mem->right_in_ptr, map->dev, halo_mem->right_in_host_relay_ptr, halo_mem->right_in_size);
 		}
 	}

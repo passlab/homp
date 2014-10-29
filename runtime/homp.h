@@ -219,7 +219,14 @@ typedef struct omp_data_map_halo_region_mem {
 	 * protocol should be applied for halo exchange.
 	 */
 	void * left_in_host_relay_ptr;
+	volatile int left_in_data_in_relay_pushed;
+	volatile int left_in_data_in_relay_pulled;
+	/* the push flag is set when the data is pushed by the source to the host relay so the receiver side can pull,
+	 * a simple busy-wait is used to wait for the data to arrive
+	 */
 	void * right_in_host_relay_ptr;
+	volatile int right_in_data_in_relay_pushed;
+	volatile int right_in_data_in_relay_pulled;
 } omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
