@@ -35,13 +35,15 @@ inline void devcall_errchk(int code, char *file, int line, int ab) {
 #endif
 }
 
-void * omp_get_device_properties(omp_device_t * dev) {
+void * omp_init_dev_specific(omp_device_t * dev) {
 	omp_device_type_t devtype = dev->type;
+	dev->devstream.systream.myStream = NULL;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		dev->dev_properties = (struct cudaDeviceProp*)malloc(sizeof(struct cudaDeviceProp));
 		cudaSetDevice(dev->sysid);
 		cudaGetDeviceProperties(dev->dev_properties, dev->sysid);
+		dev->devstream.systream.cudaStream = 0;
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
@@ -110,7 +112,7 @@ int omp_init_devices() {
 		dev->offload_request = NULL;
 		dev->data_exchange_request = NULL;
 		dev->offload_stack_top = -1;
-		omp_get_device_properties(dev);
+		omp_init_dev_specific(dev);
 
 		int rt = pthread_create(&dev->helperth, &attr, (void *(*)(void *))helper_thread_main, (void *) dev);
 		if (rt) {fprintf(stderr, "cannot create helper threads for devices.\n"); exit(1); }
@@ -263,7 +265,11 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_device_t * s
 	} else
 #endif
 	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
+#if defined EXPERIMENT_RELAY_BUFFER_FOR_HALO_EXCHANGE
+		return 0;
+#else
 		return 1;
+#endif
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
 	}
@@ -335,15 +341,18 @@ void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, vo
 #endif
 #endif
 
-void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream) {
+void omp_create_stream(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default) {
 	stream->dev = d;
 	int i;
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (d->type == OMP_DEVICE_NVGPU) {
-		cudaError_t result;
-		result = cudaStreamCreate(&stream->systream.cudaStream);
-		devcall_assert(result);
+		if (using_dev_default) stream->systream.cudaStream = 0;
+		else {
+			cudaError_t result;
+			result = cudaStreamCreate(&stream->systream.cudaStream);
+			devcall_assert(result);
+		}
 	} else
 #endif
 	if (d->type == OMP_DEVICE_THSIM){
@@ -500,7 +509,7 @@ void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream) {
 void omp_sync_cleanup(omp_offloading_t * off) {
 	int i;
 	omp_offloading_info_t * off_info = off->off_info;
-	omp_stream_sync(&off->stream, 1);
+	omp_stream_sync(off->stream, 1);
 
 	for (i = 0; i < off_info->num_mapped_vars; i++) {
 		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];

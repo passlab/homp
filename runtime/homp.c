@@ -180,7 +180,6 @@ void omp_offloading_run(omp_device_t * dev) {
 	int seqid = omp_grid_topology_get_seqid(top, dev->id);
 	omp_offloading_t * off = &off_info->offloadings[seqid];
 	//printf("devid: %d --> seqid: %d in top: %X, off: %X, off_info: %X\n", dev->id, seqid, top, off, off_info);
-	omp_dev_stream_t * stream = &off->stream;
 
 	if (off_info->stage == OMP_OFFLOADING_COPYFROM) goto offload_stage_copyfrom;
 	off->devseqid = seqid;
@@ -196,10 +195,18 @@ void omp_offloading_run(omp_device_t * dev) {
 	int event_index = 0;
 
 	/* set up stream and event */
-	omp_event_init(stream, &events[event_index], OMP_EVENT_HOST_RECORD);
+	omp_event_init(NULL, &events[event_index], OMP_EVENT_HOST_RECORD);
 	omp_event_record_start(&events[event_index]);
 #endif
-	omp_init_stream(dev, stream);
+
+	omp_dev_stream_t * stream;
+#if defined USING_PER_OFFLOAD_STREAM
+	stream = &off->mystream;
+	omp_create_stream(dev, stream, 0);
+#else
+	stream = &dev->devstream;
+#endif
+	off->stream = stream;
 
 #if defined (OMP_BREAKDOWN_TIMING)
 	for (i=1; i<num_events; i++) {
@@ -288,6 +295,8 @@ offload_stage_copyfrom: ;
 void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 	omp_set_current_device_dev(dev);
+	omp_create_stream(dev, &dev->devstream, 1);
+
 	/*************** loop *******************/
 	while (1) {
 		//	printf("helper threading (devid: %d) waiting ....\n", devid);
@@ -940,6 +949,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 			*/
 			while (halo_mem->right_in_data_in_relay_pushed <= halo_mem->right_in_data_in_relay_pulled); /* wait for the data to be ready in the relay buffer on host */
 			omp_map_memcpy_to(halo_mem->right_in_ptr, map->dev, halo_mem->right_in_host_relay_ptr, halo_mem->right_in_size);
+			halo_mem->right_in_data_in_relay_pulled++;
 		}
 	}
 #if CORRECTNESS_CHECK

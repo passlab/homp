@@ -26,6 +26,7 @@ extern void omp_set_default_device(int device_num );
 extern int omp_get_default_device(void);
 extern int omp_get_num_devices();
 
+typedef struct omp_device omp_device_t;
 typedef struct omp_data_map omp_data_map_t;
 typedef struct omp_offloading_info omp_offloading_info_t;
 typedef struct omp_offloading omp_offloading_t;
@@ -56,6 +57,21 @@ typedef struct omp_device_type_info {
 	int num_devs;
 } omp_device_type_info_t;
 extern omp_device_type_info_t omp_device_types[];
+
+/**
+ * each stream also provide a limited number of event objects for collecting timing
+ * information.
+ */
+typedef struct omp_dev_stream {
+	omp_device_t * dev;
+	union {
+#if defined (DEVICE_NVGPU_SUPPORT)
+		cudaStream_t cudaStream;
+#endif
+		void * myStream;
+	} systream;
+} omp_dev_stream_t;
+
 /**
  ********************* Runtime notes ***********************************************
  * runtime may want to have internal array to supports the programming APIs for multiple devices, e.g.
@@ -87,24 +103,12 @@ typedef struct omp_device {
 	 */
 	int offload_stack_top;
 
+	omp_dev_stream_t devstream; /* per dev stream */
+
 	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
 
 	pthread_t helperth;
 } omp_device_t;
-
-/**
- * each stream also provide a limited number of event objects for collecting timing
- * information.
- */
-typedef struct omp_dev_stream {
-	omp_device_t * dev;
-	union {
-#if defined (DEVICE_NVGPU_SUPPORT)
-		cudaStream_t cudaStream;
-#endif
-		void * myStream;
-	} systream;
-} omp_dev_stream_t;
 
 /**
  * we organize record and timing as a sequence of event, recording could be done by host side or by device-specific approach
@@ -392,7 +396,8 @@ struct omp_offloading {
 	omp_offloading_info_t * off_info;
 
 	/************** per device var ***************/	
-	omp_dev_stream_t stream;
+	omp_dev_stream_t mystream;
+	omp_dev_stream_t *stream;
 	int devseqid; /* device seqid in the top */
 	omp_device_t * dev; /* the dev object, as cached info */
 
@@ -417,7 +422,7 @@ extern void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_o
 extern void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
-extern void omp_init_stream(omp_device_t * d, omp_dev_stream_t * stream);
+extern void omp_create_stream(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default);
 extern void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream);
 extern void omp_sync_cleanup(omp_offloading_t * off);
 
