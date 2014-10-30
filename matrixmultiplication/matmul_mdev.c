@@ -330,7 +330,7 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = (i*j + threads_per_team - 1) / threads_per_team;
 		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
-		OUT__1__11058__<<<teams_per_league,threads_per_team, 0, off->stream.systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
+		OUT__1__11058__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
