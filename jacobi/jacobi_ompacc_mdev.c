@@ -465,7 +465,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
-		OUT__2__10550__<<<teams_per_league, threads_per_team, 0,off->stream.systream.cudaStream>>>(n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
+		OUT__2__10550__<<<teams_per_league, threads_per_team, 0,off->stream->systream.cudaStream>>>(n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
@@ -591,13 +591,13 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		/* Launch CUDA kernel ... */
 		/** since here we do the same mapping, so will reuse the _threads_per_block and _num_blocks */
 		OUT__1__10550__<<<teams_per_league, threads_per_team,(threads_per_team * sizeof(REAL)),
-				off->stream.systream.cudaStream>>>(n, m,
+				off->stream->systream.cudaStream>>>(n, m,
 				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error);
 
 		/* copy back the results of reduction in blocks */
 		//printf("copy back reduced error: %X <-- %X\n", _host_per_block_error, _dev_per_block_error);
-		omp_map_memcpy_from_async(_host_per_block_error, _dev_per_block_error, off->dev, sizeof(REAL)*teams_per_league, &off->stream);
-		omp_stream_sync(&off->stream, 0);
+		omp_map_memcpy_from_async(_host_per_block_error, _dev_per_block_error, off->dev, sizeof(REAL)*teams_per_league, off->stream);
+		omp_stream_sync(off->stream, 0);
 
 		xomp_beyond_block_reduction_double(_host_per_block_error, teams_per_league, XOMP_REDUCTION_PLUS);
 		//cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_double_stream_callback, args, 0);

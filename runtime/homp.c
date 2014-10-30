@@ -258,7 +258,7 @@ offload_stage_kernexe: ;
 		/* put in the offloading stack */
 		dev->offload_stack_top++;
 		dev->offload_stack[dev->offload_stack_top] = off_info;
-		omp_stream_sync(&off->stream, 0);
+		omp_stream_sync(off->stream, 0);
 		dev->offload_request = NULL;
 		pthread_barrier_wait(&off_info->barrier);
 

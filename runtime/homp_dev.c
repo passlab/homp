@@ -488,7 +488,7 @@ void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
-		if (destroy_stream) {
+		if (destroy_stream && st->systream.cudaStream != 0) {
 			result = cudaStreamSynchronize(st->systream.cudaStream);
 			devcall_assert(result);
 			result = cudaStreamDestroy(st->systream.cudaStream);

@@ -82,7 +82,7 @@ typedef struct omp_dev_stream {
  * The helper thread use the offload_queue to keep track of a list of
  * offloading request to this device, see struct_offloading_dev_t struct definition
  */
-typedef struct omp_device {
+struct omp_device {
 	int id; /* the id from omp view */
 	long sysid; /* the handle from the system view, e.g.
 			 device id for NVGPU cudaSetDevice(sysid), 
@@ -108,7 +108,7 @@ typedef struct omp_device {
 	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
 
 	pthread_t helperth;
-} omp_device_t;
+};
 
 /**
  * we organize record and timing as a sequence of event, recording could be done by host side or by device-specific approach
