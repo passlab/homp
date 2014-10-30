@@ -222,7 +222,7 @@ offload_stage_copyto: ;
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 		omp_data_map_t * map = &map_info->maps[seqid];
-		omp_data_map_init_map(map, map_info, dev, stream, off);
+		omp_data_map_init_map(map, map_info, dev, off->stream, off);
 		omp_data_map_dist(map, seqid, off);
 		omp_map_buffer_malloc(map, off);
 #if DEBUG_MSG
@@ -233,7 +233,7 @@ offload_stage_copyto: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
 #endif
-			omp_map_memcpy_to_async(map->map_dev_ptr, dev, map->map_buffer, map->map_size, stream); /* memcpy from host to device */
+			omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);
 #endif
@@ -272,9 +272,10 @@ offload_stage_copyfrom: ;
 		omp_data_map_t * map = &map_info->maps[seqid];
 		if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
+			/* TODO bug here if this is reached from the above goto, since events is not available */
 			omp_event_record_start(&events[event_index]);
 #endif
-			omp_map_memcpy_from_async(map->map_buffer, map->map_dev_ptr, dev, map->map_size, stream); /* memcpy from host to device */
+			omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, dev, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);
 #endif
@@ -595,9 +596,9 @@ void omp_map_unmarshal(omp_data_map_t * map) {
 		long full_line_size = info->dims[1]*sizeof_element;
 		long region_off = 0;
 		long full_off = 0;
-		char * src_ptr = info->source_ptr + sizeof_element*info->dims[1]*map->map_offset[0] + sizeof_element*map->map_offset[1];
+		char * src_ptr = &info->source_ptr[sizeof_element*info->dims[1]*map->map_offset[0] + sizeof_element*map->map_offset[1]];
 		for (i=0; i<map->map_dim[0]; i++) {
-			memcpy(src_ptr+full_off, map->map_buffer+region_off, region_line_size);
+			memcpy((void*)&src_ptr[full_off], (void*)&map->map_buffer[region_off], region_line_size);
 			region_off += region_line_size;
 			full_off += full_line_size;
 		}
@@ -633,11 +634,10 @@ void omp_map_marshal(omp_data_map_t * map) {
 		long full_line_size = info->dims[1] * sizeof_element;
 		long region_off = 0;
 		long full_off = 0;
-		char * src_ptr = info->source_ptr
-				+ sizeof_element * info->dims[1] * map->map_offset[0]
-				+ sizeof_element * map->map_offset[1];
+		char * src_ptr = &info->source_ptr[sizeof_element * info->dims[1] * map->map_offset[0]
+				+ sizeof_element * map->map_offset[1]];
 		for (i = 0; i < map->map_dim[0]; i++) {
-			memcpy(map->map_buffer+region_off, src_ptr+full_off, region_line_size);
+			memcpy((void*)&map->map_buffer[region_off], (void*)&src_ptr[full_off], region_line_size);
 			region_off += region_line_size;
 			full_off += full_line_size;
 		}
@@ -708,7 +708,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 	}
 	map->map_size = map_size;
 	if (!map->marshalled_or_not) {
-		map->map_buffer = info->source_ptr + sizeof_element * omp_array_offset(info->num_dims, map->map_dim, map->map_offset);
+		map->map_buffer = &info->source_ptr[sizeof_element * omp_array_offset(info->num_dims, map->map_dim, map->map_offset)];
 	} else {
 		omp_map_marshal(map);
 	}
@@ -762,7 +762,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 
 				omp_device_t * leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
-					halo_mem->left_in_host_relay_ptr = malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
+					halo_mem->left_in_host_relay_ptr = (char*)malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
 					halo_mem->left_in_data_in_relay_pushed = 0;
 					halo_mem->left_in_data_in_relay_pulled = 0;
 
@@ -787,7 +787,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				}
 				omp_device_t * rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
-					halo_mem->right_in_host_relay_ptr = malloc(halo_mem->right_in_size); /** FIXME, mem leak here and we have not thought where to free */
+					halo_mem->right_in_host_relay_ptr = (char*)malloc(halo_mem->right_in_size); /** FIXME, mem leak here and we have not thought where to free */
 					halo_mem->right_in_data_in_relay_pushed = 0;
 					halo_mem->right_in_data_in_relay_pulled = 0;
 
@@ -899,14 +899,14 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 		if (left_halo_mem->right_in_host_relay_ptr != NULL) {
 			/* wait make sure the data in the right_in_host_relay buffer is already pulled */
 			while (left_halo_mem->right_in_data_in_relay_pushed > left_halo_mem->right_in_data_in_relay_pulled);
-			omp_map_memcpy_from(left_halo_mem->right_in_host_relay_ptr, halo_mem->left_out_ptr, map->dev, halo_mem->left_out_size);
+			omp_map_memcpy_from((void*)left_halo_mem->right_in_host_relay_ptr, (void*)halo_mem->left_out_ptr, map->dev, halo_mem->left_out_size);
 			left_halo_mem->right_in_data_in_relay_pushed ++;
 		} else {
 			/* do nothing here because the left_map helper thread will do a direct device-to-device pull */
 		}
 
 		if (halo_mem->left_in_host_relay_ptr == NULL) { /* no need host relay */
-			omp_map_memcpy_DeviceToDevice(halo_mem->left_in_ptr, map->dev, left_halo_mem->right_out_ptr, left_map->dev, halo_mem->left_in_size);
+			omp_map_memcpy_DeviceToDevice((void*)halo_mem->left_in_ptr, map->dev, (void*)left_halo_mem->right_out_ptr, left_map->dev, halo_mem->left_in_size);
 #if CORRECTNESS_CHECK
 			printf("dev: %d, dev2dev memcpy from left: %X <----- %X\n", map->dev->id, halo_mem->left_in_ptr, left_halo_mem->right_out_ptr);
 #endif
@@ -918,7 +918,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 			*/
 			while (halo_mem->left_in_data_in_relay_pushed <= halo_mem->left_in_data_in_relay_pulled); /* wait for the data to be ready in the relay buffer on host */
 			/* wait for the data in the relay buffer is ready */
-			omp_map_memcpy_to(halo_mem->left_in_ptr, map->dev, halo_mem->left_in_host_relay_ptr, halo_mem->left_in_size);
+			omp_map_memcpy_to((void*)halo_mem->left_in_ptr, map->dev, (void*)halo_mem->left_in_host_relay_ptr, halo_mem->left_in_size);
 			halo_mem->left_in_data_in_relay_pulled++;
 		}
 	}
@@ -929,14 +929,14 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 		/* if I need to push left_out data to the host relay buffer for the right_map, I should do it first */
 		if (right_halo_mem->left_in_host_relay_ptr != NULL) {
 			while (right_halo_mem->left_in_data_in_relay_pushed > right_halo_mem->left_in_data_in_relay_pulled);
-			omp_map_memcpy_from(right_halo_mem->left_in_host_relay_ptr, halo_mem->right_out_ptr, map->dev, halo_mem->right_out_size);
+			omp_map_memcpy_from((void*)right_halo_mem->left_in_host_relay_ptr, (void*)halo_mem->right_out_ptr, map->dev, halo_mem->right_out_size);
 			right_halo_mem->left_in_data_in_relay_pushed ++;
 		} else {
 			/* do nothing here because the left_map helper thread will do a direct device-to-device pull */
 		}
 
 		if (halo_mem->right_in_host_relay_ptr == NULL) {
-			omp_map_memcpy_DeviceToDevice(halo_mem->right_in_ptr, map->dev, right_halo_mem->left_out_ptr, right_map->dev, halo_mem->right_in_size);
+			omp_map_memcpy_DeviceToDevice((void*)halo_mem->right_in_ptr, map->dev, (void*)right_halo_mem->left_out_ptr, right_map->dev, halo_mem->right_in_size);
 #if CORRECTNESS_CHECK
 			printf("dev: %d, dev2dev memcpy from right: %X <----- %X\n", map->dev->id, halo_mem->right_in_ptr, right_halo_mem->left_out_ptr);
 #endif
@@ -948,7 +948,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 			omp_set_current_device_dev(map->dev);
 			*/
 			while (halo_mem->right_in_data_in_relay_pushed <= halo_mem->right_in_data_in_relay_pulled); /* wait for the data to be ready in the relay buffer on host */
-			omp_map_memcpy_to(halo_mem->right_in_ptr, map->dev, halo_mem->right_in_host_relay_ptr, halo_mem->right_in_size);
+			omp_map_memcpy_to((void*)halo_mem->right_in_ptr, map->dev, (void*)halo_mem->right_in_host_relay_ptr, halo_mem->right_in_size);
 			halo_mem->right_in_data_in_relay_pulled++;
 		}
 	}

@@ -208,27 +208,27 @@ typedef struct omp_data_map_halo_region_mem {
 	int left_dev_seqid; /* left devseqid, can be used to access left_map and left_dev */
 	int right_dev_seqid;
 
-	void * left_in_ptr;
+	char * left_in_ptr;
 	long left_in_size; /* for pull update, == right_out_size if push protocol is used */
-	void * left_out_ptr;
+	char * left_out_ptr;
 	long left_out_size;
 
-	void * right_in_ptr;
+	char * right_in_ptr;
 	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
-	void * right_out_ptr;
+	char * right_out_ptr;
 	long right_out_size;
 
 	/* if p2p communication is not available, we will need buffer at host to relay the halo exchange.
 	 * Each data map only maintains the relay pointers for halo that they need, i.e. a pull
 	 * protocol should be applied for halo exchange.
 	 */
-	void * left_in_host_relay_ptr;
+	char * left_in_host_relay_ptr;
 	volatile int left_in_data_in_relay_pushed;
 	volatile int left_in_data_in_relay_pulled;
 	/* the push flag is set when the data is pushed by the source to the host relay so the receiver side can pull,
 	 * a simple busy-wait is used to wait for the data to arrive
 	 */
-	void * right_in_host_relay_ptr;
+	char * right_in_host_relay_ptr;
 	volatile int right_in_data_in_relay_pushed;
 	volatile int right_in_data_in_relay_pulled;
 } omp_data_map_halo_region_mem_t;
@@ -238,7 +238,7 @@ typedef struct omp_data_map_halo_region_mem {
 /* for each mapped host array, we have one such object */
 typedef struct omp_data_map_info {
     omp_grid_topology_t * top;
-	void * source_ptr;
+	char * source_ptr;
 	int num_dims;
 	long * dims;
 
@@ -281,9 +281,9 @@ struct omp_data_map {
 	long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
 	/* the offset of each dimension from the original array for the mapped region (not the mem region)*/
 	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
-	void * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
+	char * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
 	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
-    void * map_buffer; /* the mapped buffer on host. This pointer is either the	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
+    char * map_buffer; /* the mapped buffer on host. This pointer is either the	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
 
 	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
 
