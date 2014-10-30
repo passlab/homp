@@ -422,8 +422,9 @@ extern void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_o
 extern void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
-extern void omp_create_stream(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default);
-extern void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream);
+extern void omp_stream_create(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default);
+extern void omp_stream_destroy(omp_dev_stream_t * st);
+extern void omp_stream_sync(omp_dev_stream_t *st);
 extern void omp_sync_cleanup(omp_offloading_t * off);
 
 extern void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method);

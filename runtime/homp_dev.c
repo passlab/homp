@@ -341,7 +341,7 @@ void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, vo
 #endif
 #endif
 
-void omp_create_stream(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default) {
+void omp_stream_create(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default) {
 	stream->dev = d;
 	int i;
 
@@ -359,6 +359,55 @@ void omp_create_stream(omp_device_t * d, omp_dev_stream_t * stream, int using_de
 		/* do nothing */
 	} else {
 
+	}
+}
+
+/**
+ * sync device by syncing the stream so all the pending calls the stream are completed
+ *
+ * if destroy_stream != 0; the stream will be destroyed.
+ */
+void omp_stream_sync(omp_dev_stream_t *st) {
+	omp_device_type_t devtype = st->dev->type;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (devtype == OMP_DEVICE_NVGPU) {
+		cudaError_t result;
+		result = cudaStreamSynchronize(st->systream.cudaStream);
+		devcall_assert(result);
+	}
+#else
+#endif
+}
+
+void omp_stream_destroy(omp_dev_stream_t * st) {
+	omp_device_type_t devtype = st->dev->type;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (devtype == OMP_DEVICE_NVGPU && st->systream.cudaStream != 0) {
+		cudaError_t result;
+		result = cudaStreamDestroy(st->systream.cudaStream);
+		devcall_assert(result);
+	}
+#else
+#endif
+}
+
+/**
+ * seqid is the sequence id of the device in the top, it is also used as index to access maps
+ *
+ */
+void omp_sync_cleanup(omp_offloading_t * off) {
+	int i;
+	omp_offloading_info_t * off_info = off->off_info;
+	omp_stream_sync(off->stream);
+	omp_stream_destroy(off->stream);
+
+	for (i = 0; i < off_info->num_mapped_vars; i++) {
+		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
+		omp_map_free_dev(map->dev, map->map_dev_ptr);
+		if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
+			omp_map_unmarshal(map);
+			free(map->map_buffer);
+		}
 	}
 }
 
@@ -475,49 +524,6 @@ void omp_event_elapsed_ms(omp_event_t * ev) {
 
 	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 		ev->elapsed_host = ev->stop_time_host - ev->start_time_host;
-	}
-}
-
-/**
- * sync device by syncing the stream so all the pending calls the stream are completed
- *
- * if destroy_stream != 0; the stream will be destroyed.
- */
-void omp_stream_sync(omp_dev_stream_t *st, int destroy_stream) {
-	omp_device_type_t devtype = st->dev->type;
-#if defined (DEVICE_NVGPU_SUPPORT)
-	if (devtype == OMP_DEVICE_NVGPU) {
-		cudaError_t result;
-		if (destroy_stream && st->systream.cudaStream != 0) {
-			result = cudaStreamSynchronize(st->systream.cudaStream);
-			devcall_assert(result);
-			result = cudaStreamDestroy(st->systream.cudaStream);
-			devcall_assert(result);
-		} else {
-			result = cudaStreamSynchronize(st->systream.cudaStream);
-			devcall_assert(result);
-		}
-	}
-#else
-#endif
-}
-
-/**
- * seqid is the sequence id of the device in the top, it is also used as index to access maps
- *
- */
-void omp_sync_cleanup(omp_offloading_t * off) {
-	int i;
-	omp_offloading_info_t * off_info = off->off_info;
-	omp_stream_sync(off->stream, 1);
-
-	for (i = 0; i < off_info->num_mapped_vars; i++) {
-		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
-		omp_map_free_dev(map->dev, map->map_dev_ptr);
-		if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
-			omp_map_unmarshal(map);
-			free(map->map_buffer);
-		}
 	}
 }
 

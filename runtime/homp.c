@@ -202,7 +202,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	omp_dev_stream_t * stream;
 #if defined USING_PER_OFFLOAD_STREAM
 	stream = &off->mystream;
-	omp_create_stream(dev, stream, 0);
+	omp_stream_create(dev, stream, 0);
 #else
 	stream = &dev->devstream;
 #endif
@@ -258,7 +258,7 @@ offload_stage_kernexe: ;
 		/* put in the offloading stack */
 		dev->offload_stack_top++;
 		dev->offload_stack[dev->offload_stack_top] = off_info;
-		omp_stream_sync(off->stream, 0);
+		omp_stream_sync(off->stream);
 		dev->offload_request = NULL;
 		pthread_barrier_wait(&off_info->barrier);
 
@@ -295,7 +295,7 @@ offload_stage_copyfrom: ;
 void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 	omp_set_current_device_dev(dev);
-	omp_create_stream(dev, &dev->devstream, 1);
+	omp_stream_create(dev, &dev->devstream, 1);
 
 	/*************** loop *******************/
 	while (1) {
