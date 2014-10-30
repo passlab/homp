@@ -477,7 +477,7 @@ extern void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_l
 extern int omp_get_max_threads_per_team(omp_device_t * dev);
 extern int omp_get_optimal_threads_per_team(omp_device_t * dev);
 extern int omp_get_max_teams_per_league(omp_device_t * dev);
-extern int omp_get_optimal_teams_per_league(omp_device_t * dev);
+extern int omp_get_optimal_teams_per_league(omp_device_t * dev, int threads_per_team, int total);
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );

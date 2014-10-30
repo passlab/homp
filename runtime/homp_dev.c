@@ -528,29 +528,46 @@ void omp_event_elapsed_ms(omp_event_t * ev) {
 }
 
 int omp_get_max_threads_per_team(omp_device_t * dev) {
-	return 0;
-}
-
-int omp_get_optimal_threads_per_team(omp_device_t * dev) {
 	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-		return 256; /*TODO, or 128, 512 */
+		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxThreadsPerBlock;
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 		return 1;
 	} else {
-
 	}
 	return 0;
 }
 
+int omp_get_optimal_threads_per_team(omp_device_t * dev) {
+	int max = omp_get_max_threads_per_team(dev);
+	if (max == 1) return 1;
+	else return max/2;
+}
+
+/**
+ * so far we only do 1D, the first dimension
+ */
 int omp_get_max_teams_per_league(omp_device_t * dev) {
+	omp_device_type_t devtype = dev->type;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (devtype == OMP_DEVICE_NVGPU) {
+		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxGridSize[0];
+	} else
+#endif
+	if (devtype == OMP_DEVICE_THSIM) {
+		return 1;
+	} else {
+	}
 	return 0;
 }
 
-int omp_get_optimal_teams_per_league(omp_device_t * dev) {
-	return 0;
+int omp_get_optimal_teams_per_league(omp_device_t * dev, int threads_per_team, int total) {
+	int teams_per_league = (total + threads_per_team - 1) / threads_per_team;
+	int max_teams_per_league = omp_get_max_teams_per_league(dev);
+	if (teams_per_league > max_teams_per_league) return max_teams_per_league;
+	else return teams_per_league;
 }
 

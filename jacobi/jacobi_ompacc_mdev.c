@@ -464,7 +464,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
-		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
+		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);
 		OUT__2__10550__<<<teams_per_league, threads_per_team, 0,off->stream->systream.cudaStream>>>(n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
 	} else
 #endif
@@ -582,7 +582,8 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
-		int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;
+		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);
+
 		/* for reduction operation */
 		REAL * _dev_per_block_error = (REAL*)omp_map_malloc_dev(off->dev, teams_per_league * sizeof(REAL));
 		//printf("dev: %d teams per league, err block mem: %X\n", teams_per_league, _dev_per_block_error);
