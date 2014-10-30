@@ -289,6 +289,9 @@ __global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_
  */
 struct OUT__1__11058__args {
 	long i; long j; long k;
+    REAL * A;
+    REAL * B;
+    REAL * C;
 	int dist;
 };
 
@@ -301,9 +304,10 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 
     omp_offloading_info_t * off_info = off->off_info;
 //    printf("off: %X, off_info: %X, devseqid: %d\n", off, off_info, off->devseqid);
-    omp_data_map_t * map_A = &off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map A */
-    omp_data_map_t * map_B = &off_info->data_map_info[1].maps[off->devseqid]; /* 1 means the map B */
-    omp_data_map_t * map_C = &off_info->data_map_info[2].maps[off->devseqid]; /* 2 means the map C */
+
+    omp_data_map_t * map_A = omp_map_get_map(off, iargs->A, 0); /* 0 means the map A */
+    omp_data_map_t * map_B = omp_map_get_map(off, iargs->B, 1);  /* 1 means the map B */
+    omp_data_map_t * map_C = omp_map_get_map(off, iargs->C, 2); /* 2 means the map C */
 
     REAL * A = (REAL *)map_A->map_dev_ptr; /* A is ixk array */
     REAL * B = (REAL *)map_B->map_dev_ptr; /* B is kxj array */
@@ -435,6 +439,9 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	args.i = n;
 	args.j = n;
 	args.k = n;
+	args.A = A;
+	args.B = B;
+	args.C = C;
 	args.dist = dist;
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
