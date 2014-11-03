@@ -137,7 +137,7 @@ int omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
-	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
+	printf("System has total %d devices(default host dev: 0, %d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
 	printf("The number of each type of devices can be controlled by environment variables:\n");
 	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
 	printf("\tOMP_NUM_NVGPU_DEVICES for active NVIDIA GPU devices (default, system available)\n");
@@ -167,7 +167,7 @@ void * omp_map_malloc_dev(omp_device_t * dev, long size) {
 		}
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
 		ptr = malloc(size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -183,7 +183,7 @@ void omp_map_free_dev(omp_device_t * dev, void * ptr) {
 	    devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
 		free(ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -199,7 +199,7 @@ void omp_map_memcpy_to(void * dst, omp_device_t * dstdev, const void * src, long
 	    devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -215,7 +215,7 @@ void omp_map_memcpy_to_async(void * dst, omp_device_t * dstdev, const void * src
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)dst,(const void *)src,size);
 	} else {
@@ -232,7 +232,7 @@ void omp_map_memcpy_from(void * dst, const void * src, omp_device_t * srcdev, lo
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
@@ -250,7 +250,7 @@ void omp_map_memcpy_from_async(void * dst, const void * src, omp_device_t * srcd
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)dst,(const void *)src,size);
 //		printf("memcpy from: dest: %X, src: %X, size: %d\n", map->map_buffer, map->map_dev_ptr);

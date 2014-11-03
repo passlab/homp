@@ -28,7 +28,7 @@ int omp_get_num_devices() {
 
 omp_device_t * omp_devices;
 int omp_num_devices;
-volatile omp_printf_turn = 0; /* a simple mechanims to allow multiple dev shepherd threads to print in turn so the output do not scrambled together */
+volatile omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scrambled together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
 	{OMP_DEVICE_HOST, "OMP_DEVICE_HOST", 1},
 	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", 0},
@@ -488,7 +488,7 @@ void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int 
 }
 
 /**
- * after initialization, by default, it will perform full map of the original array
+ * after initialization
  */
 void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev, omp_dev_stream_t * stream, omp_offloading_t * off) {
 	map->info = info;
@@ -497,6 +497,7 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_
 	map->marshalled_or_not = 0;
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_1;
 
+	/* put in the off cache list */
 	if (off->map_list == NULL) {
 		map->next = map;
 		off->map_list = map;
