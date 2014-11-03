@@ -40,6 +40,7 @@ typedef struct omp_data_map_exchange_info omp_data_map_exchange_info_t;
  * may have mulitple generations, thus versions.
  */
 typedef enum omp_device_type {
+   OMP_DEVICE_HOST,      /* the host */
    OMP_DEVICE_NVGPU,      /* NVIDIA GPGPUs */
    OMP_DEVICE_ITLMIC,     /* Intel MIC */
    OMP_DEVICE_TIDSP,      /* TI DSP */
@@ -166,11 +167,19 @@ typedef struct omp_grid_topology {
 } omp_grid_topology_t;
 
 /* APIs to support data/array mapping and distribution */
-typedef enum omp_data_map_type {
+typedef enum omp_data_map_direction {
 	OMP_DATA_MAP_TO,
 	OMP_DATA_MAP_FROM,
 	OMP_DATA_MAP_TOFROM,
 	OMP_DATA_MAP_ALLOC,
+} omp_data_map_direction_t;
+
+typedef enum omp_data_map_type {
+	OMP_DATA_MAP_AUTO, /* system choose */
+	OMP_DATA_MAP_SHARED_USER, /* user explicitly specified shared */
+	OMP_DATA_MAP_COPY_USER, /* user explicitly specified copy */
+	OMP_DATA_MAP_SHARED_SYS, /* sys auto select SHARED */
+	OMP_DATA_MAP_COPY_SYS, /* sys auto select COPY */
 } omp_data_map_type_t;
 
 typedef enum omp_data_map_dist_type {
@@ -243,7 +252,8 @@ typedef struct omp_data_map_info {
 	long * dims;
 
 	int sizeof_element;
-	omp_data_map_type_t map_type; /* the map type, to, from, or tofrom */
+	omp_data_map_direction_t map_direction; /* the map type, to, from, or tofrom */
+	omp_data_map_type_t map_type;
 	omp_data_map_t * maps; /* a list of data maps of this array */
 
 	/*
@@ -288,6 +298,7 @@ struct omp_data_map {
 	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
 
 	int marshalled_or_not;
+	omp_data_map_type_t map_type;
 	omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
 
 	omp_data_map_t * next; /* the pointer to form the linked list for a list of maps used by a device offload */
@@ -438,13 +449,13 @@ extern void omp_factor(int n, int factor[], int dims);
 extern void omp_topology_print(omp_grid_topology_t * top);
 
 extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
+		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
 extern void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info);
+		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info);
 extern void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
+		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
 extern void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic);
+		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic);
 extern void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type, int topdim);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev,	omp_dev_stream_t * stream, omp_offloading_t * off);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid, omp_offloading_t * off) ;

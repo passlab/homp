@@ -30,6 +30,7 @@ omp_device_t * omp_devices;
 int omp_num_devices;
 volatile omp_printf_turn = 0; /* a simple mechanims to allow multiple dev shepherd threads to print in turn so the output do not scrambled together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
+	{OMP_DEVICE_HOST, "OMP_DEVICE_HOST", 1},
 	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", 0},
 	{OMP_DEVICE_ITLMIC, "OMP_DEVICE_ITLMIC", 0},
 	{OMP_DEVICE_TIDSP, "OMP_DEVICE_TIDSP", 0},
@@ -42,23 +43,18 @@ omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
 /* APIs to support multiple devices: */
 char * omp_supported_device_types() { /* return a list of devices supported by the compiler in the format of TYPE1:TYPE2 */
 	/* FIXME */
-	return "OMP_DEVICE_NVGPU";
+	return "OMP_DEVICE_HOST";
 }
 omp_device_type_t omp_get_device_type(int devid) {
 	return omp_devices[devid].type;
 }
 
 char * omp_get_device_type_as_string(int devid) {
-	/* FIXME */
-	return "OMP_DEVICE_NVGPU";
+	return omp_device_types[omp_devices[devid].type].name;
 }
 
 int omp_get_num_devices_of_type(omp_device_type_t type) { /* current omp has omp_get_num_devices(); */
-	int num = 0;
-	int i;
-	for (i=0; i<omp_num_devices; i++)
-		if (omp_devices[i].type == type) num++;
-	return num;
+	return omp_device_types[type].num_devs;
 }
 /*
  * return the first ndev device IDs of the specified type, the function returns the actual number of devices
@@ -229,7 +225,7 @@ offload_stage_copyto: ;
 		omp_print_data_map(map);
 #endif
 
-		if (map_info->map_type == OMP_DATA_MAP_TO || map_info->map_type == OMP_DATA_MAP_TOFROM) {
+		if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_start(&events[event_index]);
 #endif
@@ -270,7 +266,7 @@ offload_stage_copyfrom: ;
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 		omp_data_map_t * map = &map_info->maps[seqid];
-		if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TOFROM) {
+		if (map_info->map_direction == OMP_DATA_MAP_FROM || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 			/* TODO bug here if this is reached from the above goto, since events is not available */
 			omp_event_record_start(&events[event_index]);
@@ -324,7 +320,7 @@ void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t 
 }
 
 void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist) {
+		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist) {
 	if (num_dims > 3) {
 		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
 		exit(1);
@@ -334,6 +330,7 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->num_dims = num_dims;
 	info->dims = dims;
 	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * top->nnodes);
+	info->map_direction = map_direction;
 	info->map_type = map_type;
 	info->dist = dist;
 	info->halo_info = NULL;
@@ -341,7 +338,7 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 }
 
 void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info) {
+		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info) {
 	if (num_dims > 3) {
 		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
 		exit(1);
@@ -359,6 +356,7 @@ void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topolo
 	info->num_dims = num_dims;
 	info->dims = dims;
 	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * top->nnodes);
+	info->map_direction = map_direction;
 	info->map_type = map_type;
 	info->dist = dist;
 	info->sizeof_element = sizeof_element;
@@ -378,7 +376,7 @@ void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length,
  * 3. the distribution type is the same for all dimensions
  */
 void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) {
+		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) {
 	int i;
 	for (i=0; i<num_dims; i++) {
 		dist[i].start = 0;
@@ -387,7 +385,7 @@ void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_to
 		dist[i].topdim = i;
 	}
 
-	omp_data_map_init_info(info, top, source_ptr, num_dims, dims, sizeof_element, maps, map_type, dist);
+	omp_data_map_init_info(info, top, source_ptr, num_dims, dims, sizeof_element, maps, map_direction, map_type, dist);
 }
 
 /**
@@ -397,7 +395,7 @@ void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_to
  *
  */
 void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic) {
+		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic) {
 	if (dist_type != OMP_DATA_MAP_DIST_EVEN) {
 		fprintf(stderr, "%s: we currently only handle halo region for even distribution of arrays\n", __func__);
 	}
@@ -417,6 +415,7 @@ void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, om
 	info->num_dims = num_dims;
 	info->dims = dims;
 	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * top->nnodes);
+	info->map_direction = map_direction;
 	info->map_type = map_type;
 	info->dist = dist;
 	info->sizeof_element = sizeof_element;
@@ -1074,21 +1073,6 @@ long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length,
 	*map_start = -1;
 	*map_length = -1;
 	return -1;
-}
-
-size_t xomp_get_maxThreadsPerBlock()
-{
-  // this often causes oversubscription to the cores supported by GPU SM processors
-  //return xomp_getCudaDeviceProp()->maxThreadsPerBlock;
-  return 128;
-}
-
-size_t xomp_get_max1DBlock(size_t s)
-{
-  size_t block_num = s/xomp_get_maxThreadsPerBlock();
-  if (s % xomp_get_maxThreadsPerBlock()!= 0)
-     block_num ++;
-  return block_num;
 }
 
 /**

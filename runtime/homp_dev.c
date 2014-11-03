@@ -59,7 +59,7 @@ void * omp_init_dev_specific(omp_device_t * dev) {
  */
 int omp_init_devices() {
 	/* query hardware device */
-	omp_num_devices = 0;
+	omp_num_devices = 1; /* we always have at least host device */
 
 	/* the thread-simulated devices */
 	int num_thsim_dev;
@@ -91,6 +91,19 @@ int omp_init_devices() {
 #endif
 
 	omp_devices = malloc(sizeof(omp_device_t) * omp_num_devices);
+	omp_device_t * dev = &omp_devices[0];
+	/* the host dev */
+	dev->id = 0;
+	dev->type = OMP_DEVICE_HOST;
+	dev->status = 1;
+	dev->status = 1;
+	dev->resident_data_maps = NULL;
+	dev->next = &omp_devices[1];
+	dev->offload_request = NULL;
+	dev->data_exchange_request = NULL;
+	dev->offload_stack_top = -1;
+	omp_init_dev_specific(dev);
+
 	int i;
 
 	/* the helper thread setup */
@@ -100,13 +113,16 @@ int omp_init_devices() {
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 	pthread_setconcurrency(omp_num_devices);
 
-	for (i=0; i<omp_num_devices; i++) {
-		omp_device_t * dev = &omp_devices[i];
+	for (i=1; i<omp_num_devices; i++) {
+		dev = &omp_devices[i];
 		dev->id = i;
-		if (i < omp_device_types[OMP_DEVICE_NVGPU].num_devs) dev->type = OMP_DEVICE_NVGPU;
-		else dev->type  = OMP_DEVICE_THSIM;
+		if (i < omp_device_types[OMP_DEVICE_NVGPU].num_devs+1) {
+			dev->type = OMP_DEVICE_NVGPU;
+			dev->sysid = i-1;
+		} else {
+			dev->type  = OMP_DEVICE_THSIM;
+		}
 		dev->status = 1;
-		dev->sysid = i;
 		dev->resident_data_maps = NULL;
 		dev->next = &omp_devices[i+1];
 		dev->offload_request = NULL;

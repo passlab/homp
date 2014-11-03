@@ -111,13 +111,13 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_t x_maps[__num_target_devices__];
 	omp_data_map_dist_t x_dist[1];
-	omp_data_map_init_info_straight_dist(__info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, x_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_straight_dist(__info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DATA_MAP_DIST_EVEN);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
 	omp_data_map_t y_maps[__num_target_devices__];
 	omp_data_map_dist_t y_dist[1];
-	omp_data_map_init_info_straight_dist(__info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, y_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_straight_dist(__info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DATA_MAP_DIST_EVEN);
 	
 	struct OUT__3__5904__other_args args;
 	args.a = a;
