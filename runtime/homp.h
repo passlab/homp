@@ -73,6 +73,20 @@ typedef struct omp_dev_stream {
 	} systream;
 } omp_dev_stream_t;
 
+typedef enum omp_device_mem_type { /* the mem type related to the host mem */
+	OMP_DEVICE_MEM_SHARED_CC_UMA, /* CC UMA */
+	OMP_DEVICE_MEM_SHARED_CC_NUMA, /* CC NUMA */
+	OMP_DEVICE_MEM_SHARED_NCC_UMA,
+	OMP_DEVICE_MEM_SHARED_NCC_NUMA,
+	OMP_DEVICE_MEM_SHARED,
+	OMP_DEVICE_MEM_VIRTUAL_AS, /* uniformed virtual address space */
+	OMP_DEVICE_MEM_DISCRETE, /* different memory and different memory space */
+}omp_device_mem_type_t;
+
+#define omp_device_mem_shared(mem_type) (mem_type <= OMP_DEVICE_MEM_SHARED)
+#define omp_device_mem_vas(mem_type) (mem_type == OMP_DEVICE_MEM_VIRTUAL_AS)
+#define omp_device_mem_discrete(mem_type) (mem_type == OMP_DEVICE_MEM_DISCRETE)
+
 /**
  ********************* Runtime notes ***********************************************
  * runtime may want to have internal array to supports the programming APIs for multiple devices, e.g.
@@ -90,6 +104,19 @@ struct omp_device {
 			 or pthread_t for THSIM. Need type casting to become device-specific id */
 	omp_device_type_t type;
 	void * dev_properties; /* a pointer to the device-specific properties object */
+	omp_device_mem_type_t mem_type; /* the mem access pattern relative to the host, e.g. shared or discrete */
+
+	/* performance factor */
+	unsigned long mem_size;
+	unsigned long max_teams;
+	unsigned long max_threads;
+
+	unsigned long num_cores;
+	unsigned long num_chips; /* SM for GPU, core pack for host */
+	unsigned long core_frequency;
+	unsigned int arch_factor; /* means to capture micro arch factor that impact performance, e.g. superscalar, deeper pipeline, etc */
+
+
 	int status;
 	struct omp_device * next; /* the device list */
 	volatile omp_offloading_info_t * offload_request; /* this is the notification flag that the helper thread will pick up the offloading request */
@@ -115,14 +142,18 @@ struct omp_device {
  * we organize record and timing as a sequence of event, recording could be done by host side or by device-specific approach
  */
 typedef enum omp_event_record_method {
+	OMP_EVENT_DEV_NONE = 0,
 	OMP_EVENT_DEV_RECORD,
 	OMP_EVENT_HOST_RECORD,
 	OMP_EVENT_HOST_DEV_RECORD,
 } omp_event_record_method_t;
 
+#define OMP_EVENT_MSG_LENGTH 64
 typedef struct omp_event {
+	omp_device_t * dev;
 	omp_dev_stream_t * stream;
 	omp_event_record_method_t record_method;
+	char event_msg[OMP_EVENT_MSG_LENGTH];
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 	cudaEvent_t start_event_dev;
@@ -152,6 +183,8 @@ extern int omp_get_num_devices_of_type(omp_device_type_t type); /* current omp h
 extern int omp_get_devices(omp_device_type_t type, int *devnum_array, int ndev); /* return a list of devices of the specified type */
 extern omp_device_t * omp_get_device(int id);
 extern omp_device_t * omp_devices; /* an array of all device objects */
+extern omp_device_t * omp_host_dev; /* an object for the host as device */
+extern volatile int omp_device_complete;
 extern int omp_num_devices;
 extern volatile int omp_printf_turn;
 #define BEGIN_SERIALIZED_PRINTF(myturn) while (omp_printf_turn != myturn);
@@ -175,11 +208,9 @@ typedef enum omp_data_map_direction {
 } omp_data_map_direction_t;
 
 typedef enum omp_data_map_type {
-	OMP_DATA_MAP_AUTO, /* system choose */
-	OMP_DATA_MAP_SHARED_USER, /* user explicitly specified shared */
-	OMP_DATA_MAP_COPY_USER, /* user explicitly specified copy */
-	OMP_DATA_MAP_SHARED_SYS, /* sys auto select SHARED */
-	OMP_DATA_MAP_COPY_SYS, /* sys auto select COPY */
+	OMP_DATA_MAP_AUTO, /* system choose, it is shared, but system will use either copy or shared depending on whether real sharing  is possible or not */
+	OMP_DATA_MAP_SHARED,
+	OMP_DATA_MAP_COPY,
 } omp_data_map_type_t;
 
 typedef enum omp_data_map_dist_type {
@@ -247,6 +278,7 @@ typedef struct omp_data_map_halo_region_mem {
 /* for each mapped host array, we have one such object */
 typedef struct omp_data_map_info {
     omp_grid_topology_t * top;
+    char * symbol; /* the user symbol */
 	char * source_ptr;
 	int num_dims;
 	long * dims;
@@ -297,7 +329,7 @@ struct omp_data_map {
 
 	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
 
-	int marshalled_or_not;
+	int mem_noncontiguous;
 	omp_data_map_type_t map_type;
 	omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
 
@@ -364,6 +396,17 @@ typedef enum omp_offloading_stage {
 	OMP_OFFLOADING_NUM_STEPS, /* total number of steps */
 } omp_offloading_stage_t;
 
+/* a kernel profile keep track of info such as # of iterations, # nest loop, # load per iteration, # store per iteration, # FP per operations
+ * data access pattern that has locality/cache access impact, etc
+ */
+typedef struct omp_kernel_profile_info {
+	unsigned long num_iterations;
+	unsigned long num_load;
+	unsigned long num_store;
+	unsigned long num_fp_operations;
+
+} omp_kernel_profile_info_t;
+
 /**
   * info per offloading
   *
@@ -378,6 +421,7 @@ struct omp_offloading_info {
 	/************** per-offloading var, shared by all target devices ******/
 	omp_grid_topology_t * top; /* num of target devices are in this object */
 	omp_device_t ** targets; /* a list of target devices */
+	char * name;
 
 	omp_offloading_type_t type;
 	omp_offloading_stage_t stage;
@@ -423,11 +467,12 @@ struct omp_offloading {
 };
 
 extern int omp_init_devices(); /* return # of devices initialized */
+extern void omp_fini_devices();
 extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
 
-extern void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
+extern void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
 		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args);
 extern void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
@@ -438,27 +483,31 @@ extern void omp_stream_destroy(omp_dev_stream_t * st);
 extern void omp_stream_sync(omp_dev_stream_t *st);
 extern void omp_sync_cleanup(omp_offloading_t * off);
 
-extern void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method);
-extern void omp_event_record_start(omp_event_t * ev);
+extern void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_method_t record_method);
+extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_msg, ...);
 extern void omp_event_record_stop(omp_event_t * ev);
+extern void omp_event_print_elapsed(omp_event_t * ev);
 extern void omp_event_elapsed_ms(omp_event_t * ev);
+extern float omp_event_elapsed_ms_host(omp_event_t * ev);
+extern float omp_event_elapsed_ms_dev(omp_event_t * ev);
 
 extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, omp_device_t ** devs, int nnodes, int ndims, int *dims, int *periodic, int * idmap);
 /*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
 extern void omp_factor(int n, int factor[], int dims);
 extern void omp_topology_print(omp_grid_topology_t * top);
 
-extern void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+extern void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
-extern void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+extern void omp_data_map_init_info_with_halo(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info);
-extern void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+extern void omp_data_map_init_info_straight_dist(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
-extern void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+extern void omp_data_map_init_info_straight_dist_and_halo(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic);
 extern void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type, int topdim);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev,	omp_dev_stream_t * stream, omp_offloading_t * off);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid, omp_offloading_t * off) ;
+extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);
 extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);
 extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
@@ -466,7 +515,7 @@ extern void omp_data_map_exchange_start(omp_device_t ** targets, int num_targets
 
 extern omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index);
 extern void omp_print_data_map(omp_data_map_t * map);
-extern void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off);
+extern void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off);
 extern void omp_map_marshal(omp_data_map_t * map);
 
 extern void omp_map_unmarshal(omp_data_map_t * map);
@@ -480,8 +529,6 @@ extern int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_devic
 extern void omp_map_memcpy_DeviceToDevice(void * dst, omp_device_t * dstdev, void * src, omp_device_t * srcdev, int size) ;
 extern void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void * src, omp_device_t * srcdev, int size, omp_dev_stream_t * srcstream);
 
-extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);
-extern void omp_map_init_add_halo_region(omp_data_map_t * map, int dim, int left, int right, int cyclic);
 extern void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_direction_t from_left_right);
 extern void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right);
 

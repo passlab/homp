@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include "homp.h"
 
 inline void devcall_errchk(int code, char *file, int line, int ab) {
@@ -59,7 +60,7 @@ void * omp_init_dev_specific(omp_device_t * dev) {
  */
 int omp_init_devices() {
 	/* query hardware device */
-	omp_num_devices = 1; /* we always have at least host device */
+	omp_num_devices = 0; /* we always have at least host device */
 
 	/* the thread-simulated devices */
 	int num_thsim_dev;
@@ -90,19 +91,17 @@ int omp_init_devices() {
 	omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpu_dev;
 #endif
 
-	omp_devices = malloc(sizeof(omp_device_t) * omp_num_devices);
-	omp_device_t * dev = &omp_devices[0];
-	/* the host dev */
-	dev->id = 0;
-	dev->type = OMP_DEVICE_HOST;
-	dev->status = 1;
-	dev->status = 1;
-	dev->resident_data_maps = NULL;
-	dev->next = &omp_devices[1];
-	dev->offload_request = NULL;
-	dev->data_exchange_request = NULL;
-	dev->offload_stack_top = -1;
-	omp_init_dev_specific(dev);
+	omp_host_dev = malloc(sizeof(omp_device_t) * (omp_num_devices+1));
+	omp_devices = &omp_host_dev[1];
+	omp_host_dev->id = -1;
+	omp_host_dev->type = OMP_DEVICE_HOST;
+	omp_host_dev->sysid = 0;
+	omp_host_dev->status = 1;
+	omp_host_dev->resident_data_maps = NULL;
+	omp_host_dev->next = &omp_devices[1];
+	omp_host_dev->offload_request = NULL;
+	omp_host_dev->data_exchange_request = NULL;
+	omp_host_dev->offload_stack_top = -1;
 
 	int i;
 
@@ -113,14 +112,17 @@ int omp_init_devices() {
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 	pthread_setconcurrency(omp_num_devices);
 
-	for (i=1; i<omp_num_devices; i++) {
-		dev = &omp_devices[i];
+	for (i=0; i<omp_num_devices; i++) {
+		omp_device_t * dev = &omp_devices[i];
 		dev->id = i;
-		if (i < omp_device_types[OMP_DEVICE_NVGPU].num_devs+1) {
+		if (i < omp_device_types[OMP_DEVICE_NVGPU].num_devs) {
 			dev->type = OMP_DEVICE_NVGPU;
-			dev->sysid = i-1;
+			dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
+			dev->sysid = i;
 		} else {
 			dev->type  = OMP_DEVICE_THSIM;
+			dev->mem_type = OMP_DEVICE_MEM_SHARED_CC_NUMA;
+			dev->sysid = i;
 		}
 		dev->status = 1;
 		dev->resident_data_maps = NULL;
@@ -137,13 +139,24 @@ int omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
-	printf("System has total %d devices(default host dev: 0, %d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
+	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
 	printf("The number of each type of devices can be controlled by environment variables:\n");
 	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
 	printf("\tOMP_NUM_NVGPU_DEVICES for active NVIDIA GPU devices (default, system available)\n");
 	printf("\tTo make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)\n");
 	return omp_num_devices;
+}
 
+void omp_fini_devices() {
+	int i;
+
+	omp_device_complete = 1;
+	for (i=0; i<omp_num_devices; i++) {
+		omp_device_t * dev = &omp_devices[i];
+		int rt = pthread_join(dev->helperth, NULL);
+	}
+
+	free(omp_host_dev);
 }
 
 int omp_set_current_device_dev(omp_device_t * d) {
@@ -157,6 +170,24 @@ int omp_set_current_device_dev(omp_device_t * d) {
 	return d->id;
 }
 
+void omp_map_map_to(omp_data_map_t * map) {
+	if (map->map_type == OMP_DATA_MAP_COPY) omp_map_memcpy_to((void*)map->map_dev_ptr, map->dev, (void*)map->map_buffer, map->map_size);
+}
+
+void omp_map_map_to_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
+	if (map->map_type == OMP_DATA_MAP_COPY) omp_map_memcpy_to_async((void*)map->map_dev_ptr, map->dev, (void*)map->map_buffer, map->map_size, stream);
+}
+
+void omp_map_map_from(omp_data_map_t * map) {
+	if (map->map_type == OMP_DATA_MAP_COPY)
+		omp_map_memcpy_from((void*)map->map_buffer, (void*)map->map_dev_ptr, map->dev, map->map_size); /* memcpy from host to device */
+}
+
+void omp_map_map_from_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
+	if (map->map_type == OMP_DATA_MAP_COPY)
+		omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, map->dev, map->map_size, stream); /* memcpy from host to device */
+}
+
 void * omp_map_malloc_dev(omp_device_t * dev, long size) {
 	omp_device_type_t devtype = dev->type;
 	void * ptr = NULL;
@@ -167,10 +198,11 @@ void * omp_map_malloc_dev(omp_device_t * dev, long size) {
 		}
 	} else
 #endif
-	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		ptr = malloc(size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
+		abort();
 	}
 	return ptr;
 }
@@ -183,10 +215,11 @@ void omp_map_free_dev(omp_device_t * dev, void * ptr) {
 	    devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		free(ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
+		abort();
 	}
 }
 
@@ -199,10 +232,11 @@ void omp_map_memcpy_to(void * dst, omp_device_t * dstdev, const void * src, long
 	    devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
+		abort();
 	}
 }
 
@@ -215,11 +249,12 @@ void omp_map_memcpy_to_async(void * dst, omp_device_t * dstdev, const void * src
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
+		abort();
 	}
 }
 
@@ -232,10 +267,11 @@ void omp_map_memcpy_from(void * dst, const void * src, omp_device_t * srcdev, lo
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)dst,(const void *)src,size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
+		abort();
 	}
 }
 
@@ -250,12 +286,13 @@ void omp_map_memcpy_from_async(void * dst, const void * src, omp_device_t * srcd
 		devcall_assert(result);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_HOST || devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_THSIM) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
 		memcpy((void *)dst,(const void *)src,size);
 //		printf("memcpy from: dest: %X, src: %X, size: %d\n", map->map_buffer, map->map_dev_ptr);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
+		abort();
 	}
 }
 
@@ -288,6 +325,7 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_device_t * s
 #endif
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
+		abort();
 	}
 	return 0;
 }
@@ -308,6 +346,7 @@ void omp_map_memcpy_DeviceToDevice(void * dst, omp_device_t * dstdev, void * src
 		memcpy((void *)dst, (const void *)src, size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
+		abort();
 	}
 }
 
@@ -329,6 +368,7 @@ void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void 
 		memcpy((void *)dst, (const void *)src, size);
 	} else {
 		fprintf(stderr, "device type is not supported for this call, currently we only support p2p copy between GPU-GPU and TH-TH\n");
+		abort();
 	}
 }
 
@@ -407,31 +447,12 @@ void omp_stream_destroy(omp_dev_stream_t * st) {
 #endif
 }
 
-/**
- * seqid is the sequence id of the device in the top, it is also used as index to access maps
- *
- */
-void omp_sync_cleanup(omp_offloading_t * off) {
-	int i;
-	omp_offloading_info_t * off_info = off->off_info;
-	omp_stream_sync(off->stream);
-	omp_stream_destroy(off->stream);
-
-	for (i = 0; i < off_info->num_mapped_vars; i++) {
-		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
-		omp_map_free_dev(map->dev, map->map_dev_ptr);
-		if (map->marshalled_or_not) { /* if this is marshalled and need to free space since this is not useful anymore */
-			omp_map_unmarshal(map);
-			free(map->map_buffer);
-		}
-	}
-}
-
-void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method) {
-	ev->stream = stream;
+/* the event msg has limited length defined by OMP_EVENT_MSG_LENGTH macro, additional char will be cut off */
+void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_method_t record_method) {
+	ev->dev = dev;
 	ev->record_method = record_method;
-	omp_device_type_t devtype = stream->dev->type;
-	ev->elapsed_dev = ev->elapsed_host = 0.0;
+	omp_device_type_t devtype = dev->type;
+	ev->elapsed_dev = ev->elapsed_host = -100.0;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
@@ -442,19 +463,34 @@ void omp_event_init(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_recor
 			devcall_assert(result);
 		} else
 #endif
-		if (devtype == OMP_DEVICE_THSIM) {
+		if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
 			/* do nothing */
 		} else {
 			fprintf(stderr, "other type of devices are not yet supported\n");
+			abort();
 		}
 	}
 }
 
-void omp_event_record_start(omp_event_t * ev) {
-	omp_dev_stream_t * stream = ev->stream;
-	omp_event_record_method_t record_method = ev->record_method;
-	omp_device_type_t devtype = stream->dev->type;
-	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
+void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_msg, ...) {
+	if (stream != NULL && stream->dev != ev->dev) {
+		fprintf(stderr, "stream and event are not compatible, they are from two different devices\n");
+		abort();
+	}
+	ev->stream = stream;
+	omp_event_record_method_t rm = ev->record_method;
+	/* we will overwrite the original record method if possible*/
+	if (rm == OMP_EVENT_HOST_RECORD && (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) ) {
+		omp_event_init(ev, ev->dev, record_method);
+		rm = record_method;
+	}
+	omp_device_type_t devtype = ev->dev->type;
+	va_list l;
+	va_start(l, event_msg);
+    vsnprintf(ev->event_msg, OMP_EVENT_MSG_LENGTH, event_msg, l);
+	va_end(l);
+
+	if (rm == OMP_EVENT_DEV_RECORD || rm == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
 			cudaError_t result;
@@ -466,14 +502,14 @@ void omp_event_record_start(omp_event_t * ev) {
 			devcall_assert(result);
 		} else
 #endif
-		if (devtype == OMP_DEVICE_THSIM) {
+		if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
 			ev->start_time_dev = read_timer_ms();
 		} else {
 			fprintf(stderr, "other type of devices are not yet supported\n");
 		}
 	}
 
-	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
+	if (rm == OMP_EVENT_HOST_RECORD || rm == OMP_EVENT_HOST_DEV_RECORD) {
 		ev->start_time_host = read_timer_ms();
 	}
 }
@@ -481,7 +517,7 @@ void omp_event_record_start(omp_event_t * ev) {
 void omp_event_record_stop(omp_event_t * ev) {
 	omp_dev_stream_t * stream = ev->stream;
 	omp_event_record_method_t record_method = ev->record_method;
-	omp_device_type_t devtype = stream->dev->type;
+	omp_device_type_t devtype = ev->dev->type;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
@@ -506,13 +542,49 @@ void omp_event_record_stop(omp_event_t * ev) {
 	}
 }
 
+void omp_event_print_elapsed(omp_event_t * ev) {
+	omp_event_record_method_t record_method = ev->record_method;
+	if (record_method == OMP_EVENT_HOST_RECORD) {
+		if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
+		printf("%s: %4f\n", ev->event_msg, ev->elapsed_host);
+	} else if (record_method == OMP_EVENT_DEV_RECORD) {
+		if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
+		printf("%s: %4f\n", ev->event_msg, ev->elapsed_dev);
+	} else {
+		if (ev->elapsed_host < 0.0 || ev->elapsed_dev < 0.0)
+			omp_event_elapsed_ms(ev);
+		printf("%s from host: %4f\n", ev->event_msg, ev->elapsed_host);
+		printf("%s from dev : %4f\n", ev->event_msg, ev->elapsed_dev);
+	}
+}
+
+void omp_event_print_elapsed_host(omp_event_t * ev) {
+	if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
+	printf("%s: %4f\n", ev->event_msg, ev->elapsed_host);
+}
+
+void omp_event_print_elapsed_dev(omp_event_t * ev) {
+	if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
+	printf("%s: %4f\n", ev->event_msg, ev->elapsed_dev);
+}
+
+float omp_event_elapsed_ms_host(omp_event_t * ev) {
+	if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
+	return ev->elapsed_host;
+}
+
+float omp_event_elapsed_ms_dev(omp_event_t * ev) {
+	if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
+	return ev->elapsed_dev;
+}
+
 /**
  * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
  */
 void omp_event_elapsed_ms(omp_event_t * ev) {
 	omp_dev_stream_t * stream = ev->stream;
 	omp_event_record_method_t record_method = ev->record_method;
-	omp_device_type_t devtype = stream->dev->type;
+	omp_device_type_t devtype = ev->dev->type;
 	float elapse;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)

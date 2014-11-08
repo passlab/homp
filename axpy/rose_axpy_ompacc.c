@@ -79,6 +79,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 		}
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
+		abort();
 	}
 }
 
@@ -111,13 +112,13 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_t x_maps[__num_target_devices__];
 	omp_data_map_dist_t x_dist[1];
-	omp_data_map_init_info_straight_dist(__info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_straight_dist("x", __info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DATA_MAP_DIST_EVEN);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
 	omp_data_map_t y_maps[__num_target_devices__];
 	omp_data_map_dist_t y_dist[1];
-	omp_data_map_init_info_straight_dist(__info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_data_map_init_info_straight_dist("y", __info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DATA_MAP_DIST_EVEN);
 	
 	struct OUT__3__5904__other_args args;
 	args.a = a;
@@ -127,7 +128,7 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info (&__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args);
+	omp_offloading_init_info ("axpy kernel", &__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args);
 
 #if 0
 	/* we could specify dev-specific args and kernel_launcher */
@@ -148,50 +149,5 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	omp_offloading_start(__target_devices__, __num_target_devices__, &__offloading_info__);
 	ompacc_time = read_timer_ms() - ompacc_time;
 	double cpu_total = ompacc_time;
-
-#if 0
-	float x_map_to_elapsed[__num_target_devices__];
-	float y_map_to_elapsed[__num_target_devices__];
-	float kernel_elapsed[__num_target_devices__];
-	float y_map_from_elapsed[__num_target_devices__];
-	printf("=============================================================================================================================================\n");
-	printf("=========================== GPU Results (%d GPUs) for y[] = a*x[] + y[], x|y size: %d, time in ms (s/1000) ===============================\n", __num_target_devices__, n);
-	float x_map_to_accumulated = 0.0;
-	float y_map_to_accumulated = 0.0;
-	float kernel_accumulated = 0.0;
-	float y_map_from_accumulated = 0.0;
-	float streamCreate_accumulated = 0.0;
-	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-		x_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
-		y_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
-		kernel_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 2);
-		y_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 3);
-		float total = x_map_to_elapsed[__i__] + y_map_to_elapsed[__i__] + kernel_elapsed[__i__] + y_map_from_elapsed[__i__];
-		printf("device: %d, total: %4f\n", __i__, total);
-		printf("\t\tbreakdown: x map_to: %4f; y map_to: %4f; kernel: %4f; y map_from: %f\n", x_map_to_elapsed[__i__], y_map_to_elapsed[__i__], kernel_elapsed[__i__], y_map_from_elapsed[__i__]);
-		printf("\t\tbreakdown: map_to (x and y): %4f; kernel: %4f; map_from (y): %f\n", x_map_to_elapsed[__i__] + y_map_to_elapsed[__i__], kernel_elapsed[__i__], y_map_from_elapsed[__i__]);
-		x_map_to_accumulated += x_map_to_elapsed[__i__];
-		y_map_to_accumulated += y_map_to_elapsed[__i__];
-		kernel_accumulated += kernel_elapsed[__i__];
-		y_map_from_accumulated += y_map_from_elapsed[__i__];
-		//streamCreate_accumulated += streamCreate_elapsed[__i__];
-	}
-	float total = x_map_to_accumulated + y_map_to_accumulated + kernel_accumulated + y_map_from_accumulated;
-	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , total);
-	printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
-	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated, y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
-	printf("\t\tbreakdown: map_to(x and y): %4f, kernel: %4f, map_from (y): %f\n", x_map_to_accumulated + y_map_to_accumulated, kernel_accumulated, y_map_from_accumulated);
-	printf("AVERAGE GPU time (per GPU): %4f\n", total/__num_target_devices__);
-	printf("\t\tbreakdown: x map_to: %4f, y map_to: %4f, kernel: %4f, y map_from %f\n", x_map_to_accumulated/__num_target_devices__, y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
-	printf("\t\tbreakdown: map_to (x and y): %4f, kernel: %4f, map_from (y): %f\n", x_map_to_accumulated/__num_target_devices__ + y_map_to_accumulated/__num_target_devices__, kernel_accumulated/__num_target_devices__, y_map_from_accumulated/__num_target_devices__);
-
-	printf("----------------------------------------------------------------\n");
-	printf("Total time measured from CPU: %4f\n", cpu_total);
-	printf("Total time measured without streamCreate %4f\n", (cpu_total-streamCreate_accumulated));
-	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
-	printf("Total CPU cost: %4f\n", cpu_total - total/__num_target_devices__);
-	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-total/__num_target_devices__)/__num_target_devices__);
-	printf("==========================================================================================================================================\n");
-#endif
 	return cpu_total;
 }

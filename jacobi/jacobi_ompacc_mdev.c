@@ -192,6 +192,7 @@ int main(int argc, char * argv[]) {
 	error_check(n, m, alpha, dx, dy, u, f);
 	free(u); free(f);
 	free(udev);free(fdev);
+	omp_fini_devices();
 
 	return 0;
 }
@@ -726,7 +727,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	long f_dims[2];f_dims[0] = n;f_dims[1] = m;
   	omp_data_map_t f_maps[__num_target_devices__];
   	omp_data_map_dist_t f_dist[2];
-  	omp_data_map_init_info(__info__, &__top__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, f_dist);
+  	omp_data_map_init_info("f", __info__, &__top__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, f_dist);
 
   	/* u map info */
   	__info__ = &__data_map_infos__[1];
@@ -734,7 +735,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_t u_maps[__num_target_devices__];
   	omp_data_map_dist_t u_dist[2];
   	//omp_data_map_halo_region_info_t u_halo[2];
-  	omp_data_map_init_info(__info__, &__top__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, u_dist);
+  	omp_data_map_init_info("u", __info__, &__top__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, u_dist);
 
   	/* uold map info */
   	__info__ = &__data_map_infos__[2];
@@ -742,7 +743,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_t uold_maps[__num_target_devices__];
   	omp_data_map_dist_t uold_dist[2];
   	omp_data_map_halo_region_info_t uold_halo[2];
-  	omp_data_map_init_info_with_halo(__info__, &__top__, uold, 2, uold_dims, sizeof(REAL),uold_maps,OMP_DATA_MAP_ALLOC, uold_dist, uold_halo);
+  	omp_data_map_init_info_with_halo("uold", __info__, &__top__, uold, 2, uold_dims, sizeof(REAL),uold_maps,OMP_DATA_MAP_ALLOC, OMP_DATA_MAP_AUTO, uold_dist, uold_halo);
 
   	/**************************************** dist-specific *****************************************/
   	if (dist == 1) {
@@ -786,7 +787,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_offloading_info_t __offloading_info__;
   	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
   	/* we use universal args and launcher because axpy can do it */
-  	omp_offloading_init_info(&__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL);
+  	omp_offloading_init_info("data copy in kernel", &__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
@@ -804,7 +805,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	  	__off_info_1__.offloadings = __offs_1__;
 	  	/* we use universal args and launcher because axpy can do it */
 	  	struct OUT__2__10550__args args_1; args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
-	  	omp_offloading_init_info(&__off_info_1__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__2__10550__launcher, &args_1);
+	  	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__2__10550__launcher, &args_1);
 	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_1__);
 
 		/** halo exchange */
@@ -838,7 +839,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 			__reduction_error__[__i__] = error;
 		}
 
-	  	omp_offloading_init_info(&__off_info_2__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__1__10550__launcher, &args_2);
+	  	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__1__10550__launcher, &args_2);
 	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_2__);
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			error += __reduction_error__[__i__];

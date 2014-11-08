@@ -48,7 +48,7 @@ REAL check(REAL *A,REAL *B, long n)
 int main(int argc,char *argv[])
 {
   int status = 0;
-  omp_init_devices(); 
+  omp_init_devices();
   long n;
   REAL *y;
   REAL *y_ompacc;
@@ -73,5 +73,6 @@ int main(int argc,char *argv[])
   free(y);
   free(y_ompacc);
   free(x);
+  omp_fini_devices();
   return 0;
 }

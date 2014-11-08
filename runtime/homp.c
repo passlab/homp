@@ -27,6 +27,9 @@ int omp_get_num_devices() {
 }
 
 omp_device_t * omp_devices;
+omp_device_t * omp_host_dev;
+volatile int omp_device_complete = 0;
+
 int omp_num_devices;
 volatile omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scrambled together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
@@ -173,6 +176,45 @@ void omp_data_exchange_dev(omp_device_t * dev) {
 void omp_offloading_run(omp_device_t * dev) {
 	omp_offloading_info_t * off_info = dev->offload_request;
 	omp_grid_topology_t * top = off_info->top;
+	int devid = dev->id;
+	int i = 0;
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	/* the num_mapped_vars * 2 +4 is the rough number of events needed */
+	/* the event (if mapto var is num_mapto, and mapfrom var is num_mapfrom (both including tofrom);
+	 * 0: The whole measured time from host side, measured from host
+	 * 1: The init time (stream, event, etc), this is the overhead for the breakdown timing, measured from host
+	 * 2: The time for map init, data dist, buffer allocation and data marshalling, measured from host
+	 * 3: The accumulated time for mapto datamovement, measured from dev
+	 *     4 - kernel_exe_event_index-1: The time for each mapto datamovement, measured from dev (total num_mapto events)
+	 * kernel_exe_event_index: kernel exe time
+	 * kernel_exe_event_index+1: The accumulated time for mapfrom datamovement, measured from dev
+	 *     kernel_exe_event_index+2 - xxxx: The time for each mapfrom datamovement, measured from dev (total num_mapfrom events)
+	 * xxxx: The time for cleanup resources (stream, event, data unmarshalling, etc), measured from host
+	 * xxxx: The time for barrier wait (for other kernel to complete), measured from host
+	 */
+	int num_events = off_info->num_mapped_vars * 2 + 8;
+	omp_event_t events[num_events];
+	int event_index;
+
+	int total_event_index = 0;       	/* host event */
+	int timing_init_event_index = 1; 	/* host event */
+	int cleanup_event_index = 2;		/* host event */
+	int barrier_wait_event_index = 3;	/* host event */
+	int map_init_event_index = 4;  		/* host event */
+
+	int acc_mapto_event_index = 5; 		/* dev event */
+	int kernel_exe_event_index = -1;	/* dev event */
+	int acc_mapfrom_event_index = -1;	/* dev event */
+
+	/* set up stream and event */
+	omp_event_init(&events[total_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+	omp_event_record_start(&events[total_event_index], NULL, OMP_EVENT_HOST_RECORD, "dev: %d: Total kernel exe time (everything)", devid);
+
+	omp_event_init(&events[timing_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+	omp_event_record_start(&events[timing_init_event_index], NULL, OMP_EVENT_HOST_RECORD, "dev: %d: event and stream initialization", devid);
+#endif
+
 	int seqid = omp_grid_topology_get_seqid(top, dev->id);
 	omp_offloading_t * off = &off_info->offloadings[seqid];
 	//printf("devid: %d --> seqid: %d in top: %X, off: %X, off_info: %X\n", dev->id, seqid, top, off, off_info);
@@ -184,17 +226,6 @@ void omp_offloading_run(omp_device_t * dev) {
 	off->map_list = NULL;
 	off->num_maps = 0;
 
-#if defined (OMP_BREAKDOWN_TIMING)
-	/* the num_mapped_vars * 2 +4 is the rough number of events needed */
-	int num_events = off_info->num_mapped_vars * 2 + 4;
-	omp_event_t events[num_events];
-	int event_index = 0;
-
-	/* set up stream and event */
-	omp_event_init(NULL, &events[event_index], OMP_EVENT_HOST_RECORD);
-	omp_event_record_start(&events[event_index]);
-#endif
-
 	omp_dev_stream_t * stream;
 #if defined USING_PER_OFFLOAD_STREAM
 	stream = &off->mystream;
@@ -205,50 +236,72 @@ void omp_offloading_run(omp_device_t * dev) {
 	off->stream = stream;
 
 #if defined (OMP_BREAKDOWN_TIMING)
-	for (i=1; i<num_events; i++) {
-		omp_event_init(stream, &events[i], OMP_EVENT_HOST_DEV_RECORD);
+	omp_event_init(&events[cleanup_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+	omp_event_init(&events[barrier_wait_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+	omp_event_init(&events[map_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+
+	for (i=acc_mapto_event_index; i<num_events; i++) {
+		omp_event_init(&events[i], dev, OMP_EVENT_DEV_RECORD);
 	}
-	omp_event_record_stop(&events[event_index++]);
+	omp_event_record_stop(&events[timing_init_event_index]);
 #endif
 
 	/* init data map and dev memory allocation */
 	/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-	int i = 0;
 offload_stage_copyto: ;
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[map_init_event_index], NULL, OMP_EVENT_HOST_RECORD, "init map, dist and buffer allocation, and data marshalling");
+#endif
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 		omp_data_map_t * map = &map_info->maps[seqid];
 		omp_data_map_init_map(map, map_info, dev, off->stream, off);
 		omp_data_map_dist(map, seqid, off);
-		omp_map_buffer_malloc(map, off);
-#if DEBUG_MSG
-		omp_print_data_map(map);
+		omp_map_buffer(map, off);
+		//omp_print_data_map(map);
+	}
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[map_init_event_index]);
 #endif
+
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[acc_mapto_event_index], stream, OMP_EVENT_DEV_RECORD, "accumulated mapto for all array");
+	event_index = acc_mapto_event_index+1;
+#endif
+	for (i=0; i<off_info->num_mapped_vars; i++) {
+		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
+		omp_data_map_t * map = &map_info->maps[seqid];
 
 		if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
-			omp_event_record_start(&events[event_index]);
+			omp_event_record_start(&events[event_index], stream, OMP_EVENT_DEV_RECORD, "mapto for array: %s", map_info->symbol);
 #endif
-			omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
+			omp_map_map_to_async(map, off->stream);
+			//omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);
 #endif
 		}
 	}
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[acc_mapto_event_index]);
+#endif
 
 offload_stage_kernexe: ;
 	if (off_info->type == OMP_OFFLOADING_DATA_CODE || off_info->type == OMP_OFFLOADING_CODE) {
+#if defined (OMP_BREAKDOWN_TIMING)
+		kernel_exe_event_index = event_index++;
+		omp_event_record_start(&events[kernel_exe_event_index], stream, OMP_EVENT_DEV_RECORD, "kernel exe: %s", off_info->name);
+#endif
 		/* launching the kernel */
 		void * args = off_info->args;
 		void (*kernel_launcher)(omp_offloading_t *, void *) = off_info->kernel_launcher;
 		if (args == NULL) args = off->args;
 		if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[event_index]);
-#endif
 		kernel_launcher(off, args);
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[event_index++]);
+		omp_event_record_stop(&events[kernel_exe_event_index]);
 #endif
 	} else { /* only data offloading, i.e., OMP_OFFLOADING_DATA */
 		/* put in the offloading stack */
@@ -262,6 +315,10 @@ offload_stage_kernexe: ;
 	}
 
 offload_stage_copyfrom: ;
+#if defined (OMP_BREAKDOWN_TIMING)
+	acc_mapfrom_event_index = event_index++;
+	omp_event_record_start(&events[acc_mapfrom_event_index], stream, OMP_EVENT_DEV_RECORD,  "accumulated mapto for all array");
+#endif
 	/* copy back results */
 	for (i=0; i<off_info->num_mapped_vars; i++) {
 		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
@@ -269,21 +326,51 @@ offload_stage_copyfrom: ;
 		if (map_info->map_direction == OMP_DATA_MAP_FROM || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 			/* TODO bug here if this is reached from the above goto, since events is not available */
-			omp_event_record_start(&events[event_index]);
+			omp_event_record_start(&events[event_index], stream, OMP_EVENT_DEV_RECORD, "mapfrom for array: %s", map_info->symbol);
 #endif
-			omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, dev, map->map_size, off->stream); /* memcpy from host to device */
+			omp_map_map_from_async(map, off->stream);
+			//omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, dev, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 			omp_event_record_stop(&events[event_index++]);
 #endif
 		}
 	}
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[acc_mapfrom_event_index]);
+#endif
 
 	/* sync stream to wait for completion */
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[cleanup_event_index], NULL, OMP_EVENT_HOST_RECORD, "clean up");
+#endif
 	omp_sync_cleanup(off);
 	dev->offload_request = NULL;
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[cleanup_event_index]);
+#endif
+
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[barrier_wait_event_index], NULL, OMP_EVENT_HOST_RECORD,  "barrier wait for other to complete");
+#endif
 	pthread_barrier_wait(&off_info->barrier);
 #if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[barrier_wait_event_index]);
+#endif
 
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[total_event_index]);
+#endif
+
+	/* print out the timing info */
+#if defined (OMP_BREAKDOWN_TIMING)
+	BEGIN_SERIALIZED_PRINTF(seqid);
+	printf("----------------------- offloading kernel from dev: %d --------------------\n", devid);
+	for (i=0; i<event_index; i++) {
+		omp_event_print_elapsed(&events[i]);
+		printf("\n");
+	}
+	END_SERIALIZED_PRINTF();
 #endif
 
 }
@@ -295,9 +382,10 @@ void helper_thread_main(void * arg) {
 	omp_stream_create(dev, &dev->devstream, 1);
 
 	/*************** loop *******************/
-	while (1) {
+	while (omp_device_complete == 0) {
 		//	printf("helper threading (devid: %d) waiting ....\n", devid);
-		while (dev->offload_request == NULL && dev->data_exchange_request == NULL);
+		while (omp_device_complete == 0 && dev->offload_request == NULL && dev->data_exchange_request == NULL);
+		if (omp_device_complete) return;
 
 		if (dev->offload_request != NULL) omp_offloading_run(dev);
 		else if (dev->data_exchange_request != NULL) {
@@ -306,8 +394,35 @@ void helper_thread_main(void * arg) {
 	}
 }
 
-void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
+
+/**
+ * seqid is the sequence id of the device in the top, it is also used as index to access maps
+ *
+ */
+void omp_sync_cleanup(omp_offloading_t * off) {
+	int i;
+	omp_offloading_info_t * off_info = off->off_info;
+	omp_stream_sync(off->stream);
+	omp_stream_destroy(off->stream);
+
+	for (i = 0; i < off_info->num_mapped_vars; i++) {
+		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
+		if (map->map_type == OMP_DATA_MAP_COPY) {
+			if (map->mem_noncontiguous) {
+				omp_map_unmarshal(map);
+				free(map->map_buffer);
+			}
+
+			if (omp_device_mem_discrete(map->dev->mem_type)) {
+				omp_map_free_dev(map->dev, map->map_dev_ptr);
+			}
+		}
+	}
+}
+
+void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
 		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args) {
+	info->name = name;
 	info->top = top;
 	info->targets = targets;
 	info->type = off_type;
@@ -319,12 +434,13 @@ void omp_offloading_init_info(omp_offloading_info_t * info, omp_grid_topology_t 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
 
-void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist) {
 	if (num_dims > 3) {
 		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
 		exit(1);
 	}
+	info->symbol = symbol;
 	info->top = top;
 	info->source_ptr = source_ptr;
 	info->num_dims = num_dims;
@@ -337,7 +453,7 @@ void omp_data_map_init_info(omp_data_map_info_t *info, omp_grid_topology_t * top
 	info->sizeof_element = sizeof_element;
 }
 
-void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+void omp_data_map_init_info_with_halo(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info) {
 	if (num_dims > 3) {
 		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
@@ -350,7 +466,7 @@ void omp_data_map_init_info_with_halo(omp_data_map_info_t *info, omp_grid_topolo
 		halo_info[i].cyclic = 0;
 		halo_info[i].topdim = -1;
 	}
-
+	info->symbol = symbol;
 	info->top = top;
 	info->source_ptr = source_ptr;
 	info->num_dims = num_dims;
@@ -375,7 +491,7 @@ void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length,
  * 2. the full range in each dimension of the array is distributed to the corresponding dimension of the topology
  * 3. the distribution type is the same for all dimensions
  */
-void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+void omp_data_map_init_info_straight_dist(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) {
 	int i;
 	for (i=0; i<num_dims; i++) {
@@ -385,7 +501,7 @@ void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_to
 		dist[i].topdim = i;
 	}
 
-	omp_data_map_init_info(info, top, source_ptr, num_dims, dims, sizeof_element, maps, map_direction, map_type, dist);
+	omp_data_map_init_info(symbol, info, top, source_ptr, num_dims, dims, sizeof_element, maps, map_direction, map_type, dist);
 }
 
 /**
@@ -394,7 +510,7 @@ void omp_data_map_init_info_straight_dist(omp_data_map_info_t *info, omp_grid_to
  * The halo region setup is the same in each dimension
  *
  */
-void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
+void omp_data_map_init_info_straight_dist_and_halo(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic) {
 	if (dist_type != OMP_DATA_MAP_DIST_EVEN) {
 		fprintf(stderr, "%s: we currently only handle halo region for even distribution of arrays\n", __func__);
@@ -410,6 +526,7 @@ void omp_data_map_init_info_straight_dist_and_halo(omp_data_map_info_t *info, om
 		halo_info[i].cyclic = halo_cyclic;
 		halo_info[i].topdim = i;
 	}
+	info->symbol = symbol;
 	info->top = top;
 	info->source_ptr = source_ptr;
 	info->num_dims = num_dims;
@@ -494,8 +611,22 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_
 	map->info = info;
 	map->dev = dev;
 	map->stream = stream;
-	map->marshalled_or_not = 0;
+	map->mem_noncontiguous = 0;
+	map->map_type = info->map_type;
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_1;
+
+	if (map->map_type == OMP_DATA_MAP_AUTO) {
+		if (omp_device_mem_discrete(dev->mem_type)) {
+			map->map_type = OMP_DATA_MAP_COPY;
+			//printf("COPY data map: %X\n", map);
+		} else { /* we can make it shared and we will do it */
+			map->map_type = OMP_DATA_MAP_SHARED;
+			//printf("SHARED data map: %X\n", map);
+		}
+	} else if (map->map_type == OMP_DATA_MAP_SHARED && omp_device_mem_discrete(dev->mem_type)) {
+		fprintf(stderr, "direct sharing data between host and the dev: %d is not possible with discrete mem space, we use COPY approach now\n", dev->id);
+		map->map_type = OMP_DATA_MAP_COPY;
+	}
 
 	/* put in the off cache list */
 	if (off->map_list == NULL) {
@@ -582,7 +713,7 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid, omp_offloading_t * off) {
 }
 
 void omp_map_unmarshal(omp_data_map_t * map) {
-	if (!map->marshalled_or_not) return;
+	if (!map->mem_noncontiguous) return;
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 	int i;
@@ -687,7 +818,7 @@ long omp_array_offset(int ndims, long * dims, long * idx) {
  *
  * it will also create device memory region (both the array region memory and halo region memory
  */
-void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
+void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
     int error;
     int i;
 	omp_data_map_info_t * info = map->info;
@@ -701,20 +832,32 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 			/* check the dimension from 1 to the highest, if any one is not the full range of the dimension in the original array,
 			 * we have non-contiguous memory space and we need to marshall data
 			 */
-			map->marshalled_or_not = 1;
+			map->mem_noncontiguous = 1;
 		}
 		map_size *= map->map_dim[i];
 
 	}
 	map->map_size = map_size;
-	if (!map->marshalled_or_not) {
-		map->map_buffer = &info->source_ptr[sizeof_element * omp_array_offset(info->num_dims, map->map_dim, map->map_offset)];
-	} else {
-		omp_map_marshal(map);
+	map->map_buffer = &info->source_ptr[sizeof_element * omp_array_offset(info->num_dims, info->dims, map->map_offset)];
+
+	/* so far, for noncontiguous mem space, we will do copy */
+	if (map->map_type == OMP_DATA_MAP_SHARED) {
+		if (map->mem_noncontiguous) {
+			map->map_type = OMP_DATA_MAP_COPY;
+		}
 	}
 
-	/* we need to allocate device memory, including both the array region TODO: to deal with halo region */
-	map->map_dev_ptr = omp_map_malloc_dev(map->dev, map->map_size);
+	if (map->map_type == OMP_DATA_MAP_COPY) {
+		if (map->mem_noncontiguous) {
+			omp_map_marshal(map);
+			if (omp_device_mem_discrete(map->dev->mem_type)) {
+				map->map_dev_ptr = omp_map_malloc_dev(map->dev, map->map_size);
+			} else map->map_dev_ptr = map->map_buffer;
+		} else {
+			map->map_dev_ptr = omp_map_malloc_dev(map->dev, map->map_size);
+		}
+	} else map->map_dev_ptr = map->map_buffer;
+
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_2;
 
 	if (info->halo_info == NULL) return;
@@ -746,7 +889,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 		if (halo_info->left != 0 || halo_info->right != 0) { /* there is halo region in this dimension */
 			omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[i];
 			if (halo_mem->left_dev_seqid >= 0) {
-				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
+				if (i==0 && !map->mem_noncontiguous && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
 					halo_mem->left_in_size = halo_info->left*map->map_dim[1]*sizeof_element;
 					halo_mem->left_in_ptr = map->map_dev_ptr;
 					halo_mem->left_out_size = halo_info->right*map->map_dim[1]*sizeof_element;
@@ -773,7 +916,7 @@ void omp_map_buffer_malloc(omp_data_map_t * map, omp_offloading_t * off) {
 				}
 			}
 			if (halo_mem->right_dev_seqid >= 0) {
-				if (i==0 && !map->marshalled_or_not && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
+				if (i==0 && !map->mem_noncontiguous && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
 					halo_mem->right_in_size = halo_info->right*map->map_dim[1]*sizeof_element;
 					halo_mem->right_in_ptr = &((char *)map->map_dev_ptr)[map->map_size - halo_mem->right_in_size];
 					halo_mem->right_out_size = halo_info->left*map->map_dim[1]*sizeof_element;
@@ -865,7 +1008,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
 				"map_dev_ptr: %X, stream: %X, map_size: %ld\n\n", map->dev->id, map, info->source_ptr, info->dims[0], info->dims[1], info->dims[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
-				info->sizeof_element, map->map_buffer, map->marshalled_or_not, map->map_dev_ptr, map->stream, map->map_size);
+				info->sizeof_element, map->map_buffer, map->mem_noncontiguous, map->map_dev_ptr, map->stream, map->map_size);
 }
 
 /* do a halo regin pull for data map of devid. If top is not NULL, devid will be translated to coordinate of the
@@ -879,7 +1022,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_direction_t from_left_right) {
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
-	if (info->num_dims != 2 || dim != 0 || map->marshalled_or_not) {
+	if (info->num_dims != 2 || dim != 0 || map->mem_noncontiguous) {
 		fprintf(stderr, "we only handle 2-d array, dist/halo at 0-d and non-marshalling so far!\n");
 		omp_print_data_map(map);
 		return;
