@@ -787,7 +787,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_offloading_info_t __offloading_info__;
   	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
   	/* we use universal args and launcher because axpy can do it */
-  	omp_offloading_init_info("data copy in kernel", &__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL);
+  	omp_offloading_init_info("data copy in kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
@@ -797,15 +797,24 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	omp_offloading_start(__target_devices__,__num_target_devices__, &__offloading_info__);
 	//printf("----- data copyin .... \n");
 
+	omp_offloading_info_t __off_info_1__;
+	omp_offloading_t __offs_1__[__num_target_devices__];
+	__off_info_1__.offloadings = __offs_1__;
+		  	/* we use universal args and launcher because axpy can do it */
+	struct OUT__2__10550__args args_1;
+	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, -1, NULL, OUT__2__10550__launcher, &args_1);
+
+
+  	omp_offloading_info_t __off_info_2__;
+  	omp_offloading_t __offs_2__[__num_target_devices__];
+  	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
+  	struct OUT__1__10550__args args_2;
+  	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, -1, NULL, OUT__1__10550__launcher, &args_2);
+
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
-	  	omp_offloading_info_t __off_info_1__;
-	  	omp_offloading_t __offs_1__[__num_target_devices__];
-	  	__off_info_1__.offloadings = __offs_1__;
-	  	/* we use universal args and launcher because axpy can do it */
-	  	struct OUT__2__10550__args args_1; args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
-	  	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__2__10550__launcher, &args_1);
+		args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
 	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_1__);
 
 		/** halo exchange */
@@ -827,19 +836,12 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	  	omp_data_map_exchange_start(__target_devices__, __num_target_devices__, &u_uold_xchange);
 
 		/* jacobi */
-	  	omp_offloading_info_t __off_info_2__;
-	  	omp_offloading_t __offs_2__[__num_target_devices__];
-	  	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
-	  	struct OUT__1__10550__args args_2;
 	  	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
-
 	  	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
 	  	int __i__;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			__reduction_error__[__i__] = error;
 		}
-
-	  	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, OMP_OFFLOADING_CODE, -1, NULL, OUT__1__10550__launcher, &args_2);
 	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_2__);
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			error += __reduction_error__[__i__];

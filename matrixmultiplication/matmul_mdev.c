@@ -224,6 +224,8 @@ int main(int argc,char *argv[])
   print_array("Array C_ompacc", "C", C_ompacc, n, n);
 #endif
 
+  omp_fini_devices();
+
   printf("======================================================================================================\n");
   printf("\tmatmul(%dx%d) example on %d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n",
 		  n,n,omp_get_num_active_devices(), dist);
@@ -237,7 +239,6 @@ int main(int argc,char *argv[])
   free(C_seq);
   free(B);
   free(A);
-  omp_fini_devices();
   return 0;
 }
 
@@ -447,7 +448,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args);
+	omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

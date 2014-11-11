@@ -148,23 +148,26 @@ typedef enum omp_event_record_method {
 	OMP_EVENT_HOST_DEV_RECORD,
 } omp_event_record_method_t;
 
-#define OMP_EVENT_MSG_LENGTH 64
+#define OMP_EVENT_MSG_LENGTH 96
+#define OMP_EVENT_NAME_LENGTH 12
+
 typedef struct omp_event {
 	omp_device_t * dev;
 	omp_dev_stream_t * stream;
 	omp_event_record_method_t record_method;
-	char event_msg[OMP_EVENT_MSG_LENGTH];
+	char *event_name;
+	char event_description[OMP_EVENT_MSG_LENGTH];
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 	cudaEvent_t start_event_dev;
 	cudaEvent_t stop_event_dev;
 #endif
-	float start_time_dev;
-	float stop_time_dev;
-	float start_time_host;
-	float stop_time_host;
-	float elapsed_dev;
-	float elapsed_host;
+	double start_time_dev;
+	double stop_time_dev;
+	double start_time_host;
+	double stop_time_host;
+	double elapsed_dev;
+	double elapsed_host;
 } omp_event_t;
 
 /**
@@ -423,6 +426,8 @@ struct omp_offloading_info {
 	omp_device_t ** targets; /* a list of target devices */
 	char * name;
 
+	int recurring; /* if an offload is within a loop (while/for, etc and with goto) of a function, it is a recurring */
+
 	omp_offloading_type_t type;
 	omp_offloading_stage_t stage;
 	int num_mapped_vars;
@@ -459,6 +464,9 @@ struct omp_offloading {
 	omp_data_map_t * map_list; /* it is a circular linked list and map_list point to the last element of the list */
 	int num_maps;
 
+	omp_event_t *events;
+	int num_events;
+
 	/* kernel info */
 	long X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
 	long X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
@@ -472,7 +480,7 @@ extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
 
-extern void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, omp_offloading_type_t off_type,
+extern void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type,
 		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args);
 extern void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
@@ -484,12 +492,11 @@ extern void omp_stream_sync(omp_dev_stream_t *st);
 extern void omp_sync_cleanup(omp_offloading_t * off);
 
 extern void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_method_t record_method);
-extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_msg, ...);
+extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_name, const char * event_msg, ...);
 extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_print_elapsed(omp_event_t * ev);
 extern void omp_event_elapsed_ms(omp_event_t * ev);
-extern float omp_event_elapsed_ms_host(omp_event_t * ev);
-extern float omp_event_elapsed_ms_dev(omp_event_t * ev);
+extern void omp_event_accumulate_elapsed_ms(omp_event_t * ev);
 
 extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, omp_device_t ** devs, int nnodes, int ndims, int *dims, int *periodic, int * idmap);
 /*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */

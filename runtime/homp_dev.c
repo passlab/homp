@@ -472,7 +472,7 @@ void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_metho
 	}
 }
 
-void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_msg, ...) {
+void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_name, const char * event_msg, ...) {
 	if (stream != NULL && stream->dev != ev->dev) {
 		fprintf(stderr, "stream and event are not compatible, they are from two different devices\n");
 		abort();
@@ -484,11 +484,13 @@ void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_eve
 		omp_event_init(ev, ev->dev, record_method);
 		rm = record_method;
 	}
-	omp_device_type_t devtype = ev->dev->type;
+	ev->event_name = event_name;
 	va_list l;
 	va_start(l, event_msg);
-    vsnprintf(ev->event_msg, OMP_EVENT_MSG_LENGTH, event_msg, l);
+    vsnprintf(ev->event_description, OMP_EVENT_MSG_LENGTH, event_msg, l);
 	va_end(l);
+
+	omp_device_type_t devtype = ev->dev->type;
 
 	if (rm == OMP_EVENT_DEV_RECORD || rm == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
@@ -532,6 +534,7 @@ void omp_event_record_stop(omp_event_t * ev) {
 #endif
 		if (devtype == OMP_DEVICE_THSIM) {
 			ev->stop_time_dev = read_timer_ms();
+
 		} else {
 			fprintf(stderr, "other type of devices are not yet supported\n");
 		}
@@ -542,76 +545,74 @@ void omp_event_record_stop(omp_event_t * ev) {
 	}
 }
 
-void omp_event_print_elapsed(omp_event_t * ev) {
-	omp_event_record_method_t record_method = ev->record_method;
-	if (record_method == OMP_EVENT_HOST_RECORD) {
-		if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
-		printf("%s: %4f\n", ev->event_msg, ev->elapsed_host);
-	} else if (record_method == OMP_EVENT_DEV_RECORD) {
-		if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
-		printf("%s: %4f\n", ev->event_msg, ev->elapsed_dev);
+
+static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
+	omp_device_type_t devtype = ev->dev->type;
+	double elapsed = -1.0;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (devtype == OMP_DEVICE_NVGPU) {
+#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
+		elapse = ev->stop_time_dev - ev->start_time_dev;
+#else
+		cudaError_t result;
+		result = cudaEventSynchronize(ev->start_event_dev);
+		devcall_assert(result);
+		result = cudaEventSynchronize(ev->stop_event_dev);
+		devcall_assert(result);
+		result = cudaEventElapsedTime(&elapsed, ev->start_event_dev, ev->stop_event_dev);
+		devcall_assert(result);
+	} else
+#endif
+#endif
+	if (devtype == OMP_DEVICE_THSIM) {
+		elapsed = ev->stop_time_dev - ev->start_time_dev;
 	} else {
-		if (ev->elapsed_host < 0.0 || ev->elapsed_dev < 0.0)
-			omp_event_elapsed_ms(ev);
-		printf("%s from host: %4f\n", ev->event_msg, ev->elapsed_host);
-		printf("%s from dev : %4f\n", ev->event_msg, ev->elapsed_dev);
+		fprintf(stderr, "other type of devices are not yet supported\n");
 	}
-}
 
-void omp_event_print_elapsed_host(omp_event_t * ev) {
-	if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
-	printf("%s: %4f\n", ev->event_msg, ev->elapsed_host);
-}
-
-void omp_event_print_elapsed_dev(omp_event_t * ev) {
-	if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
-	printf("%s: %4f\n", ev->event_msg, ev->elapsed_dev);
-}
-
-float omp_event_elapsed_ms_host(omp_event_t * ev) {
-	if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
-	return ev->elapsed_host;
-}
-
-float omp_event_elapsed_ms_dev(omp_event_t * ev) {
-	if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
-	return ev->elapsed_dev;
+	return elapsed;
 }
 
 /**
  * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
  */
 void omp_event_elapsed_ms(omp_event_t * ev) {
-	omp_dev_stream_t * stream = ev->stream;
 	omp_event_record_method_t record_method = ev->record_method;
 	omp_device_type_t devtype = ev->dev->type;
-	float elapse;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
-#if defined (DEVICE_NVGPU_SUPPORT)
-		if (devtype == OMP_DEVICE_NVGPU) {
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-			elapse = ev->stop_time_dev - ev->start_time_dev;
-#else
-			cudaError_t result;
-			result = cudaEventSynchronize(ev->start_event_dev);
-			devcall_assert(result);
-			result = cudaEventSynchronize(ev->stop_event_dev);
-			devcall_assert(result);
-			result = cudaEventElapsedTime(&elapse, ev->start_event_dev, ev->stop_event_dev);
-			devcall_assert(result);
-		} else
-#endif
-#endif
-		if (devtype == OMP_DEVICE_THSIM) {
-			elapse = ev->stop_time_dev - ev->start_time_dev;
-		} else {
-			fprintf(stderr, "other type of devices are not yet supported\n");
-		}
-		ev->elapsed_dev = elapse;
+		ev->elapsed_dev = omp_event_elapsed_ms_dev(ev);
 	}
-
 	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 		ev->elapsed_host = ev->stop_time_host - ev->start_time_host;
+	}
+}
+
+void omp_event_accumulate_elapsed_ms(omp_event_t * ev) {
+	omp_event_record_method_t record_method = ev->record_method;
+	omp_device_type_t devtype = ev->dev->type;
+	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
+		ev->elapsed_dev += omp_event_elapsed_ms_dev(ev);
+	}
+	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
+		ev->elapsed_host += ev->stop_time_host - ev->start_time_host;
+	}
+}
+
+void omp_event_print_elapsed(omp_event_t * ev) {
+	omp_event_record_method_t record_method = ev->record_method;
+	//char padding[OMP_EVENT_MSG_LENGTH];
+	//memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
+	if (record_method == OMP_EVENT_HOST_RECORD) {
+		if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
+		printf("%*s: %10.2f;\t\t%s; measured from host.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->event_description);
+	} else if (record_method == OMP_EVENT_DEV_RECORD) {
+		if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
+		printf("%*s: %10.2f;\t\t%s; measured from dev.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->event_description);
+	} else {
+		if (ev->elapsed_host < 0.0 || ev->elapsed_dev < 0.0)
+			omp_event_elapsed_ms(ev);
+		printf("%*s: %10.2f;\t\t%s; measured from host.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->event_description);
+		printf("%*s: %10.2f;\t\t%s; measured from dev.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->event_description);
 	}
 }
 

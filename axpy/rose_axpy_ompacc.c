@@ -128,7 +128,7 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info ("axpy kernel", &__offloading_info__, &__top__, __target_devices__, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args);
+	omp_offloading_init_info ("axpy kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args);
 
 #if 0
 	/* we could specify dev-specific args and kernel_launcher */
