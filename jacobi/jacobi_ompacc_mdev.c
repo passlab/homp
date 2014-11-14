@@ -787,7 +787,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_offloading_info_t __offloading_info__;
   	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
   	/* we use universal args and launcher because axpy can do it */
-  	omp_offloading_init_info("data copy in kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL);
+  	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

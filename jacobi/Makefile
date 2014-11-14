@@ -4,8 +4,7 @@ TEST_LINK = -lpthread -lm
 NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 
 jacobi-thsim:	
-#	gcc $(TEST_INCLUDES) -DDEBUG_MSG -g -O0 ../../runtime/homp.c ../../runtime/homp_dev.c jacobi_ompacc_mdev.c -c
-	gcc $(TEST_INCLUDES) -DOMP_BREAKDOWN_TIMING -g -O0 ../runtime/homp.c ../runtime/homp_dev.c jacobi_ompacc_mdev.c -c
+	gcc $(TEST_INCLUDES) -DOMP_BREAKDOWN_TIMING -g -O0 ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c  jacobi_ompacc_mdev.c -c
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 jacobi-nvgpu:

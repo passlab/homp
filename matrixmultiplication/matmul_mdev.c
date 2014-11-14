@@ -457,6 +457,8 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	/* here we do not need sync start */
 	omp_offloading_start(__target_devices__, __num_target_devices__, &__offloading_info__);
 	ompacc_time = read_timer_ms() - ompacc_time;
+	omp_offloading_clear_report_info(&__offloading_info__);
+
 	double cpu_total = ompacc_time;
 
 }

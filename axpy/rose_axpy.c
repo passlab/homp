@@ -68,11 +68,12 @@ int main(int argc,char *argv[])
   axpy(x,y,n,a);
   omp_time = (read_timer_ms() - omp_time);
   REAL ompacc_time = axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
+  omp_fini_devices();
+
   printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n",n,check(y,y_ompacc,n),omp_get_num_active_devices());
   printf("\t\t\t\t\t%4f\t%4f\n",omp_time,ompacc_time);
   free(y);
   free(y_ompacc);
   free(x);
-  omp_fini_devices();
   return 0;
 }

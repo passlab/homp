@@ -4,9 +4,8 @@ TEST_LINK = -lm -lpthread
 NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 
 axpy-thsim:
-#	gcc $(TEST_INCLUDES) -DDEBUG_MSG -g ../runtime/homp.c ../runtime/homp_dev.c rose_axpy_ompacc.c rose_axpy.c -c
-#	gcc $(TEST_INCLUDES) -g ../runtime/homp.c ../runtime/homp_dev.c rose_axpy_ompacc.c rose_axpy.c -c
-	gcc $(TEST_INCLUDES) -g -DOMP_BREAKDOWN_TIMING ../runtime/homp.c ../runtime/homp_dev.c rose_axpy_ompacc.c rose_axpy.c -c
+	gcc $(TEST_INCLUDES) -g -DOMP_BREAKDOWN_TIMING ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c rose_axpy_ompacc.c rose_axpy.c -c
+#	gcc $(TEST_INCLUDES) -g ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c rose_axpy_ompacc.c rose_axpy.c -c
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 axpy-nvgpu:

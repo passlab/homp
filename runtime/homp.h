@@ -155,8 +155,11 @@ typedef struct omp_event {
 	omp_device_t * dev;
 	omp_dev_stream_t * stream;
 	omp_event_record_method_t record_method;
-	char *event_name;
+	const char *event_name;
 	char event_description[OMP_EVENT_MSG_LENGTH];
+	int count; /* a counter for accumulating recurring event */
+	int recorded; /* everytime stop_record is called, this flag is set, and when a elapsed is calculated, this flag is reset */
+
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 	cudaEvent_t start_event_dev;
@@ -281,7 +284,7 @@ typedef struct omp_data_map_halo_region_mem {
 /* for each mapped host array, we have one such object */
 typedef struct omp_data_map_info {
     omp_grid_topology_t * top;
-    char * symbol; /* the user symbol */
+    const char * symbol; /* the user symbol */
 	char * source_ptr;
 	int num_dims;
 	long * dims;
@@ -395,7 +398,10 @@ typedef enum omp_offloading_stage {
 	OMP_OFFLOADING_KERNEL,    /* kernel execution */
 	OMP_OFFLOADING_EXCHANGE,  /* p2p (dev2dev) and h2d (host2dev) data exchange */
 	OMP_OFFLOADING_COPYFROM,  /* copy data from dev to host */
-	OMP_OFFLOADING_COMPLETE,  /* make grace complete, e.g. deallocate memory and turn off dev */
+	OMP_OFFLOADING_SYNC, 		/* sync*/
+	OMP_OFFLOADING_SYNC_CLEANUP, /* sync and clean up */
+	OMP_OFFLOADING_MDEV_BARRIER, /* mdev barrier wait to sync all participating devices */
+	OMP_OFFLOADING_COMPLETE,  /* anything else if there is */
 	OMP_OFFLOADING_NUM_STEPS, /* total number of steps */
 } omp_offloading_stage_t;
 
@@ -424,9 +430,9 @@ struct omp_offloading_info {
 	/************** per-offloading var, shared by all target devices ******/
 	omp_grid_topology_t * top; /* num of target devices are in this object */
 	omp_device_t ** targets; /* a list of target devices */
-	char * name;
+	const char * name;
 
-	int recurring; /* if an offload is within a loop (while/for, etc and with goto) of a function, it is a recurring */
+	volatile int recurring; /* if an offload is within a loop (while/for, etc and with goto) of a function, it is a recurring */
 
 	omp_offloading_type_t type;
 	omp_offloading_stage_t stage;
@@ -483,17 +489,18 @@ extern int omp_set_current_device(int id); /* return the current device id */
 extern void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type,
 		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args);
 extern void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
-extern void omp_offloading_finish_copyfrom(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
 extern void omp_stream_create(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default);
 extern void omp_stream_destroy(omp_dev_stream_t * st);
 extern void omp_stream_sync(omp_dev_stream_t *st);
-extern void omp_sync_cleanup(omp_offloading_t * off);
+extern void omp_cleanup(omp_offloading_t * off);
 
 extern void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_method_t record_method);
+extern void omp_event_print(omp_event_t * ev);
 extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_name, const char * event_msg, ...);
 extern void omp_event_record_stop(omp_event_t * ev);
+extern void omp_event_print_profile_header();
 extern void omp_event_print_elapsed(omp_event_t * ev);
 extern void omp_event_elapsed_ms(omp_event_t * ev);
 extern void omp_event_accumulate_elapsed_ms(omp_event_t * ev);

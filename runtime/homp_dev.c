@@ -98,7 +98,7 @@ int omp_init_devices() {
 	omp_host_dev->sysid = 0;
 	omp_host_dev->status = 1;
 	omp_host_dev->resident_data_maps = NULL;
-	omp_host_dev->next = &omp_devices[1];
+	omp_host_dev->next = omp_devices;
 	omp_host_dev->offload_request = NULL;
 	omp_host_dev->data_exchange_request = NULL;
 	omp_host_dev->offload_stack_top = -1;
@@ -452,7 +452,9 @@ void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_metho
 	ev->dev = dev;
 	ev->record_method = record_method;
 	omp_device_type_t devtype = dev->type;
-	ev->elapsed_dev = ev->elapsed_host = -100.0;
+	ev->count = 0;
+	ev->recorded = 0;
+	ev->elapsed_dev = ev->elapsed_host = 0.0;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
@@ -466,10 +468,15 @@ void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_metho
 		if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
 			/* do nothing */
 		} else {
-			fprintf(stderr, "other type of devices are not yet supported\n");
+			fprintf(stderr, "other type of devices are not yet supported to init this event\n");
 			abort();
 		}
 	}
+}
+
+void omp_event_print(omp_event_t * ev) {
+	printf("ev: %X, dev: %X, stream: %X, record method: %d, name: %s, description: %s", ev, ev->dev,
+			ev->stream, ev->record_method, ev->event_name, ev->event_description);
 }
 
 void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_name, const char * event_msg, ...) {
@@ -490,6 +497,7 @@ void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_eve
     vsnprintf(ev->event_description, OMP_EVENT_MSG_LENGTH, event_msg, l);
 	va_end(l);
 
+	//printf("omp_event_record_start: ev %X name: %s, dev: %X\n", ev, ev->event_name, ev->dev);
 	omp_device_type_t devtype = ev->dev->type;
 
 	if (rm == OMP_EVENT_DEV_RECORD || rm == OMP_EVENT_HOST_DEV_RECORD) {
@@ -507,7 +515,7 @@ void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_eve
 		if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
 			ev->start_time_dev = read_timer_ms();
 		} else {
-			fprintf(stderr, "other type of devices are not yet supported\n");
+			fprintf(stderr, "other type of devices are not yet supported to start event recording\n");
 		}
 	}
 
@@ -536,13 +544,14 @@ void omp_event_record_stop(omp_event_t * ev) {
 			ev->stop_time_dev = read_timer_ms();
 
 		} else {
-			fprintf(stderr, "other type of devices are not yet supported\n");
+			fprintf(stderr, "other type of devices are not yet supported to stop event record\n");
 		}
 	}
 
 	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 		ev->stop_time_host = read_timer_ms();
 	}
+	ev->recorded = 1;
 }
 
 
@@ -567,35 +576,49 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	if (devtype == OMP_DEVICE_THSIM) {
 		elapsed = ev->stop_time_dev - ev->start_time_dev;
 	} else {
-		fprintf(stderr, "other type of devices are not yet supported\n");
+		fprintf(stderr, "other type of devices are not yet supported to calculate elapsed\n");
 	}
 
 	return elapsed;
+}
+
+static double omp_event_elapsed_ms_host(omp_event_t * ev) {
+	return ev->stop_time_host - ev->start_time_host;
 }
 
 /**
  * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
  */
 void omp_event_elapsed_ms(omp_event_t * ev) {
+	if (!ev->recorded) return;
 	omp_event_record_method_t record_method = ev->record_method;
 	omp_device_type_t devtype = ev->dev->type;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 		ev->elapsed_dev = omp_event_elapsed_ms_dev(ev);
 	}
 	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
-		ev->elapsed_host = ev->stop_time_host - ev->start_time_host;
+		ev->elapsed_host = omp_event_elapsed_ms_host(ev);
 	}
+	ev->recorded = 0;
 }
 
 void omp_event_accumulate_elapsed_ms(omp_event_t * ev) {
+	if (!ev->recorded) return;
 	omp_event_record_method_t record_method = ev->record_method;
 	omp_device_type_t devtype = ev->dev->type;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 		ev->elapsed_dev += omp_event_elapsed_ms_dev(ev);
 	}
 	if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
-		ev->elapsed_host += ev->stop_time_host - ev->start_time_host;
+		ev->elapsed_host += omp_event_elapsed_ms_host(ev);
 	}
+	ev->count++;
+	ev->recorded = 0;
+}
+
+void omp_event_print_profile_header() {
+	printf("%*s    TOTAL     AVE(Times)  From (host or dev)\tDescription\n",
+			OMP_EVENT_NAME_LENGTH, "Name");
 }
 
 void omp_event_print_elapsed(omp_event_t * ev) {
@@ -603,16 +626,16 @@ void omp_event_print_elapsed(omp_event_t * ev) {
 	//char padding[OMP_EVENT_MSG_LENGTH];
 	//memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
 	if (record_method == OMP_EVENT_HOST_RECORD) {
-		if (ev->elapsed_host < 0.0) omp_event_elapsed_ms(ev);
-		printf("%*s: %10.2f;\t\t%s; measured from host.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\t\thost\t%s\n",
+				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
 	} else if (record_method == OMP_EVENT_DEV_RECORD) {
-		if (ev->elapsed_dev < 0.0) omp_event_elapsed_ms(ev);
-		printf("%*s: %10.2f;\t\t%s; measured from dev.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\t\tdev\t%s\n",
+				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
 	} else {
-		if (ev->elapsed_host < 0.0 || ev->elapsed_dev < 0.0)
-			omp_event_elapsed_ms(ev);
-		printf("%*s: %10.2f;\t\t%s; measured from host.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->event_description);
-		printf("%*s: %10.2f;\t\t%s; measured from dev.\n", OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\thost\t%s\n",
+				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\t\tdev\t%s\n",
+				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
 	}
 }
 

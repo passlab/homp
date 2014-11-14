@@ -4,8 +4,8 @@ TEST_LINK = -lpthread -lm
 NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 
 matmul-thsim:	
-#	gcc $(TEST_INCLUDES) -DDEBUG_MSG -g ../../runtime/homp.c ../../runtime/homp_dev.c matmul_mdev.c -c
-	gcc $(TEST_INCLUDES) -DOMP_BREAKDOWN_TIMING -g ../runtime/homp.c ../runtime/homp_dev.c matmul_mdev.c -c
+#	gcc $(TEST_INCLUDES) -DOMP_BREAKDOWN_TIMING -g ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c matmul_mdev.c -c
+	gcc $(TEST_INCLUDES) -g ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c matmul_mdev.c -c
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 matmul-nvgpu:
