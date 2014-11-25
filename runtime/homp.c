@@ -136,18 +136,18 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 
 void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
 	pthread_barrier_destroy(&info->barrier);
+#if defined (OMP_BREAKDOWN_TIMING)
 	int i;
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		int devid = off->dev->id;
-#if defined (OMP_BREAKDOWN_TIMING)
 		int j;
-		printf("----------------------- Profiling Report (ms) for Offloading dev: %d ---------------------------------------------\n", devid);
+		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on dev: %d ---------------------------------------------\n", info->name, devid);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
 			omp_event_print_elapsed(&off->events[j]);
 		}
-		printf("----------------------- End Profiling Report for Offloading dev: %d -----------------------------------------------\n\n", devid);
+		printf("----------------------- End Profiling Report for Offloading kernel(%s) on dev: %d -----------------------------------------------\n", info->name, devid);
 		free(off->events);
 #endif
 	}
@@ -294,7 +294,7 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 	int devid = dev->id;
 	int off_stack_i = dev->offload_stack_top;
 	/* a search now for all maps */
-	while (1) {
+	do {
 		if (devseqid >= 0) {
 			int i; omp_data_map_info_t * dm_info;
 			for (i=0; i<off_info->num_mapped_vars; i++) {
@@ -306,12 +306,11 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 				}
 			}
 		}
-		if (off_stack_i >=0) {
-			devseqid = omp_grid_topology_get_seqid(off_info->top, devid);
-			off_info = dev->offload_stack[off_stack_i];
-			off_stack_i --;
-		} else break;
-	}
+		if (off_stack_i == -1) break;
+		off_info = dev->offload_stack[off_stack_i];
+		devseqid = omp_grid_topology_get_seqid(off_info->top, devid);
+		off_stack_i --;
+	} while (1);
 
 	return NULL;
 }

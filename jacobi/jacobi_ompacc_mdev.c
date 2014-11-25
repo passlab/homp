@@ -794,7 +794,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
 	/* here we do not need sync start */
-	omp_offloading_start(__target_devices__,__num_target_devices__, &__offloading_info__);
+	omp_offloading_start(&__offloading_info__);
 	//printf("----- data copyin .... \n");
 
 	omp_offloading_info_t __off_info_1__;
@@ -802,20 +802,20 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	__off_info_1__.offloadings = __offs_1__;
 		  	/* we use universal args and launcher because axpy can do it */
 	struct OUT__2__10550__args args_1;
-	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, -1, NULL, OUT__2__10550__launcher, &args_1);
+	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1);
 
 
   	omp_offloading_info_t __off_info_2__;
   	omp_offloading_t __offs_2__[__num_target_devices__];
   	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
   	struct OUT__1__10550__args args_2;
-  	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, -1, NULL, OUT__1__10550__launcher, &args_2);
+  	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2);
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
 		args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
-	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_1__);
+	  	omp_offloading_start(&__off_info_1__);
 
 		/** halo exchange */
 		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
@@ -842,7 +842,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			__reduction_error__[__i__] = error;
 		}
-	  	omp_offloading_start(__target_devices__, __num_target_devices__, &__off_info_2__);
+	  	omp_offloading_start(&__off_info_2__);
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			error += __reduction_error__[__i__];
 		}
@@ -855,69 +855,17 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		/*  End iteration loop */
 	}
 	/* copy back u from each device and free others */
-	omp_offloading_finish_copyfrom(__target_devices__,__num_target_devices__, &__offloading_info__);
+	omp_offloading_start(&__offloading_info__);
+
+	omp_offloading_clear_report_info(&__offloading_info__);
+	omp_offloading_clear_report_info(&__off_info_1__);
+	omp_offloading_clear_report_info(&__off_info_2__);
+
 	printf("Total Number of Iterations:%d\n", k);
 	printf("Residual:%E\n", error);
 
 	/*
 	ompacc_time = read_timer_ms() - ompacc_time;
 	double cpu_total = ompacc_time;
-
-*/
-#if 0
-    /* for profiling */
-	REAL f_map_to_elapsed[__num_target_devices__]; /* event 0 */
-	REAL u_map_to_elapsed[__num_target_devices__]; /* event 1 */
-	REAL kernel_u2uold_elapsed[__num_target_devices__]; /* event 2 */
-	REAL halo_exchange_elapsed[__num_target_devices__]; /* event 3 */
-	REAL kernel_jacobi_elapsed[__num_target_devices__]; /* event 4, also including the reduction */
-	REAL u_map_from_elapsed[__num_target_devices__]; /* event 5 */
-
-	printf("==============================================================================================================================================================================\n");
-	printf("=========================== GPU Results (%d GPUs) for jacobi: u[][](tofrom), f[][](to), uold[][](alloc) size: [%d][%d], time in ms (s/1000) ===============================\n", __num_target_devices__, n, m);
-	REAL f_map_to_accumulated = 0.0;
-	REAL u_map_to_accumulated = 0.0;
-	REAL kernel_u2uold_accumulated = 0.0;
-	REAL halo_exchange_accumulated = 0.0;
-	REAL kernel_jacobi_accumulated = 0.0;
-	REAL u_map_from_accumulated = 0.0;
-	REAL streamCreate_accumulated = 0.0;
-	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-		f_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 0);
-		u_map_to_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 1);
-		kernel_u2uold_elapsed[__i__] = __dev_stream__[__i__].elapsed[2]; /* event 2 */
-		halo_exchange_elapsed[__i__] = __dev_stream__[__i__].elapsed[3]; /* event 3 */
-		kernel_jacobi_elapsed[__i__] = __dev_stream__[__i__].elapsed[4]; /* event 4, also including the reduction */
-		u_map_from_elapsed[__i__] = omp_stream_event_elapsed_ms(&__dev_stream__[__i__], 5);
-		REAL total = f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__] + kernel_u2uold_elapsed[__i__] + halo_exchange_elapsed[__i__] + kernel_jacobi_elapsed[__i__]  + u_map_from_elapsed[__i__];
-		printf("device: %d, total: %4f\n", __i__, total);
-		printf("\t\tstreamCreate overhead: %4f\n", streamCreate_elapsed[__i__]);
-		printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %g\n", f_map_to_elapsed[__i__], u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
-		printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %g\n", f_map_to_elapsed[__i__] + u_map_to_elapsed[__i__], kernel_u2uold_elapsed[__i__], halo_exchange_elapsed[__i__], kernel_jacobi_elapsed[__i__], u_map_from_elapsed[__i__]);
-		f_map_to_accumulated += f_map_to_elapsed[__i__];
-		u_map_to_accumulated += u_map_to_elapsed[__i__];
-		kernel_u2uold_accumulated += kernel_u2uold_elapsed[__i__];
-		halo_exchange_accumulated += halo_exchange_elapsed[__i__];
-		kernel_jacobi_accumulated += kernel_jacobi_elapsed[__i__];
-		u_map_from_accumulated += u_map_from_elapsed[__i__];
-		streamCreate_accumulated += streamCreate_elapsed[__i__];
-	}
-	REAL gpu_total = f_map_to_accumulated + u_map_to_accumulated + kernel_u2uold_accumulated + halo_exchange_accumulated + kernel_jacobi_accumulated + u_map_from_accumulated;
-	printf("ACCUMULATED GPU time (%d GPUs): %4f\n", __num_target_devices__ , gpu_total);
-	printf("\t\tstreamCreate overhead: %4f\n",streamCreate_accumulated);
-	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %g\n", f_map_to_accumulated , u_map_to_accumulated , kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
-	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %g\n", f_map_to_accumulated + u_map_to_accumulated, kernel_u2uold_accumulated , halo_exchange_accumulated , kernel_jacobi_accumulated , u_map_from_accumulated);
-
-	printf("AVERAGE GPU time (per GPU): %4f\n", gpu_total/__num_target_devices__);
-	printf("\t\tbreakdown: f map_to: %4f; u map_to: %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, u map_from: %g\n", f_map_to_accumulated/__num_target_devices__, u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
-	printf("\t\tbreakdown: f map_to (u and f): %4f; u2uold kernel: %4f; halo_exchange: %4f; kernel_jacobi: %4f, map_from (u): %g\n", f_map_to_accumulated/__num_target_devices__ + u_map_to_accumulated/__num_target_devices__, kernel_u2uold_accumulated/__num_target_devices__, halo_exchange_accumulated/__num_target_devices__, kernel_jacobi_accumulated/__num_target_devices__, u_map_from_accumulated);
-
-	printf("----------------------------------------------------------------\n");
-	printf("Total time measured from CPU: %4f\n", cpu_total);
-	printf("Total time measured without streamCreate %4f\n", (cpu_total-streamCreate_accumulated));
-	printf("AVERAGE total (CPU cost+GPU) per GPU: %4f\n", cpu_total/__num_target_devices__);
-	printf("Total CPU cost: %4f\n", cpu_total - gpu_total);
-	printf("AVERAGE CPU cost per GPU: %4f\n", (cpu_total-gpu_total)/__num_target_devices__);
-	printf("==========================================================================================================================================\n");
-#endif
+	*/
 }

@@ -9,9 +9,9 @@
  * It always start with copyto and may stops after copyto for target data
  * master is just the thread that will store
  */
-void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloading_info_t * off_info) {
-	if (off_info->recurring) off_info->recurring ++; /* recurring, increment the number of offloading */
-
+void omp_offloading_start(omp_offloading_info_t * off_info) {
+	omp_device_t ** targets = off_info->targets;
+	int num_targets = off_info->top->nnodes;
 	int i;
 	for (i = 0; i < num_targets; i++) {
 		if (targets[i]->offload_request != NULL) {
@@ -23,6 +23,8 @@ void omp_offloading_start(omp_device_t ** targets, int num_targets, omp_offloadi
 		 */
 	}
 	pthread_barrier_wait(&off_info->barrier);
+	if (off_info->recurring) off_info->recurring ++; /* recurring, increment the number of offloading */
+
 #if defined (OMP_BREAKDOWN_TIMING)
 	pthread_barrier_wait(&off_info->barrier); /* this one make sure the profiling is collected */
 #endif
@@ -68,8 +70,6 @@ void omp_data_exchange_dev(omp_device_t * dev) {
 	pthread_barrier_wait(&x_info->barrier);
 }
 
-#define OMP_BREAKDOWN_TIMING 1
-
 /**
  * called by the shepherd thread
  */
@@ -112,17 +112,17 @@ void omp_offloading_run(omp_device_t * dev) {
 
 	int total_event_index = 0;       	/* host event */
 	int timing_init_event_index = 1; 	/* host event */
-	int sync_cleanup_event_index = 2;	/* host event */
-	int barrier_wait_event_index = 3;	/* host event */
-	int map_init_event_index = 4;  		/* host event */
+	int map_init_event_index = 2;  		/* host event */
+	int sync_cleanup_event_index = 3;	/* host event */
+	int barrier_wait_event_index = 4;	/* host event */
 
 	int acc_mapto_event_index = 5; 		/* dev event */
 	int kernel_exe_event_index = -1;	/* dev event */
 	int acc_mapfrom_event_index = -1;	/* dev event */
 
 	/* set up stream and event */
-	omp_event_init(&events[total_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
-	omp_event_record_start(&events[total_event_index], NULL, OMP_EVENT_HOST_RECORD, "K_TOTAL", "Kernel offloading time (everything) on dev: %d", devid);
+	if (off_info->recurring <= 1) omp_event_init(&events[total_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+	omp_event_record_start(&events[total_event_index], NULL, OMP_EVENT_HOST_RECORD, "OFF_TOTAL", "Total offloading time (everything) on dev: %d", devid);
 #endif
 
 //	case OMP_OFFLOADING_INIT:
@@ -133,6 +133,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		omp_event_init(&events[timing_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
 		omp_event_record_start(&events[timing_init_event_index], NULL, OMP_EVENT_HOST_RECORD, "INIT_0", "Time for initialization of stream and event", devid);
 #endif
+
 #if defined USING_PER_OFFLOAD_STREAM
 		omp_stream_create(dev, &off->mystream, 0);
 		off->stream = &off->mystream;
@@ -275,7 +276,6 @@ omp_offloading_copyfrom: ;
 	//case OMP_OFFLOADING_SYNC_CLEANUP:
 	{
 omp_offloading_sync_cleanup: ;
-	off_info->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		/* sync stream to wait for completion */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[sync_cleanup_event_index], NULL, OMP_EVENT_HOST_RECORD, "FINI_1", "Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarshalling)");
@@ -286,12 +286,14 @@ omp_offloading_sync_cleanup: ;
 				/* put in the offloading stack */
 				dev->offload_stack_top++;
 				dev->offload_stack[dev->offload_stack_top] = off_info;
+				//printf("pushing an off_info %X onto offload stack\n", off_info);
 			}
 		} else {
 			if (off_info->type == OMP_OFFLOADING_DATA) { /* pop up this offload stack */
 				dev->offload_stack_top--;
 			}
 
+			off_info->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 			omp_cleanup(off);
 		}
 		dev->offload_request = NULL; /* release this dev */
@@ -303,7 +305,7 @@ omp_offloading_sync_cleanup: ;
 //	case OMP_OFFLOADING_MDEV_BARRIER:
 	{
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[barrier_wait_event_index], NULL, OMP_EVENT_HOST_RECORD, "BARRIER_WAIT", "Time for barrier wait for other to complete");
+		omp_event_record_start(&events[barrier_wait_event_index], NULL, OMP_EVENT_HOST_RECORD, "BAR_FINI_2", "Time for barrier wait for other to complete");
 #endif
 		pthread_barrier_wait(&off_info->barrier);
 #if defined (OMP_BREAKDOWN_TIMING)

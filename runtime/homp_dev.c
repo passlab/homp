@@ -38,6 +38,7 @@ inline void devcall_errchk(int code, char *file, int line, int ab) {
 
 void * omp_init_dev_specific(omp_device_t * dev) {
 	omp_device_type_t devtype = dev->type;
+	dev->devstream.dev = dev;
 	dev->devstream.systream.myStream = NULL;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
@@ -472,10 +473,11 @@ void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_metho
 			abort();
 		}
 	}
+	//omp_event_print(ev);
 }
 
 void omp_event_print(omp_event_t * ev) {
-	printf("ev: %X, dev: %X, stream: %X, record method: %d, name: %s, description: %s", ev, ev->dev,
+	printf("ev: %X, dev: %X, stream: %X, record method: %d, name: %s, description: %s\n", ev, ev->dev,
 			ev->stream, ev->record_method, ev->event_name, ev->event_description);
 }
 
@@ -617,7 +619,7 @@ void omp_event_accumulate_elapsed_ms(omp_event_t * ev) {
 }
 
 void omp_event_print_profile_header() {
-	printf("%*s    TOTAL     AVE(Times)  From (host or dev)\tDescription\n",
+	printf("%*s    TOTAL     AVE(Times)  Measured from (host/dev)\t\tDescription\n",
 			OMP_EVENT_NAME_LENGTH, "Name");
 }
 
@@ -626,15 +628,15 @@ void omp_event_print_elapsed(omp_event_t * ev) {
 	//char padding[OMP_EVENT_MSG_LENGTH];
 	//memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
 	if (record_method == OMP_EVENT_HOST_RECORD) {
-		printf("%*s%10.2f%10.2f(%d)\t\thost\t%s\n",
+		printf("%*s%10.2f%10.2f(%d)\t\thost\t\t%s\n",
 				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
 	} else if (record_method == OMP_EVENT_DEV_RECORD) {
-		printf("%*s%10.2f%10.2f(%d)\t\tdev\t%s\n",
+		printf("%*s%10.2f%10.2f(%d)\t\tdev\t\t%s\n",
 				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
 	} else {
-		printf("%*s%10.2f%10.2f(%d)\thost\t%s\n",
+		printf("%*s%10.2f%10.2f(%d)\thost\t\t%s\n",
 				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
-		printf("%*s%10.2f%10.2f(%d)\t\tdev\t%s\n",
+		printf("%*s%10.2f%10.2f(%d)\t\tdev\t\t%s\n",
 				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
 	}
 }
