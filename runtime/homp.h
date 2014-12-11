@@ -504,6 +504,7 @@ extern void omp_event_print_profile_header();
 extern void omp_event_print_elapsed(omp_event_t * ev);
 extern void omp_event_elapsed_ms(omp_event_t * ev);
 extern void omp_event_accumulate_elapsed_ms(omp_event_t * ev);
+extern void omp_offloading_clear_report_info(omp_offloading_info_t * info);
 
 extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, omp_device_t ** devs, int nnodes, int ndims, int *dims, int *periodic, int * idmap);
 /*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */

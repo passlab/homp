@@ -9,7 +9,7 @@ axpy-thsim:
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 axpy-nvgpu:
-	nvcc $(TEST_INCLUDES) -I${NVGPU_CUDA_PATH}/include -DDEVICE_NVGPU_SUPPORT=1 ../runtime/homp.c ../runtime/homp_dev.c rose_axpy_ompacc.cu rose_axpy.c -c
+	nvcc $(TEST_INCLUDES) -I${NVGPU_CUDA_PATH}/include -DDEVICE_NVGPU_SUPPORT=1 -DOMP_BREAKDOWN_TIMING ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c rose_axpy_ompacc.cu rose_axpy.c -c
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 clean:

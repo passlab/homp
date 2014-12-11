@@ -65,6 +65,7 @@ int omp_init_devices() {
 
 	/* the thread-simulated devices */
 	int num_thsim_dev;
+	int i;
 
 	char * num_thsim_dev_str = getenv("OMP_NUM_THSIM_DEVICES");
 	if (num_thsim_dev_str != NULL ) {
@@ -90,6 +91,17 @@ int omp_init_devices() {
 
 	omp_num_devices += num_nvgpu_dev;
 	omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpu_dev;
+
+	/* warm up GPU and bus, e.g. loading kernel module to memory */
+	for (i=0; i<num_nvgpu_dev; i++) {
+		cudaSetDevice(i); 
+		void * dummy_dev;
+		char dummy_host[1024];
+		cudaMalloc(&dummy_dev, 1024);
+		cudaMemcpy(dummy_dev, dummy_host, 1024, cudaMemcpyHostToDevice);
+		cudaMemcpy(dummy_host, dummy_dev, 1024, cudaMemcpyDeviceToHost);
+		cudaFree(dummy_dev);
+	}
 #endif
 
 	omp_host_dev = malloc(sizeof(omp_device_t) * (omp_num_devices+1));
@@ -104,7 +116,6 @@ int omp_init_devices() {
 	omp_host_dev->data_exchange_request = NULL;
 	omp_host_dev->offload_stack_top = -1;
 
-	int i;
 
 	/* the helper thread setup */
 	pthread_attr_t attr;
@@ -559,7 +570,7 @@ void omp_event_record_stop(omp_event_t * ev) {
 
 static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	omp_device_type_t devtype = ev->dev->type;
-	double elapsed = -1.0;
+	float elapsed = -1.0;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 #ifdef USE_STREAM_HOST_CALLBACK_4_TIMING

@@ -286,11 +286,12 @@ omp_offloading_sync_cleanup: ;
 				/* put in the offloading stack */
 				dev->offload_stack_top++;
 				dev->offload_stack[dev->offload_stack_top] = off_info;
-				//printf("pushing an off_info %X onto offload stack\n", off_info);
+				//printf("pushing an off_info %X onto offload stack at position %d\n", off_info, dev->offload_stack_top);
 			}
 		} else {
 			if (off_info->type == OMP_OFFLOADING_DATA) { /* pop up this offload stack */
 				dev->offload_stack_top--;
+				//printf("pop an off_info %X onto offload stack at position %d\n", off_info, dev->offload_stack_top+1);
 			}
 
 			off_info->stage = OMP_OFFLOADING_SYNC_CLEANUP;

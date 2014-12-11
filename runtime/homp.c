@@ -149,8 +149,8 @@ void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
 		}
 		printf("----------------------- End Profiling Report for Offloading kernel(%s) on dev: %d -----------------------------------------------\n", info->name, devid);
 		free(off->events);
-#endif
 	}
+#endif
 }
 
 void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
@@ -308,8 +308,9 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 		}
 		if (off_stack_i == -1) break;
 		off_info = dev->offload_stack[off_stack_i];
+	//	printf("omp_map_get_map checks offload_stack at position %d for off_info: %X\n", off_stack_i, off_info);
 		devseqid = omp_grid_topology_get_seqid(off_info->top, devid);
-		off_stack_i --;
+		off_stack_i--;
 	} while (1);
 
 	return NULL;

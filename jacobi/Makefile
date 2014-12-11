@@ -8,7 +8,7 @@ jacobi-thsim:
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 jacobi-nvgpu:
-	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -DDEVICE_NVGPU_SUPPORT=1 ../runtime/homp.c ../runtime/homp_dev.c jacobi_ompacc_mdev.cu  -c
+	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -DDEVICE_NVGPU_SUPPORT=1 -DOMP_BREAKDOWN_TIMING ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c jacobi_ompacc_mdev.cu  -c
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 clean:
