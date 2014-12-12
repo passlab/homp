@@ -409,12 +409,10 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
     long n = iargs->n;
     long m = iargs->m;
 
-
-    omp_offloading_info_t * off_info = off->off_info;
-//    printf("IN LAUNCHER: dev: %d, off: %X, off_info: %X\n", off->devseqid, off, off_info);
-
     omp_data_map_t * map_u = omp_map_get_map(off, iargs->u, -1); /* 1 means the map u */
+    //printf("omp_map_get_map for u: %X, map: %X\n", iargs->u, map_u);
     omp_data_map_t * map_uold = omp_map_get_map(off, iargs->uold, -1); /* 2 means the map uold */
+    //printf("omp_map_get_map for uold: %X, map: %X\n", iargs->uold, map_uold);
 
     /* get the right length for each dimension */
 	long start;
@@ -461,7 +459,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
-	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
+	omp_device_type_t devtype = off->dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
@@ -517,8 +515,6 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 	REAL error = iargs->error[off->devseqid];
 	REAL resid = iargs->resid;
 
-    omp_offloading_info_t * off_info = off->off_info;
-//    printf("off: %X, off_info: %X, devseqid: %d\n", off, off_info, off->devseqid);
     omp_data_map_t * map_f = omp_map_get_map(off, iargs->f, -1); /* 0 is for the map f, here we use -1 so it will search the offloading stack */
     omp_data_map_t * map_u = omp_map_get_map(off, iargs->u, -1); /* 1 is for the map u */
     omp_data_map_t * map_uold = omp_map_get_map(off, iargs->uold, -1); /* 2 is for the map uld */
@@ -579,7 +575,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
-	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
+	omp_device_type_t devtype = off->dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);

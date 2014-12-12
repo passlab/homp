@@ -274,46 +274,84 @@ int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim) {
 	return (map->halo_mem[dim].right_dev_seqid);
 }
 
+static omp_data_map_t * omp_map_get_map_from_cache (omp_offloading_t *off, void * host_ptr) {
+	int i;
+	for (i=0; i<off->num_maps; i++) {
+		omp_data_map_t * map = off->map_cache[i];
+		if (map->info->source_ptr == host_ptr) return map;
+	}
+
+	return NULL;
+}
+
+void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map) {
+	if (off->num_maps >= OFF_MAP_CACHE_SIZE) { /* error, report */
+		fprintf(stderr, "map cache is full for off (%X), cannot add map %X\n", off, map);
+		exit(1);
+	}
+	off->map_cache[off->num_maps] = map;
+	off->num_maps++;
+}
+
+/* get map from inheritance (off stack) */
+omp_data_map_t * omp_map_get_map_inheritance (omp_device_t * dev, void * host_ptr) {
+	int i;
+	for (i=dev->offload_stack_top; i>=0; i--) {
+		omp_offloading_t * ancestor_off = dev->offload_stack[i];
+		omp_data_map_t * map = omp_map_get_map_from_cache(ancestor_off, host_ptr);
+		if (map != NULL) {
+			return map;
+		}
+	}
+	return NULL;
+}
+
 /**
  * Given the host pointer (e.g. an array pointer), find the data map of the array onto a specific device,
  * which is provided as a off_loading_t object (the off_loading_t has devseq id as well as pointer to the
  * offloading_info object that a search may need to be performed. If a map_index is provided, the search will
  * be simpler and efficient, otherwise, it may be costly by comparing host_ptr with the source_ptr of each stored map
  * in the offloading stack (call chain)
+ *
+ * The call also put a map into off->map_cache if it is not in the cache
  */
 omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index) {
+	/* STEP 1: search from the cache first */
+	omp_data_map_t * map = omp_map_get_map_from_cache(off, host_ptr);
+	if (map != NULL) {
+		return map;
+	}
+
+	/* STEP 2: if not in cache, do quick search if given by a map_index, and then do a thorough search. put in cache if finds it */
 	omp_offloading_info_t * off_info = off->off_info;
 	int devseqid = off->devseqid;
 	if (map_index >= 0 && map_index <= off_info->num_mapped_vars) {  /* the fast and common path */
-		omp_data_map_t * map = &off_info->data_map_info[map_index].maps[devseqid];
-		if (host_ptr == NULL || map->info->source_ptr == host_ptr) return map;
-	}
-
-//	printf("omp_map_get_map: off: %X, off_info: %X, host_ptr: %X\n", off, off_info, host_ptr);
-	omp_device_t * dev = off->dev;
-	int devid = dev->id;
-	int off_stack_i = dev->offload_stack_top;
-	/* a search now for all maps */
-	do {
-		if (devseqid >= 0) {
-			int i; omp_data_map_info_t * dm_info;
-			for (i=0; i<off_info->num_mapped_vars; i++) {
-				dm_info = &off_info->data_map_info[i];
-				if (dm_info->source_ptr == host_ptr) { /* we found */
-//					printf("find a match: %X\n", host_ptr);
-//					omp_print_data_map(&dm_info->maps[devseqid]);
-					return &dm_info->maps[devseqid];
-				}
+		map = &off_info->data_map_info[map_index].maps[devseqid];
+		if (host_ptr == NULL || map->info->source_ptr == host_ptr) {
+			/* append to the off->map_cache */
+			omp_offload_append_map_to_cache(off, map);
+			return map;
+		}
+	} else { /* thorough search for all the mapped variables */
+		int i; omp_data_map_info_t * dm_info;
+		for (i=0; i<off_info->num_mapped_vars; i++) {
+			dm_info = &off_info->data_map_info[i];
+			if (dm_info->source_ptr == host_ptr) { /* we found */
+				map = &dm_info->maps[devseqid];
+				//printf("find a match: %X\n", host_ptr);
+				omp_offload_append_map_to_cache(off, map);
+				//omp_print_data_map(map);
+				return map;
 			}
 		}
-		if (off_stack_i == -1) break;
-		off_info = dev->offload_stack[off_stack_i];
-	//	printf("omp_map_get_map checks offload_stack at position %d for off_info: %X\n", off_stack_i, off_info);
-		devseqid = omp_grid_topology_get_seqid(off_info->top, devid);
-		off_stack_i--;
-	} while (1);
+	}
 
-	return NULL;
+	/* STEP 3: seach the offloading stack if this inherits data map from previous data offloading */
+//	printf("omp_map_get_map: off: %X, off_info: %X, host_ptr: %X\n", off, off_info, host_ptr);
+	map = omp_map_get_map_inheritance (off->dev, host_ptr);
+	if (map != NULL) omp_offload_append_map_to_cache(off, map);
+
+	return map;
 }
 
 void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic) {
@@ -346,17 +384,6 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_
 		fprintf(stderr, "direct sharing data between host and the dev: %d is not possible with discrete mem space, we use COPY approach now\n", dev->id);
 		map->map_type = OMP_DATA_MAP_COPY;
 	}
-
-	/* put in the off cache list */
-	if (off->map_list == NULL) {
-		map->next = map;
-		off->map_list = map;
-	} else {
-		map->next = off->map_list->next;
-		off->map_list->next = map;
-		off->map_list = map;
-	}
-	off->num_maps++;
 }
 
 /* forward declaration to suppress compiler warning */
@@ -728,6 +755,13 @@ void omp_print_data_map(omp_data_map_t * map) {
 				"map_dev_ptr: %X, stream: %X, map_size: %ld\n\n", map->dev->id, map, info->source_ptr, info->dims[0], info->dims[1], info->dims[2],
 				map->map_dim[0], map->map_dim[1], map->map_dim[2], map->map_offset[0], map->map_offset[1], map->map_offset[2],
 				info->sizeof_element, map->map_buffer, map->mem_noncontiguous, map->map_dev_ptr, map->stream, map->map_size);
+}
+
+void omp_print_off_maps(omp_offloading_t * off) {
+	int i;
+	printf("off %X maps: ", off);
+	for (i=0; i<off->num_maps; i++) printf("%X, ", off->map_cache[i]);
+	printf("\n");
 }
 
 /* do a halo regin pull for data map of devid. If top is not NULL, devid will be translated to coordinate of the

@@ -143,7 +143,6 @@ void omp_offloading_run(omp_device_t * dev) {
 		off->devseqid = seqid;
 		off->dev = dev;
 		off->off_info = off_info;
-		off->map_list = NULL;
 		off->num_maps = 0;
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -165,11 +164,17 @@ void omp_offloading_run(omp_device_t * dev) {
 		omp_event_record_start(&events[map_init_event_index], NULL, OMP_EVENT_HOST_RECORD, "INIT_1", "Time for init map, data dist, buffer allocation, and data marshalling");
 #endif
 		for (i=0; i<off_info->num_mapped_vars; i++) {
+			/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
-			omp_data_map_t * map = &map_info->maps[seqid];
-			omp_data_map_init_map(map, map_info, dev, off->stream, off);
-			omp_data_map_dist(map, seqid, off);
-			omp_map_buffer(map, off);
+
+			omp_data_map_t * map = omp_map_get_map_inheritance (dev, map_info->source_ptr);
+			if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
+				map = &map_info->maps[seqid];
+				omp_data_map_init_map(map, map_info, dev, off->stream, off);
+				omp_data_map_dist(map, seqid, off);
+				omp_map_buffer(map, off);
+			}
+			omp_offload_append_map_to_cache(off, map);
 			//omp_print_data_map(map);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -285,13 +290,13 @@ omp_offloading_sync_cleanup: ;
 			if (off_info->type == OMP_OFFLOADING_DATA) { /* this should be just an assertation */
 				/* put in the offloading stack */
 				dev->offload_stack_top++;
-				dev->offload_stack[dev->offload_stack_top] = off_info;
-				//printf("pushing an off_info %X onto offload stack at position %d\n", off_info, dev->offload_stack_top);
+				dev->offload_stack[dev->offload_stack_top] = off;
+				//printf("pushing an off %X onto offload stack at position %d\n", off, dev->offload_stack_top);
 			}
 		} else {
 			if (off_info->type == OMP_OFFLOADING_DATA) { /* pop up this offload stack */
 				dev->offload_stack_top--;
-				//printf("pop an off_info %X onto offload stack at position %d\n", off_info, dev->offload_stack_top+1);
+				//printf("pop an off %X onto offload stack at position %d\n", off, dev->offload_stack_top+1);
 			}
 
 			off_info->stage = OMP_OFFLOADING_SYNC_CLEANUP;

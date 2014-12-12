@@ -122,9 +122,9 @@ struct omp_device {
 	volatile omp_offloading_info_t * offload_request; /* this is the notification flag that the helper thread will pick up the offloading request */
 	volatile omp_data_map_exchange_info_t * data_exchange_request; /* this is the notification for exchanging data among devs */
 
-	omp_offloading_info_t * offload_stack[4];
+	omp_offloading_t * offload_stack[4];
 	/* the stack for keeping the nested but unfinished offloading request, we actually only need 2 so far.
-	 * However, if we know the current offload_info (being processed) is one that the device will run to completion, we will not put into the stack
+	 * However, if we know the current offload (being processed) is one that the device will run to completion, we will not put into the stack
 	 * for the purpose of saving the cost of push/pop. Thus the stack only keep those pending offload (e.g. inside a "target data" offload, we have
 	 * a "target" offload, the "target data" offload will be pushed to the stack. The purpose of this stack is to help data mapping inheritance, i.e.
 	 * reuse the data map created in the upper-level enclosing offloading operations (typically target data).
@@ -338,8 +338,6 @@ struct omp_data_map {
 	int mem_noncontiguous;
 	omp_data_map_type_t map_type;
 	omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
-
-	omp_data_map_t * next; /* the pointer to form the linked list for a list of maps used by a device offload */
 };
 
 /**
@@ -449,6 +447,7 @@ struct omp_offloading_info {
 	pthread_barrier_t barrier;
 };
 
+#define OFF_MAP_CACHE_SIZE 64
 /**
  * info for per device
  *
@@ -467,9 +466,11 @@ struct omp_offloading {
 	int devseqid; /* device seqid in the top */
 	omp_device_t * dev; /* the dev object, as cached info */
 
-	omp_data_map_t * map_list; /* it is a circular linked list and map_list point to the last element of the list */
+	/* we will use a simple fix-sized array for simplicity and performance (than a linked list) */
+	omp_data_map_t *map_cache[OFF_MAP_CACHE_SIZE]; /* an offload can has as many as OFFLOADING_MAP_CACHE_SIZE mapped variable */
 	int num_maps;
 
+	/* for profiling purpose */
 	omp_event_t *events;
 	int num_events;
 
@@ -528,6 +529,8 @@ extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
 extern void omp_data_map_exchange_start(omp_device_t ** targets, int num_targets, omp_data_map_exchange_info_t * x_info);
 
+extern void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map);
+extern omp_data_map_t * omp_map_get_map_inheritance (omp_device_t * dev, void * host_ptr);
 extern omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index);
 extern void omp_print_data_map(omp_data_map_t * map);
 extern void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off);

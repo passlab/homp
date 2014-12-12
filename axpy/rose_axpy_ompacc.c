@@ -45,7 +45,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
     long start_n, length_n;
     REAL a = iargs->a;
     REAL n = iargs->n;
-    omp_offloading_info_t * off_info = off->off_info;
+    //omp_offloading_info_t * off_info = off->off_info;
     //printf("off: %X, off_info: %X, devseqid: %d\n", off, off_info, off->devseqid);
     omp_data_map_t * map_x = omp_map_get_map(off, iargs->x, -1);
     //omp_data_map_t * map_x = &off_info->data_map_info[0].maps[off->devseqid]; /* 0 means the map X */
@@ -63,7 +63,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
     omp_loop_map_range(map_x, 0, -1, -1, &start_n, &length_n);
 //    printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
     
-	omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
+	omp_device_type_t devtype = off->dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
