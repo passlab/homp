@@ -78,29 +78,49 @@ int omp_init_devices() {
 
 	/* for NVDIA GPU devices */
 	int num_nvgpu_dev = 0;
-#if defined (DEVICE_NVGPU_SUPPORT)
 	int total_gpudevs = 0;
+
+#if defined (DEVICE_NVGPU_SUPPORT)
 	cudaError_t result = cudaGetDeviceCount(&total_gpudevs);
 	devcall_assert(result);
+#endif
 
-	char * num_nvgpu_dev_str = getenv("OMP_NUM_NVGPU_DEVICES");
-	if (num_nvgpu_dev_str != NULL ) {
-		sscanf(num_nvgpu_dev_str, "%d", &num_nvgpu_dev);
-		if (num_nvgpu_dev > total_gpudevs || num_nvgpu_dev < 0) num_nvgpu_dev = total_gpudevs;
-	} else num_nvgpu_dev = total_gpudevs;
+	int gpu_selection[total_gpudevs];
+	for (i=0; i<total_gpudevs;i++) gpu_selection[i] = 0;
 
-	omp_num_devices += num_nvgpu_dev;
-	omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpu_dev;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	if (total_gpudevs > 0) {
+		char * nvgpu_dev_str = getenv("OMP_NVGPU_DEVICES");
+		if (nvgpu_dev_str != NULL ) {
+			char * token = strtok(nvgpu_dev_str, ",");
+			while(token != NULL) {
+				int gpuid;
+				sscanf(token, "%d", &gpuid);
+				gpu_selection[gpuid] = 1;
+				num_nvgpu_dev ++;
+			}
+		} else {
+			char * num_nvgpu_dev_str = getenv("OMP_NUM_NVGPU_DEVICES");
+			if (num_nvgpu_dev_str != NULL ) {
+				sscanf(num_nvgpu_dev_str, "%d", &num_nvgpu_dev);
+				if (num_nvgpu_dev > total_gpudevs || num_nvgpu_dev < 0) num_nvgpu_dev = total_gpudevs;
+			} else num_nvgpu_dev = total_gpudevs;
+			for (i=0; i<num_nvgpu_dev;i++) gpu_selection[i] = 1;
+		}
 
-	/* warm up GPU and bus, e.g. loading kernel module to memory */
-	for (i=0; i<num_nvgpu_dev; i++) {
-		cudaSetDevice(i); 
-		void * dummy_dev;
-		char dummy_host[1024];
-		cudaMalloc(&dummy_dev, 1024);
-		cudaMemcpy(dummy_dev, dummy_host, 1024, cudaMemcpyHostToDevice);
-		cudaMemcpy(dummy_host, dummy_dev, 1024, cudaMemcpyDeviceToHost);
-		cudaFree(dummy_dev);
+		omp_num_devices += num_nvgpu_dev;
+		omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpu_dev;
+
+		/* warm up GPU and bus, e.g. loading kernel module to memory */
+		for (i=0; i<num_nvgpu_dev; i++) {
+			cudaSetDevice(i);
+			void * dummy_dev;
+			char dummy_host[1024];
+			cudaMalloc(&dummy_dev, 1024);
+			cudaMemcpy(dummy_dev, dummy_host, 1024, cudaMemcpyHostToDevice);
+			cudaMemcpy(dummy_host, dummy_dev, 1024, cudaMemcpyDeviceToHost);
+			cudaFree(dummy_dev);
+		}
 	}
 #endif
 
@@ -124,13 +144,20 @@ int omp_init_devices() {
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 	pthread_setconcurrency(omp_num_devices);
 
+	int j = 0;
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		dev->id = i;
 		if (i < omp_device_types[OMP_DEVICE_NVGPU].num_devs) {
 			dev->type = OMP_DEVICE_NVGPU;
 			dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
-			dev->sysid = i;
+			for (; j<total_gpudevs; j++) {
+				if (gpu_selection[j]) {
+					break;
+				}
+			}
+			dev->sysid = j;
+			j++;
 		} else {
 			dev->type  = OMP_DEVICE_THSIM;
 			dev->mem_type = OMP_DEVICE_MEM_SHARED_CC_NUMA;
@@ -154,7 +181,8 @@ int omp_init_devices() {
 	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
 	printf("The number of each type of devices can be controlled by environment variables:\n");
 	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
-	printf("\tOMP_NUM_NVGPU_DEVICES for active NVIDIA GPU devices (default, system available)\n");
+	printf("\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\", i.e. ,separated list with no spaces)");
+	printf("\tOMP_NUM_NVGPU_DEVICES for select active NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)\n");
 	printf("\tTo make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)\n");
 	return omp_num_devices;
 }

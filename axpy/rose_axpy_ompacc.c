@@ -73,6 +73,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 		int i;
+#pragma omp parallel for shared(y, x, a)
 		for (i=start_n; i<start_n + length_n; i++) {
 			y[i] += a*x[i];
 	//		printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);

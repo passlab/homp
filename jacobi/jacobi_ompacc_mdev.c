@@ -807,6 +807,21 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	struct OUT__1__10550__args args_2;
   	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2);
 
+  	/* halo exchange offloading */
+  	omp_data_map_exchange_info_t u_uold_xchange;
+  	omp_data_map_halo_exchange_t x_halos[1];
+  	x_halos[0].map_info = &__data_map_infos__[2]; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
+  	if (dist == 1) {
+  		x_halos[0].x_dim = 0;
+  	} else if (dist == 2) {
+  		x_halos[0].x_dim = 1;
+  	} else {
+  		x_halos[0].x_dim = -1; /* means all the dimension */
+  	}
+
+  	u_uold_xchange.x_halos = x_halos;
+  	u_uold_xchange.num_maps = 1;
+
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
@@ -815,20 +830,6 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 
 		/** halo exchange */
 		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
-
-	  	omp_data_map_exchange_info_t u_uold_xchange;
-	  	omp_data_map_halo_exchange_t x_halos[1];
-	  	x_halos[0].map_info = &__data_map_infos__[2]; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
-	  	if (dist == 1) {
-	  		x_halos[0].x_dim = 0;
-	  	} else if (dist == 2) {
-	  		x_halos[0].x_dim = 1;
-	  	} else {
-	  		x_halos[0].x_dim = -1; /* means all the dimension */
-	  	}
-
-	  	u_uold_xchange.x_halos = x_halos;
-	  	u_uold_xchange.num_maps = 1;
 	  	omp_data_map_exchange_start(__target_devices__, __num_target_devices__, &u_uold_xchange);
 
 		/* jacobi */

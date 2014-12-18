@@ -442,6 +442,8 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid, omp_offloading_t * off) {
 		} else if (dist->type == OMP_DATA_MAP_DIST_FULL) { /* full rang dist */
 			map->map_dim[i] = n;
 			map->map_offset[i] = dist->start;
+		} else if (dist->type == OMP_DATA_MAP_DIST_BALANCE) {
+			/* performance model based data distribution */
 
 		} else {
 			fprintf(stderr, "other dist type %d is not yet supported\n",

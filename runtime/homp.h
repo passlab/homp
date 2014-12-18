@@ -116,6 +116,7 @@ struct omp_device {
 	unsigned long core_frequency;
 	unsigned int arch_factor; /* means to capture micro arch factor that impact performance, e.g. superscalar, deeper pipeline, etc */
 
+	unsigned long bandwidth; /* between host memory and dev memory for profile data movement cost */
 
 	int status;
 	struct omp_device * next; /* the device list */
@@ -222,6 +223,7 @@ typedef enum omp_data_map_type {
 typedef enum omp_data_map_dist_type {
 	OMP_DATA_MAP_DIST_EVEN,
 	OMP_DATA_MAP_DIST_FULL,
+	OMP_DATA_MAP_DIST_BALANCE, /* the balanced data distribution so computation is balanced distributed, ideally */
 	OMP_DATA_MAP_DIST_FIX, /* user defined */
 	OMP_DATA_MAP_DIST_CHUNK, /* with chunk size, and cyclic */
 } omp_data_map_dist_type_t;
