@@ -338,6 +338,7 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 		long ii, jj, kk;
+#pragma omp parallel for shared(A, B, C, i,j,k) private(ii, jj, kk)
 		for (ii=0; ii<i; ii++) {
 			for (jj=0; jj<j; jj++) {
 				REAL sum = 0.0;

@@ -181,8 +181,8 @@ int omp_init_devices() {
 	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
 	printf("The number of each type of devices can be controlled by environment variables:\n");
 	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
-	printf("\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\", i.e. ,separated list with no spaces)");
-	printf("\tOMP_NUM_NVGPU_DEVICES for select active NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)\n");
+	printf("\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\", i.e. ,separated list with no spaces)\n");
+	printf("\tOMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)\n");
 	printf("\tTo make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)\n");
 	return omp_num_devices;
 }
