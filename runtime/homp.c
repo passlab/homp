@@ -134,6 +134,14 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
 
+static char * omp_get_device_typename(omp_device_t * dev) {
+	int i;
+	for (i=0; i<OMP_NUM_DEVICE_TYPES; i++) {
+		if (omp_device_types[i].type == dev->type) return omp_device_types[i].name;
+	}
+	return NULL;
+}
+
 void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
 	pthread_barrier_destroy(&info->barrier);
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -141,8 +149,10 @@ void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char * type = omp_get_device_typename(off->dev);
 		int j;
-		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on dev: %d ---------------------------------------------\n", info->name, devid);
+		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------------------------\n", info->name,  type, devid, devsysid);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
 			omp_event_print_elapsed(&off->events[j]);

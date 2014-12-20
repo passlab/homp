@@ -46,6 +46,14 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 		cudaSetDevice(dev->sysid);
 		cudaGetDeviceProperties(dev->dev_properties, dev->sysid);
 		dev->devstream.systream.cudaStream = 0;
+
+		/* warm up the device */
+		void * dummy_dev;
+		char dummy_host[1024];
+		cudaMalloc(&dummy_dev, 1024);
+		cudaMemcpy(dummy_dev, dummy_host, 1024, cudaMemcpyHostToDevice);
+		cudaMemcpy(dummy_host, dummy_dev, 1024, cudaMemcpyDeviceToHost);
+		cudaFree(dummy_dev);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
@@ -98,6 +106,7 @@ int omp_init_devices() {
 				sscanf(token, "%d", &gpuid);
 				gpu_selection[gpuid] = 1;
 				num_nvgpu_dev ++;
+				token = strtok(NULL, ",");
 			}
 		} else {
 			char * num_nvgpu_dev_str = getenv("OMP_NUM_NVGPU_DEVICES");
@@ -110,17 +119,6 @@ int omp_init_devices() {
 
 		omp_num_devices += num_nvgpu_dev;
 		omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpu_dev;
-
-		/* warm up GPU and bus, e.g. loading kernel module to memory */
-		for (i=0; i<num_nvgpu_dev; i++) {
-			cudaSetDevice(i);
-			void * dummy_dev;
-			char dummy_host[1024];
-			cudaMalloc(&dummy_dev, 1024);
-			cudaMemcpy(dummy_dev, dummy_host, 1024, cudaMemcpyHostToDevice);
-			cudaMemcpy(dummy_host, dummy_dev, 1024, cudaMemcpyDeviceToHost);
-			cudaFree(dummy_dev);
-		}
 	}
 #endif
 
