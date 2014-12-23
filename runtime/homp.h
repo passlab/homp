@@ -19,8 +19,6 @@ extern "C" {
 #include <cuda_runtime.h>
 #endif
 
-#define OMP_BREAKDOWN_TIMING 1
-
 /**************************** OpenMP 4.0 standard support *******************************/
 extern int default_device_var; /* -1 means no device, the runtime should be initialized this to be 0 if there is at least one device */
 /* the OMP_DEFAULT_DEVICE env variable is also defined in 4.0, which set the default-device-var icv */

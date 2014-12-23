@@ -821,23 +821,30 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	} else {
   		x_halos[0].x_dim = -1; /* means all the dimension */
   	}
+//#define STANDALONE_DATA_X 1
 
+#if !defined (STANDALONE_DATA_X)
   	/* there are two approaches we handle halo exchange, appended data exchange or standalone one */
   	/* option 1: appended data exchange */
   	omp_offloading_append_data_exchange_info(&__off_info_1__, x_halos, 1);
-
+#else
   	/* option 2: standalone offloading */
-  	omp_offloading_info_t uuold_halo_x_off;
-  	omp_offloading_standalone_data_exchange_init_info("u-uold halo exchange", &uuold_halo_x_off, &__top__, __target_devices__, 1, 0, NULL, x_halos, 1);
+  	omp_offloading_info_t uuold_halo_x_off_info;
+	omp_offloading_t uuold_halo_x_offs[__num_target_devices__];
+	uuold_halo_x_off_info.offloadings = uuold_halo_x_offs;
+  	omp_offloading_standalone_data_exchange_init_info("u-uold halo exchange", &uuold_halo_x_off_info, &__top__, __target_devices__, 1, 0, NULL, x_halos, 1);
+#endif
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
 	  	omp_offloading_start(&__off_info_1__);
 
+#if defined (STANDALONE_DATA_X)
 		/** option 2 halo exchange */
-		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
-	  	omp_offloading_start(&uuold_halo_x_off);
+		printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
+	  	omp_offloading_start(&uuold_halo_x_off_info);
+#endif
 
 		/* jacobi */
 	  	int __i__;
@@ -862,6 +869,9 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	omp_offloading_clear_report_info(&__offloading_info__);
 	omp_offloading_clear_report_info(&__off_info_1__);
 	omp_offloading_clear_report_info(&__off_info_2__);
+#if defined (STANDALONE_DATA_X)
+	omp_offloading_clear_report_info(&uuold_halo_x_off_info);
+#endif
 
 	printf("Total Number of Iterations:%d\n", k);
 	printf("Residual:%E\n", error);

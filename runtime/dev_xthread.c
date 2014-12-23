@@ -23,6 +23,10 @@ void omp_offloading_start(omp_offloading_info_t * off_info) {
 		 */
 	}
 	pthread_barrier_wait(&off_info->barrier);
+
+	if (off_info->type != OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE && off_info->halo_x_info != NULL) { /* appended halo exchange */
+		pthread_barrier_wait(&off_info->barrier);
+	}
 	if (off_info->recurring) off_info->recurring ++; /* recurring, increment the number of offloading */
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -339,7 +343,9 @@ void helper_thread_main(void * arg) {
 	/*************** loop *******************/
 	while (omp_device_complete == 0) {
 		//	printf("helper threading (devid: %d) waiting ....\n", devid);
-		while (dev->offload_request == NULL);
+		while (dev->offload_request == NULL) {
+			if (omp_device_complete) return;
+		}
 		omp_offloading_run(dev);
 	}
 }
