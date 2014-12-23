@@ -19,6 +19,8 @@ extern "C" {
 #include <cuda_runtime.h>
 #endif
 
+#define OMP_BREAKDOWN_TIMING 1
+
 /**************************** OpenMP 4.0 standard support *******************************/
 extern int default_device_var; /* -1 means no device, the runtime should be initialized this to be 0 if there is at least one device */
 /* the OMP_DEFAULT_DEVICE env variable is also defined in 4.0, which set the default-device-var icv */
@@ -30,7 +32,6 @@ typedef struct omp_device omp_device_t;
 typedef struct omp_data_map omp_data_map_t;
 typedef struct omp_offloading_info omp_offloading_info_t;
 typedef struct omp_offloading omp_offloading_t;
-typedef struct omp_data_map_exchange_info omp_data_map_exchange_info_t;
 
 /**
  * multiple device support
@@ -121,7 +122,6 @@ struct omp_device {
 	int status;
 	struct omp_device * next; /* the device list */
 	volatile omp_offloading_info_t * offload_request; /* this is the notification flag that the helper thread will pick up the offloading request */
-	volatile omp_data_map_exchange_info_t * data_exchange_request; /* this is the notification for exchanging data among devs */
 
 	omp_offloading_t * offload_stack[4];
 	/* the stack for keeping the nested but unfinished offloading request, we actually only need 2 so far.
@@ -358,23 +358,20 @@ typedef enum omp_data_map_exchange_direction {
  * the data exchange info, used for forwarding a request to shepherd thread to perform
  * parallel data exchange between devices, e.g. halo region exchange
  */
-typedef struct omp_data_map_halo_exchange {
+typedef struct omp_data_map_halo_exchange_info {
 	omp_data_map_info_t * map_info; /* the map info the exchange needs to perform */
 	int x_dim;
 	omp_data_map_exchange_direction_t x_direction;
-} omp_data_map_halo_exchange_t;
-
-struct omp_data_map_exchange_info {
-	omp_data_map_halo_exchange_t * x_halos;
-	int num_maps;
-
-	pthread_barrier_t barrier;
-};
+} omp_data_map_halo_exchange_info_t;
 
 typedef enum omp_offloading_type {
 	OMP_OFFLOADING_DATA, /* e.g. omp target data, i.e. only offloading data */
 	OMP_OFFLOADING_DATA_CODE, /* e.g. omp target, i.e. offloading both data and code, and all the data used by the code are specified in this one */
-	OMP_OFFLOADING_CODE, /* e.g. omp target, i.e. offloading code and partical data only, for other data, inherent data offloaded by the enclosing omp target data */
+	OMP_OFFLOADING_CODE, /* e.g. omp target, i.e. offloading code and partial data only, for other data, inherent data offloaded by the enclosing omp target data */
+
+	/* data exchange offloading, while a regular offloading can carry data exchange that will
+	 * be performed after finishing the offloading tasks, this type of offloading is a standalone data exchange offloading */
+	OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE,
 } omp_offloading_type_t;
 
 /**
@@ -445,6 +442,15 @@ struct omp_offloading_info {
 	void * args;
 	void (*kernel_launcher)(omp_offloading_t *, void *); /* the same kernel to be called by each of the target device, if kernel == NULL, we are just offloading data */
 
+	/* there are two approaches we handle halo exchange, 1) halo exchange as part of a previous regular kernel offloading and halo exchange
+	 * will be executed right after finishing the kernel. 2) halo exchange as a standalone offloading operations.
+	 *
+	 * For standalone data exchange offloading, the type is OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE, for the first option, runtime will
+	 * check whether halo_x_info pointer is NULL or not to see whether there is appended data exchange or not after a regular kernel
+	 */
+	omp_data_map_halo_exchange_info_t * halo_x_info;
+	int num_maps_halo_x;
+
 	/* the participating barrier */
 	pthread_barrier_t barrier;
 };
@@ -485,12 +491,16 @@ struct omp_offloading {
 
 extern int omp_init_devices(); /* return # of devices initialized */
 extern void omp_fini_devices();
+extern char * omp_get_device_typename(omp_device_t * dev);
 extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
 
 extern void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type,
 		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args);
+extern void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x);
+extern void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_offloading_info_t * info,
+		omp_grid_topology_t * top, omp_device_t **targets, int recurring, int num_mapped_vars, omp_data_map_info_t * data_map_info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x );
 extern void omp_offloading_start(omp_offloading_info_t * off_info);
 extern void helper_thread_main(void * arg);
 
@@ -501,7 +511,7 @@ extern void omp_cleanup(omp_offloading_t * off);
 
 extern void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_method_t record_method);
 extern void omp_event_print(omp_event_t * ev);
-extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_name, const char * event_msg, ...);
+extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, const char * event_name, const char * event_msg, ...);
 extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_print_profile_header();
 extern void omp_event_print_elapsed(omp_event_t * ev);
@@ -529,7 +539,6 @@ extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int lef
 extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);
 extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
-extern void omp_data_map_exchange_start(omp_device_t ** targets, int num_targets, omp_data_map_exchange_info_t * x_info);
 
 extern void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map);
 extern omp_data_map_t * omp_map_get_map_inheritance (omp_device_t * dev, void * host_ptr);

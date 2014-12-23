@@ -130,11 +130,30 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 	info->data_map_info = data_map_info;
 	info->kernel_launcher = kernel_launcher;
 	info->args = args;
+	info->halo_x_info = NULL;
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
 
-static char * omp_get_device_typename(omp_device_t * dev) {
+void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x) {
+	info->halo_x_info = halo_x_info;
+	info->num_maps_halo_x = num_maps_halo_x;
+}
+
+void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_offloading_info_t * info,
+		omp_grid_topology_t * top, omp_device_t **targets, int recurring, int num_mapped_vars, omp_data_map_info_t * data_map_info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x ) {
+	info->name = name;
+	info->top = top;
+	info->targets = targets;
+	info->recurring = recurring == 0? 0 : 1;
+	info->type = OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE;
+	info->num_mapped_vars = num_mapped_vars;
+	info->data_map_info = data_map_info;
+	info->halo_x_info = halo_x_info;
+	info->num_maps_halo_x = num_maps_halo_x;
+}
+
+char * omp_get_device_typename(omp_device_t * dev) {
 	int i;
 	for (i=0; i<OMP_NUM_DEVICE_TYPES; i++) {
 		if (omp_device_types[i].type == dev->type) return omp_device_types[i].name;
@@ -155,7 +174,8 @@ void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
 		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------------------------\n", info->name,  type, devid, devsysid);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
-			omp_event_print_elapsed(&off->events[j]);
+			omp_event_t * ev = &off->events[j];
+			if (ev->event_name != NULL) omp_event_print_elapsed(ev);
 		}
 		printf("----------------------- End Profiling Report for Offloading kernel(%s) on dev: %d -----------------------------------------------\n", info->name, devid);
 		free(off->events);
