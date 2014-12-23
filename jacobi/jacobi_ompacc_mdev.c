@@ -597,7 +597,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		omp_map_memcpy_from_async(_host_per_block_error, _dev_per_block_error, off->dev, sizeof(REAL)*teams_per_league, off->stream);
 		omp_stream_sync(off->stream);
 
-		xomp_beyond_block_reduction_double(_host_per_block_error, teams_per_league, XOMP_REDUCTION_PLUS);
+		iargs->error[off->devseqid] = xomp_beyond_block_reduction_double(_host_per_block_error, teams_per_league, XOMP_REDUCTION_PLUS);
 		//cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_double_stream_callback, args, 0);
 		omp_map_free_dev(off->dev, _dev_per_block_error);
 
@@ -851,7 +851,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 
 		/* Error check */
 		if ((k % 500) == 0)
-		printf("Finished %d iteration with error %g\n", k, error);
+		printf("Parallel: Finished %d iteration with error %g\n", k, error);
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */
