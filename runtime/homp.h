@@ -420,6 +420,8 @@ typedef struct omp_kernel_profile_info {
   * The barrier is used for syncing target devices
   *
   * Also each device maintains its own offloading stack, the nest offloading operations to the device, see omp_device object.
+  *
+  * when an off_info being forwarded to dev helper thread, it should be read-only
   */
 struct omp_offloading_info {
 	/************** per-offloading var, shared by all target devices ******/
@@ -430,7 +432,6 @@ struct omp_offloading_info {
 	volatile int recurring; /* if an offload is within a loop (while/for, etc and with goto) of a function, it is a recurring */
 
 	omp_offloading_type_t type;
-	omp_offloading_stage_t stage;
 	int num_mapped_vars;
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
 	omp_offloading_t * offloadings; /* a list of dev-specific offloading objects, num of this is num of targets from top */
@@ -471,9 +472,14 @@ struct omp_offloading {
 	omp_dev_stream_t *stream;
 	int devseqid; /* device seqid in the top */
 	omp_device_t * dev; /* the dev object, as cached info */
+	omp_offloading_stage_t stage;
 
 	/* we will use a simple fix-sized array for simplicity and performance (than a linked list) */
-	omp_data_map_t *map_cache[OFF_MAP_CACHE_SIZE]; /* an offload can has as many as OFFLOADING_MAP_CACHE_SIZE mapped variable */
+	/* an offload can has as many as OFFLOADING_MAP_CACHE_SIZE mapped variable */
+	struct {
+		omp_data_map_t * map;
+		int * inherited; /* flag to mark whether this is an inherited map or not */
+	} map_cache[OFF_MAP_CACHE_SIZE];
 	int num_maps;
 
 	/* for profiling purpose */
@@ -538,7 +544,8 @@ extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);
 extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
 
-extern void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map);
+extern void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map, int inherited);
+extern int omp_map_is_map_inherited(omp_offloading_t *off, omp_data_map_t *map);
 extern omp_data_map_t * omp_map_get_map_inheritance (omp_device_t * dev, void * host_ptr);
 extern omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index);
 extern void omp_print_data_map(omp_data_map_t * map);

@@ -802,7 +802,6 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 
 	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1);
 
-
   	omp_offloading_info_t __off_info_2__;
   	omp_offloading_t __offs_2__[__num_target_devices__];
   	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
@@ -842,7 +841,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 
 #if defined (STANDALONE_DATA_X)
 		/** option 2 halo exchange */
-		printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
+		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
 	  	omp_offloading_start(&uuold_halo_x_off_info);
 #endif
 

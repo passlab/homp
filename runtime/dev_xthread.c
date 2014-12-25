@@ -98,7 +98,7 @@ void omp_offloading_run(omp_device_t * dev) {
 //	case OMP_OFFLOADING_INIT:
 	if (off_info->recurring <= 1) /* the first time of recurring offloading or a non-recurring offloading */
 	{
-		off_info->stage = OMP_OFFLOADING_INIT;
+		off->stage = OMP_OFFLOADING_INIT;
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_init(&events[timing_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
 		omp_event_record_start(&events[timing_init_event_index], NULL, "INIT_0", "Time for initialization of stream and event", devid);
@@ -133,7 +133,7 @@ void omp_offloading_run(omp_device_t * dev) {
 #endif
 
 	    //case OMP_OFFLOADING_MAPMEM:
-		off_info->stage = OMP_OFFLOADING_MAPMEM;
+		off->stage = OMP_OFFLOADING_MAPMEM;
 		/* init data map and dev memory allocation */
 		/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -144,13 +144,15 @@ void omp_offloading_run(omp_device_t * dev) {
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 
 			omp_data_map_t * map = omp_map_get_map_inheritance (dev, map_info->source_ptr);
+			int inherited = 1;
 			if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
 				map = &map_info->maps[seqid];
 				omp_data_map_init_map(map, map_info, dev, off->stream, off);
 				omp_data_map_dist(map, seqid, off);
 				omp_map_buffer(map, off);
+				inherited = 0;
 			}
-			omp_offload_append_map_to_cache(off, map);
+			omp_offload_append_map_to_cache(off, map, inherited);
 			//omp_print_data_map(map);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -168,7 +170,7 @@ void omp_offloading_run(omp_device_t * dev) {
 //	case OMP_OFFLOADING_COPYTO:
 	{
 omp_offloading_copyto: ;
-		off_info->stage = OMP_OFFLOADING_COPYTO;
+		off->stage = OMP_OFFLOADING_COPYTO;
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_start(&events[acc_mapto_event_index], stream, "ACC_MAPTO", "Accumulated time for mapto data movement for all array");
@@ -176,6 +178,7 @@ omp_offloading_copyto: ;
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 			omp_data_map_t * map = &map_info->maps[seqid];
+			if (omp_map_is_map_inherited(off, map)) continue;
 
 			if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -196,10 +199,10 @@ omp_offloading_copyto: ;
 
 	if (off_info->type == OMP_OFFLOADING_DATA) { /* only data offloading, i.e., OMP_OFFLOADING_DATA */
 		//assert (off_info->recurring == 1);
-		off_info->stage = OMP_OFFLOADING_SYNC;
+		off->stage = OMP_OFFLOADING_SYNC;
 		goto omp_offloading_sync_cleanup;
 	} else {
-		off_info->stage = OMP_OFFLOADING_KERNEL;
+		off->stage = OMP_OFFLOADING_KERNEL;
 	}
 
 //	case OMP_OFFLOADING_KERNEL:
@@ -225,7 +228,7 @@ omp_offloading_copyto: ;
 //	case OMP_OFFLOADING_COPYFROM:
 	{
 omp_offloading_copyfrom: ;
-		off_info->stage = OMP_OFFLOADING_COPYFROM;
+		off->stage = OMP_OFFLOADING_COPYFROM;
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_start(&events[acc_mapfrom_event_index], stream,  "ACC_MAPFROM", "Accumulated time for mapfrom data movement for all array");
@@ -234,6 +237,8 @@ omp_offloading_copyfrom: ;
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 			omp_data_map_t * map = &map_info->maps[seqid];
+			if (omp_map_is_map_inherited(off, map)) continue;
+
 			if (map_info->map_direction == OMP_DATA_MAP_FROM || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 				/* TODO bug here if this is reached from the above goto, since events is not available */
@@ -261,7 +266,7 @@ omp_offloading_sync_cleanup: ;
 		omp_event_record_start(&events[sync_cleanup_event_index], NULL, "FINI_1", "Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarshalling)");
 #endif
 		omp_stream_sync(off->stream);
-		if (off_info->stage == OMP_OFFLOADING_SYNC) {
+		if (off->stage == OMP_OFFLOADING_SYNC) {
 			if (off_info->type == OMP_OFFLOADING_DATA) { /* this should be just an assertation */
 				/* put in the offloading stack */
 				dev->offload_stack_top++;
@@ -274,20 +279,20 @@ omp_offloading_sync_cleanup: ;
 				//printf("pop an off %X onto offload stack at position %d\n", off, dev->offload_stack_top+1);
 			}
 
-			off_info->stage = OMP_OFFLOADING_SYNC_CLEANUP;
+			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 			omp_cleanup(off);
 		}
-		dev->offload_request = NULL; /* release this dev */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[sync_cleanup_event_index]);
 #endif
-		off_info->stage = OMP_OFFLOADING_MDEV_BARRIER;
+		off->stage = OMP_OFFLOADING_MDEV_BARRIER;
 	}
 //	case OMP_OFFLOADING_MDEV_BARRIER:
 	{
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[barrier_wait_event_index], NULL, "BAR_FINI_2", "Time for barrier wait for other to complete");
 #endif
+		dev->offload_request = NULL; /* release this dev */
 		pthread_barrier_wait(&off_info->barrier);
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[barrier_wait_event_index]);
@@ -300,7 +305,6 @@ data_exchange:;
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[acc_ex_event_index], NULL, "DATA_X", "Time for data exchange between devices");
 #endif
-		//printf("handling halo region by dev: %d, num_maps: %d\n", dev->id, x_info->num_maps);
 		for (i=0; i<off_info->num_maps_halo_x; i++) {
 			omp_data_map_halo_exchange_info_t * x_halos = &off_info->halo_x_info[i];
 			omp_data_map_info_t * map_info = x_halos->map_info;
@@ -314,7 +318,9 @@ data_exchange:;
 		omp_event_record_stop(&events[acc_ex_event_index]);
 		omp_event_record_start(&events[acc_ex_barrier_event_index], NULL, "BAR_DATA_X", "Time for barrier sync for data exchange between devices");
 #endif
+		dev->offload_request = NULL; /* release this dev */
 		pthread_barrier_wait(&off_info->barrier);
+
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_ex_barrier_event_index]);
 #endif
