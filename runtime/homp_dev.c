@@ -131,7 +131,6 @@ int omp_init_devices() {
 	omp_host_dev->resident_data_maps = NULL;
 	omp_host_dev->next = omp_devices;
 	omp_host_dev->offload_request = NULL;
-	omp_host_dev->data_exchange_request = NULL;
 	omp_host_dev->offload_stack_top = -1;
 
 
@@ -165,7 +164,6 @@ int omp_init_devices() {
 		dev->resident_data_maps = NULL;
 		dev->next = &omp_devices[i+1];
 		dev->offload_request = NULL;
-		dev->data_exchange_request = NULL;
 		dev->offload_stack_top = -1;
 		omp_init_dev_specific(dev);
 
@@ -493,6 +491,7 @@ void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_metho
 	ev->count = 0;
 	ev->recorded = 0;
 	ev->elapsed_dev = ev->elapsed_host = 0.0;
+	ev->event_name = NULL;
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
@@ -518,18 +517,13 @@ void omp_event_print(omp_event_t * ev) {
 			ev->stream, ev->record_method, ev->event_name, ev->event_description);
 }
 
-void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, omp_event_record_method_t record_method, const char * event_name, const char * event_msg, ...) {
+void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream,  const char * event_name, const char * event_msg, ...) {
 	if (stream != NULL && stream->dev != ev->dev) {
 		fprintf(stderr, "stream and event are not compatible, they are from two different devices\n");
 		abort();
 	}
 	ev->stream = stream;
 	omp_event_record_method_t rm = ev->record_method;
-	/* we will overwrite the original record method if possible*/
-	if (rm == OMP_EVENT_HOST_RECORD && (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) ) {
-		omp_event_init(ev, ev->dev, record_method);
-		rm = record_method;
-	}
 	ev->event_name = event_name;
 	va_list l;
 	va_start(l, event_msg);

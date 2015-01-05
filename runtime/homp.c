@@ -130,11 +130,32 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 	info->data_map_info = data_map_info;
 	info->kernel_launcher = kernel_launcher;
 	info->args = args;
+	info->halo_x_info = NULL;
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
 
-static char * omp_get_device_typename(omp_device_t * dev) {
+void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x) {
+	info->halo_x_info = halo_x_info;
+	info->num_maps_halo_x = num_maps_halo_x;
+}
+
+void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_offloading_info_t * info,
+		omp_grid_topology_t * top, omp_device_t **targets, int recurring, int num_mapped_vars, omp_data_map_info_t * data_map_info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x ) {
+	info->name = name;
+	info->top = top;
+	info->targets = targets;
+	info->recurring = recurring == 0? 0 : 1;
+	info->type = OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE;
+	info->num_mapped_vars = num_mapped_vars;
+	info->data_map_info = data_map_info;
+	info->halo_x_info = halo_x_info;
+	info->num_maps_halo_x = num_maps_halo_x;
+
+	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
+}
+
+char * omp_get_device_typename(omp_device_t * dev) {
 	int i;
 	for (i=0; i<OMP_NUM_DEVICE_TYPES; i++) {
 		if (omp_device_types[i].type == dev->type) return omp_device_types[i].name;
@@ -155,7 +176,8 @@ void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
 		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------------------------\n", info->name,  type, devid, devsysid);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
-			omp_event_print_elapsed(&off->events[j]);
+			omp_event_t * ev = &off->events[j];
+			if (ev->event_name != NULL) omp_event_print_elapsed(ev);
 		}
 		printf("----------------------- End Profiling Report for Offloading kernel(%s) on dev: %d -----------------------------------------------\n", info->name, devid);
 		free(off->events);
@@ -287,21 +309,36 @@ int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim) {
 static omp_data_map_t * omp_map_get_map_from_cache (omp_offloading_t *off, void * host_ptr) {
 	int i;
 	for (i=0; i<off->num_maps; i++) {
-		omp_data_map_t * map = off->map_cache[i];
+		omp_data_map_t * map = off->map_cache[i].map;
 		if (map->info->source_ptr == host_ptr) return map;
 	}
 
 	return NULL;
 }
 
-void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map) {
+void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map, int inherited) {
 	if (off->num_maps >= OFF_MAP_CACHE_SIZE) { /* error, report */
 		fprintf(stderr, "map cache is full for off (%X), cannot add map %X\n", off, map);
 		exit(1);
 	}
-	off->map_cache[off->num_maps] = map;
+	off->map_cache[off->num_maps].map = map;
+	off->map_cache[off->num_maps].inherited = inherited;
+
 	off->num_maps++;
 }
+
+
+int omp_map_is_map_inherited(omp_offloading_t *off, omp_data_map_t *map) {
+	int i;
+	for (i=0; i<off->num_maps; i++) {
+		if (off->map_cache[i].map == map) return off->map_cache[i].inherited;
+	}
+
+	fprintf(stderr, "map %X is not in the map cache of off %X, wrong info and misleading return value of this function\n", map, off);
+	return 0;
+
+}
+
 
 /* get map from inheritance (off stack) */
 omp_data_map_t * omp_map_get_map_inheritance (omp_device_t * dev, void * host_ptr) {
@@ -339,7 +376,7 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 		map = &off_info->data_map_info[map_index].maps[devseqid];
 		if (host_ptr == NULL || map->info->source_ptr == host_ptr) {
 			/* append to the off->map_cache */
-			omp_offload_append_map_to_cache(off, map);
+			omp_offload_append_map_to_cache(off, map, 0);
 			return map;
 		}
 	} else { /* thorough search for all the mapped variables */
@@ -349,7 +386,7 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 			if (dm_info->source_ptr == host_ptr) { /* we found */
 				map = &dm_info->maps[devseqid];
 				//printf("find a match: %X\n", host_ptr);
-				omp_offload_append_map_to_cache(off, map);
+				omp_offload_append_map_to_cache(off, map, 0);
 				//omp_print_data_map(map);
 				return map;
 			}
@@ -359,7 +396,7 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 	/* STEP 3: seach the offloading stack if this inherits data map from previous data offloading */
 //	printf("omp_map_get_map: off: %X, off_info: %X, host_ptr: %X\n", off, off_info, host_ptr);
 	map = omp_map_get_map_inheritance (off->dev, host_ptr);
-	if (map != NULL) omp_offload_append_map_to_cache(off, map);
+	if (map != NULL) omp_offload_append_map_to_cache(off, map, 1);
 
 	return map;
 }

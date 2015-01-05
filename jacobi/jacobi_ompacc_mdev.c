@@ -798,18 +798,20 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	__off_info_1__.offloadings = __offs_1__;
 		  	/* we use universal args and launcher because axpy can do it */
 	struct OUT__2__10550__args args_1;
-	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1);
+	args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
 
+	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1);
 
   	omp_offloading_info_t __off_info_2__;
   	omp_offloading_t __offs_2__[__num_target_devices__];
   	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
   	struct OUT__1__10550__args args_2;
+  	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
+  	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
   	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2);
 
   	/* halo exchange offloading */
-  	omp_data_map_exchange_info_t u_uold_xchange;
-  	omp_data_map_halo_exchange_t x_halos[1];
+  	omp_data_map_halo_exchange_info_t x_halos[1];
   	x_halos[0].map_info = &__data_map_infos__[2]; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
   	if (dist == 1) {
   		x_halos[0].x_dim = 0;
@@ -818,23 +820,32 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	} else {
   		x_halos[0].x_dim = -1; /* means all the dimension */
   	}
+//#define STANDALONE_DATA_X 1
 
-  	u_uold_xchange.x_halos = x_halos;
-  	u_uold_xchange.num_maps = 1;
+#if !defined (STANDALONE_DATA_X)
+  	/* there are two approaches we handle halo exchange, appended data exchange or standalone one */
+  	/* option 1: appended data exchange */
+  	omp_offloading_append_data_exchange_info(&__off_info_1__, x_halos, 1);
+#else
+  	/* option 2: standalone offloading */
+  	omp_offloading_info_t uuold_halo_x_off_info;
+	omp_offloading_t uuold_halo_x_offs[__num_target_devices__];
+	uuold_halo_x_off_info.offloadings = uuold_halo_x_offs;
+  	omp_offloading_standalone_data_exchange_init_info("u-uold halo exchange", &uuold_halo_x_off_info, &__top__, __target_devices__, 1, 0, NULL, x_halos, 1);
+#endif
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
-		args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
 	  	omp_offloading_start(&__off_info_1__);
 
-		/** halo exchange */
+#if defined (STANDALONE_DATA_X)
+		/** option 2 halo exchange */
 		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
-	  	omp_data_map_exchange_start(__target_devices__, __num_target_devices__, &u_uold_xchange);
+	  	omp_offloading_start(&uuold_halo_x_off_info);
+#endif
 
 		/* jacobi */
-	  	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
-	  	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
 	  	int __i__;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			__reduction_error__[__i__] = error;
@@ -857,6 +868,9 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	omp_offloading_clear_report_info(&__offloading_info__);
 	omp_offloading_clear_report_info(&__off_info_1__);
 	omp_offloading_clear_report_info(&__off_info_2__);
+#if defined (STANDALONE_DATA_X)
+	omp_offloading_clear_report_info(&uuold_halo_x_off_info);
+#endif
 
 	printf("Total Number of Iterations:%d\n", k);
 	printf("Residual:%E\n", error);
