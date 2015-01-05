@@ -1,6 +1,8 @@
 #include "axpy.h"
 /* standard one-dev support */
 #include "homp.h"
+#include "libxomp.h" 
+#include "xomp_cuda_lib_inlined.cu" 
 
 #if 0
 void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
@@ -23,12 +25,22 @@ void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
 #endif
 
 #if defined (DEVICE_NVGPU_SUPPORT)
-__global__ void OUT__3__5904__( long start_n,  long len_n,REAL a,REAL *_dev_x,REAL *_dev_y)
+__global__ void OUT__3__5904__( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y)
 {
-   long _dev_i = blockDim.x * blockIdx.x + threadIdx.x;
-  if (_dev_i >= start_n && _dev_i <= start_n + len_n  - 1) {
-    _dev_y[_dev_i] += (a * _dev_x[_dev_i]);
-  }
+  int _p_i;
+  int _dev_lower;
+  int _dev_upper;
+  int _dev_loop_chunk_size;
+  int _dev_loop_sched_index;
+  int _dev_loop_stride;
+  int _dev_thread_num = getCUDABlockThreadCount(1);
+  int _dev_thread_id = getLoopIndexFromCUDAVariables(1);
+  XOMP_static_sched_init(start_n,start_n + length_n - 1,1,1,_dev_thread_num,_dev_thread_id,&_dev_loop_chunk_size,&_dev_loop_sched_index,&_dev_loop_stride);
+  while(XOMP_static_sched_next(&_dev_loop_sched_index,start_n + length_n - 1,1,_dev_loop_stride,_dev_loop_chunk_size,_dev_thread_num,_dev_thread_id,&_dev_lower,&_dev_upper))
+    for (_p_i = _dev_lower; _p_i <= _dev_upper; _p_i += 1) {
+      _dev_y[_p_i] += a * _dev_x[_p_i];
+//		printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
+    }
 }
 #endif
 
