@@ -65,7 +65,7 @@ int main(int argc,char *argv[])
   init(y,n);
   memcpy(y_ompacc,y,(n * sizeof(REAL )));
   REAL omp_time = read_timer_ms();
-  axpy(x,y,n,a);
+  //axpy(x,y,n,a);
   omp_time = (read_timer_ms() - omp_time);
   REAL ompacc_time = axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
   omp_fini_devices();

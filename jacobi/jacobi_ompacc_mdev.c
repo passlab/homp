@@ -170,7 +170,7 @@ int main(int argc, char * argv[]) {
     memcpy(fdev, f, n*m*sizeof(REAL));
 
 	REAL elapsed = read_timer_ms();
-	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
+//	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
 	elapsed = read_timer_ms() - elapsed;
 	printf("seq elasped time(ms): %12.6g\n", elapsed);
 	double mflops = (0.001*mits*(n-2)*(m-2)*13) / elapsed;
@@ -856,8 +856,10 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		}
 
 		/* Error check */
+#if 0
 		if ((k % 500) == 0)
 		printf("Parallel: Finished %d iteration with error %g\n", k, error);
+#endif
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */
