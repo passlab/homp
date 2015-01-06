@@ -1,0 +1,909 @@
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 512x512, 1 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+jacobi 512 512 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      3.00      1.50(2)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.28      1.28(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.69      0.69(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      1.39      0.69(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.38      0.38(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   1206.00      0.24(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    903.00      0.18(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     10.00      0.00(5000)		host		Time for barrier wait for other to complete
+        KERN    900.18      0.18(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X      1.00      0.00(5000)		host		Time for data exchange between devices
+  BAR_DATA_X     60.00      0.01(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   4147.00      0.83(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    172.00      0.03(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     10.00      0.00(5000)		host		Time for barrier wait for other to complete
+        KERN   3985.01      0.80(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 0 -----------------------------------------------
+Total Number of Iterations:5001
+Residual:2.352834E-08
+mdev elasped time(ms):         5474
+MFLOPS:      3088.51
+Solution Error: 0.00103963
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1024x1024, 1 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+jacobi 1024 1024 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      6.00      3.00(2)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      3.55      3.55(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      1.87      1.87(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      3.66      1.83(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      1.56      1.56(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3292.00      0.66(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   3023.00      0.60(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      7.00      0.00(5000)		host		Time for barrier wait for other to complete
+        KERN   2996.72      0.60(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X      1.00      0.00(5000)		host		Time for data exchange between devices
+  BAR_DATA_X     79.00      0.02(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  10869.00      2.17(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     85.00      0.02(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     27.00      0.01(5000)		host		Time for barrier wait for other to complete
+        KERN  10687.26      2.14(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 0 -----------------------------------------------
+Total Number of Iterations:5001
+Residual:3.359927E-09
+mdev elasped time(ms):        14373
+MFLOPS:      4723.54
+Solution Error: 0.000520325
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1536x1536, 1 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24810 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 2048x2048, 1 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24813 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 4096x4096, 1 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24816 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 512x512, 2 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+jacobi 512 512 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 2 devices(2 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      4.00      2.00(2)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.85      0.85(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.65      0.65(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      1.09      0.54(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.20      0.20(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      4.00      2.00(2)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.79      0.79(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.84      0.84(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      0.98      0.49(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.24      0.24(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   1694.00      0.34(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    645.00      0.13(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    504.00      0.10(5000)		host		Time for barrier wait for other to complete
+        KERN    654.76      0.13(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    331.00      0.07(5000)		host		Time for data exchange between devices
+  BAR_DATA_X     33.00      0.01(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   1711.00      0.34(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    926.00      0.19(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     63.00      0.01(5000)		host		Time for barrier wait for other to complete
+        KERN    986.21      0.20(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    252.00      0.05(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    166.00      0.03(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   5647.00      1.13(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     74.00      0.01(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   1111.00      0.22(5000)		host		Time for barrier wait for other to complete
+        KERN   4409.41      0.88(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   5611.00      1.12(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     99.00      0.02(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     51.00      0.01(5000)		host		Time for barrier wait for other to complete
+        KERN   5435.43      1.09(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 1 -----------------------------------------------
+Total Number of Iterations:5001
+Residual:2.159359E-08
+mdev elasped time(ms):         7561
+MFLOPS:      2236.01
+Solution Error: 0.00103963
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1024x1024, 2 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+jacobi 1024 1024 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 2 devices(2 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      8.00      4.00(2)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      0.50(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      2.69      2.69(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      1.66      1.66(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      3.22      1.61(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.88      0.88(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      8.00      4.00(2)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      2.60      2.60(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      1.70      1.70(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      2.71      1.35(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      1.25      1.25(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3589.00      0.72(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   1665.00      0.33(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   1588.00      0.32(5000)		host		Time for barrier wait for other to complete
+        KERN   1725.23      0.35(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    192.00      0.04(5000)		host		Time for data exchange between devices
+  BAR_DATA_X     17.00      0.00(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3609.00      0.72(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   3027.00      0.61(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     15.00      0.00(5000)		host		Time for barrier wait for other to complete
+        KERN   3153.13      0.63(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X     98.00      0.02(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    184.00      0.04(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  12469.00      2.49(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     57.00      0.01(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   5259.00      1.05(5000)		host		Time for barrier wait for other to complete
+        KERN   7117.25      1.42(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  12421.00      2.48(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     29.00      0.01(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     13.00      0.00(5000)		host		Time for barrier wait for other to complete
+        KERN  12196.04      2.44(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 1 -----------------------------------------------
+Total Number of Iterations:5001
+Residual:3.248801E-09
+mdev elasped time(ms):        16341
+MFLOPS:      4154.67
+Solution Error: 0.000520325
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1536x1536, 2 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24855 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 2048x2048, 2 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24860 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 4096x4096, 2 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24865 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 512x512, 3 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+jacobi 512 512 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 3 devices(3 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      6.00      3.00(2)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.00      1.00(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.72      0.72(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      1.20      0.60(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.15      0.15(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      3.50(2)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      3.00      1.50(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      1.00      0.50(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.59      0.59(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.90      0.90(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      0.83      0.41(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.15      0.15(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      3.50(2)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      1.00      0.50(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.02      1.02(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.80      0.80(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      1.15      0.58(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.22      0.22(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 2 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   2406.00      0.48(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    578.00      0.12(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    299.00      0.06(5000)		host		Time for barrier wait for other to complete
+        KERN   1157.43      0.23(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    387.00      0.08(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    360.00      0.07(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   2386.00      0.48(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    768.00      0.15(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    745.00      0.15(5000)		host		Time for barrier wait for other to complete
+        KERN    898.95      0.18(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    678.00      0.14(5000)		host		Time for data exchange between devices
+  BAR_DATA_X     52.00      0.01(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   2409.00      0.48(5000)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    752.00      0.15(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    645.00      0.13(5000)		host		Time for barrier wait for other to complete
+        KERN    850.38      0.17(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    314.00      0.06(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    424.00      0.08(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 2 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   7625.00      1.52(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    233.00      0.05(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    418.00      0.08(5000)		host		Time for barrier wait for other to complete
+        KERN   6904.99      1.38(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   7644.00      1.53(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     26.00      0.01(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   1875.00      0.38(5000)		host		Time for barrier wait for other to complete
+        KERN   5767.51      1.15(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   7641.00      1.53(5000)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     98.00      0.02(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    769.00      0.15(5000)		host		Time for barrier wait for other to complete
+        KERN   6724.08      1.34(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 2 -----------------------------------------------
+Total Number of Iterations:5001
+Residual:2.084247E-08
+mdev elasped time(ms):        10385
+MFLOPS:      1627.97
+Solution Error: 0.00103963
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1024x1024, 3 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+jacobi 1024 1024 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 3 devices(3 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      9.00      4.50(2)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      3.00      3.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      2.53      2.53(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      1.91      1.91(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      3.08      1.54(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.81      0.81(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      9.00      4.50(2)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      3.00      1.50(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      1.00      0.50(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.70      1.70(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      1.81      1.81(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      2.27      1.14(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.77      0.77(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      9.00      4.50(2)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      3.00      3.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      2.57      2.57(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      1.72      1.72(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      2.95      1.48(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.85      0.85(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 2 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3240.00      0.65(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   1496.00      0.30(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    921.00      0.18(5000)		host		Time for barrier wait for other to complete
+        KERN   1611.04      0.32(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    355.00      0.07(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    123.00      0.02(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3234.00      0.65(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   2265.00      0.45(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     31.00      0.01(5000)		host		Time for barrier wait for other to complete
+        KERN   2345.74      0.47(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    496.00      0.10(5000)		host		Time for data exchange between devices
+  BAR_DATA_X     89.00      0.02(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3243.00      0.65(5000)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   1483.00      0.30(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   1065.00      0.21(5000)		host		Time for barrier wait for other to complete
+        KERN   1477.10      0.30(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    285.00      0.06(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    272.00      0.05(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 2 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  10628.00      2.13(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    151.00      0.03(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   2050.00      0.41(5000)		host		Time for barrier wait for other to complete
+        KERN   8337.37      1.67(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  10543.00      2.11(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     85.00      0.02(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2     40.00      0.01(5000)		host		Time for barrier wait for other to complete
+        KERN  10361.78      2.07(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  10575.00      2.12(5000)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     58.00      0.01(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   2186.00      0.44(5000)		host		Time for barrier wait for other to complete
+        KERN   8244.54      1.65(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 2 -----------------------------------------------
+Total Number of Iterations:5001
+Residual:3.204348E-09
+mdev elasped time(ms):        14103
+MFLOPS:      4813.97
+Solution Error: 0.000520325
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1536x1536, 3 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24895 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 2048x2048, 3 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24906 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 4096x4096, 3 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24913 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 512x512, 4 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+jacobi 512 512 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 4 devices(4 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      6.00      3.00(2)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      3.00      1.50(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      1.00      0.50(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.74      0.74(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.47      0.47(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      0.72      0.36(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.12      0.12(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      3.50(2)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      0.50(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      3.00      1.50(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.43      0.43(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.68      0.68(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      0.56      0.28(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.12      0.12(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      3.50(2)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      3.00      3.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.85      0.85(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      1.29      1.29(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      1.54      0.77(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.14      0.14(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 2 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(data copy) on OMP_DEVICE_NVGPU dev 3 (sysid: 3) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      3.50(2)		host		Total offloading time (everything) on dev: 3
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      2.00      2.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      2.00      1.00(2)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      1.00      0.50(2)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.82      0.82(1)		dev		Accumulated time for mapto data movement for all array
+ ACC_MAPFROM      0.99      0.99(1)		dev		Accumulated time for mapfrom data movement for all array
+    MAPFROM_      1.16      0.58(2)		dev		Time for mapfrom data movement for array u
+      MAPTO_      0.20      0.20(1)		dev		Time for mapto data movement for array u
+----------------------- End Profiling Report for Offloading kernel(data copy) on dev: 3 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3832.00      0.77(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   1013.00      0.20(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   1744.00      0.35(5000)		host		Time for barrier wait for other to complete
+        KERN   1186.62      0.24(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    404.00      0.08(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    332.00      0.07(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3809.00      0.76(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   1049.00      0.21(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   1597.00      0.32(5000)		host		Time for barrier wait for other to complete
+        KERN   1304.18      0.26(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    597.00      0.12(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    121.00      0.02(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3834.00      0.77(5000)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   2393.00      0.48(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    258.00      0.05(5000)		host		Time for barrier wait for other to complete
+        KERN   1248.12      0.25(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    523.00      0.10(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    234.00      0.05(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 2 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(u<->uold exchange kernel) on OMP_DEVICE_NVGPU dev 3 (sysid: 3) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3840.00      0.77(5000)		host		Total offloading time (everything) on dev: 3
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1   2100.00      0.42(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    582.00      0.12(5000)		host		Time for barrier wait for other to complete
+        KERN   1028.28      0.21(5000)		dev		Time for kernel (u<->uold exchange kernel) execution
+      DATA_X    538.00      0.11(5000)		host		Time for data exchange between devices
+  BAR_DATA_X    234.00      0.05(5000)		host		Time for barrier sync for data exchange between devices
+----------------------- End Profiling Report for Offloading kernel(u<->uold exchange kernel) on dev: 3 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  13202.00      2.64(5000)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    137.00      0.03(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   3545.00      0.71(5000)		host		Time for barrier wait for other to complete
+        KERN   9479.74      1.90(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 0 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 1 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  13221.00      2.64(5000)		host		Total offloading time (everything) on dev: 1
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1     27.00      0.01(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   5682.00      1.14(5000)		host		Time for barrier wait for other to complete
+        KERN   7463.11      1.49(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 1 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 2 (sysid: 2) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  13181.00      2.64(5000)		host		Total offloading time (everything) on dev: 2
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    788.00      0.16(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2    924.00      0.18(5000)		host		Time for barrier wait for other to complete
+        KERN  11436.23      2.29(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 2 -----------------------------------------------
+
+----------------------- Profiling Report (ms) for Offloading kernel(jacobi kernel) on OMP_DEVICE_NVGPU dev 3 (sysid: 3) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL  13190.00      2.64(5000)		host		Total offloading time (everything) on dev: 3
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1    900.00      0.18(5000)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2   1193.00      0.24(5000)		host		Time for barrier wait for other to complete
+        KERN  11061.62      2.21(5000)		dev		Time for kernel (jacobi kernel) execution
+----------------------- End Profiling Report for Offloading kernel(jacobi kernel) on dev: 3 -----------------------------------------------
+Total Number of Iterations:5001
+Residual:2.052085E-08
+mdev elasped time(ms):        17458
+MFLOPS:       968.41
+Solution Error: 0.00103963
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1024x1024, 4 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+GPUassert: an illegal memory access was encountered ../runtime/homp_dev.c 322
+jacobi 1024 1024 0.0543 1e-10 1 5000
+------------------------------------------------------------------------------------------------------
+System has total 4 devices(4 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+seq elasped time(ms):            0
+MFLOPS:          inf
+./run.sh: line 7: 24937 Aborted                 (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 1536x1536, 4 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24946 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 2048x2048, 4 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24955 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- jacobi 4096x4096, 4 devices ------------------------------
+Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]
+	n - grid dimension in x direction, default: 256
+	m - grid dimension in y direction, default: n if provided or 256
+	alpha - Helmholtz constant (always greater than 0.0), default: 0.0543
+	tol   - error tolerance for iterative solver, default: 1e-10
+	relax - Successice over relaxation parameter, default: 1
+	mits  - Maximum iterations for iterative solver, default: 5000
+./run.sh: line 7: 24965 Segmentation fault      (core dumped) ./jacobi-nvgpu $size
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
