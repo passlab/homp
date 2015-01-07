@@ -170,7 +170,7 @@ int main(int argc, char * argv[]) {
     memcpy(fdev, f, n*m*sizeof(REAL));
 
 	REAL elapsed = read_timer_ms();
-	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
+//	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
 	elapsed = read_timer_ms() - elapsed;
 	printf("seq elasped time(ms): %12.6g\n", elapsed);
 	double mflops = (0.001*mits*(n-2)*(m-2)*13) / elapsed;
@@ -468,6 +468,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
+#pragma omp parallel for private(j,i) shared(m,n,uold,u,uold_0_offset,uold_1_offset)
 		for (i=0; i < n; i++)
 			for (j=0; j < m; j++) {
 				/* since uold has halo region, here we need to adjust index to reflect the new offset */
@@ -617,6 +618,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 #endif
 
 		int i, j;
+#pragma omp parallel for private(resid,j,i) reduction(+:error)
 		for (i=i_start; i <n; i++) {
 			for (j=j_start; j <m; j++) {
 				resid = (ax * (uold[i - 1 + uold_0_offset][j + uold_1_offset] + uold[i + 1 + uold_0_offset][j+uold_1_offset]) + ay * (uold[i+uold_0_offset][j - 1+uold_1_offset] + uold[i+uold_0_offset][j + 1+uold_1_offset]) + b * uold[i+uold_0_offset][j+uold_1_offset] - f[i][j]) / b;
@@ -856,8 +858,10 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		}
 
 		/* Error check */
+#if 0
 		if ((k % 500) == 0)
 		printf("Parallel: Finished %d iteration with error %g\n", k, error);
+#endif
 		error = (sqrt(error) / (n * m));
 		k = (k + 1);
 		/*  End iteration loop */

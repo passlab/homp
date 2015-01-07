@@ -346,3 +346,39 @@ __device__ long XOMP_static_sched_next(
    return 1;
 }
 
+// A wrapper function for  blockDim.x * blockIdx.x + threadIdx.x
+// Essentially we just hide CUDA variables (blockDim.x etc) inside this function
+// since there are three dimensions x, y, z. we use dimension_no to indicate which dimension is requested.
+// dimension_no start from 1 to 3, corresponding to x, y, z dimensions.
+__device__ int getLoopIndexFromCUDAVariables(int dimension_no)
+{
+  if (dimension_no == 1)
+   return blockDim.x * blockIdx.x + threadIdx.x;
+  else if (dimension_no == 2)
+   return blockDim.y * blockIdx.y + threadIdx.y;
+  else if (dimension_no == 3)
+   return blockDim.z * blockIdx.z + threadIdx.z;
+  else
+  {
+    //printf("getLoopIndexFromCUDAVariables() accept a parameter of range from 1 to 3 only\n");
+    //assert (false);
+  }
+   return -1;
+}
+
+// A wrapper function for gridDim.x * blockDim.x, to hide CUDA variables gridDim.x and blockDim.x.
+__device__ int getCUDABlockThreadCount(int dimension_no)
+{
+   if (dimension_no == 1)
+   return gridDim.x * blockDim.x;
+  else if (dimension_no == 2)
+   return gridDim.y * blockDim.y;
+  else if (dimension_no == 3)
+   return gridDim.z * blockDim.z;
+  else
+  {
+    //printf("getCUDABlockThreadCount() accept a parameter of range from 1 to 3 only\n");
+    //assert (false);
+  }
+   return -1;
+}

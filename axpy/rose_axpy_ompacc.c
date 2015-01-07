@@ -1,8 +1,6 @@
 #include "axpy.h"
 /* standard one-dev support */
 #include "homp.h"
-#include "libxomp.h" 
-#include "xomp_cuda_lib_inlined.cu" 
 
 #if 0
 void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
@@ -25,14 +23,15 @@ void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
 #endif
 
 #if defined (DEVICE_NVGPU_SUPPORT)
+#include "xomp_cuda_lib_inlined.cu" 
 __global__ void OUT__3__5904__( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y)
 {
   int _p_i;
-  int _dev_lower;
-  int _dev_upper;
-  int _dev_loop_chunk_size;
-  int _dev_loop_sched_index;
-  int _dev_loop_stride;
+  long _dev_lower;
+  long  _dev_upper;
+  long _dev_loop_chunk_size;
+  long _dev_loop_sched_index;
+  long _dev_loop_stride;
   int _dev_thread_num = getCUDABlockThreadCount(1);
   int _dev_thread_id = getLoopIndexFromCUDAVariables(1);
   XOMP_static_sched_init(start_n,start_n + length_n - 1,1,1,_dev_thread_num,_dev_thread_id,&_dev_loop_chunk_size,&_dev_loop_sched_index,&_dev_loop_stride);
