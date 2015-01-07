@@ -6,6 +6,7 @@
 #include <math.h>
 #include <string.h>
 */
+#include <assert.h>
 #include "axpy.h"
 #define VEC_LEN 1024000 //use a fixed number for now
 /* zero out the entire vector */
@@ -67,15 +68,18 @@ int main(int argc,char *argv[])
   init(y,n);
   memcpy(y_ompacc,y,(n * sizeof(REAL )));
   REAL omp_time = read_timer_ms();
-  //axpy(x,y,n,a);
+// reference serial execution for error checking  
+  axpy(x,y,n,a);
   omp_time = (read_timer_ms() - omp_time);
   REAL ompacc_time = axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
   omp_fini_devices();
-
-  printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n",n,check(y,y_ompacc,n),omp_get_num_active_devices());
+  REAL cksm = check(y,y_ompacc,n) ;
+  printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n",n,cksm,omp_get_num_active_devices());
   printf("\t\t\t\t\t%4f\t%4f\n",omp_time,ompacc_time);
   free(y);
   free(y_ompacc);
   free(x);
+  // I got 1.093e-09 
+  assert (cksm< 1.0e-07);
   return 0;
 }
