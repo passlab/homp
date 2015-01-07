@@ -64,7 +64,7 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 	return dev->dev_properties;
 }
 
-/* init the device objects, num_of_devices, default_device_var ICV etc
+/* init the device objects, num_of_devices, helper threads, default_device_var ICV etc
  *
  */
 int omp_init_devices() {
@@ -182,7 +182,7 @@ int omp_init_devices() {
 	printf("\tTo make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)\n");
 	return omp_num_devices;
 }
-
+// terminate helper threads
 void omp_fini_devices() {
 	int i;
 

@@ -184,7 +184,7 @@ void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
 	}
 #endif
 }
-
+// Initialize data_map_info
 void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist) {
 	if (num_dims > 3) {

@@ -108,7 +108,8 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
 		__target_devices__[__i__] = &omp_devices[__i__]; /* currently this is simple a copy of the pointer */
 	}
-	/**TODO: compiler generated code or runtime call to init the topology */
+
+	/**TODO: compiler generated code or runtime call to init the topology, topology(top1[4][4])  4x4 topology named top1 */
 	omp_grid_topology_t __top__;	
 	int __top_ndims__ = 1;
 	int __top_dims__[__top_ndims__];
@@ -120,6 +121,7 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 
 	omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
 		
+       //TODO a for loop here for multiple arrays        
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_t x_maps[__num_target_devices__];

@@ -1,7 +1,8 @@
 TEST_INCLUDES = -I../runtime -I.
 TEST_LINK = -lm -lpthread
 
-NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
+#NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
+NVGPU_CUDA_PATH=/usr/local/cuda-5.5/
 
 axpy-thsim:
 	gcc $(TEST_INCLUDES) -g -DOMP_BREAKDOWN_TIMING -fopenmp ../runtime/homp.c ../runtime/homp_dev.c ../runtime/dev_xthread.c rose_axpy_ompacc.c rose_axpy.c -c
