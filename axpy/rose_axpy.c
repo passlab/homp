@@ -54,9 +54,11 @@ int main(int argc,char *argv[])
   REAL *y_ompacc;
   REAL *x;
   REAL a = 123.456;
-  n = 1024*1024*1024;
+//  n = 1024*1024*1024; // too large for tux268
+  n = 500000;
   if (argc >= 2) 
     n = atoi(argv[1]);
+  printf("n = %d\n", n);  
   y = ((REAL *)(malloc((n * sizeof(REAL )))));
   y_ompacc = ((REAL *)(malloc((n * sizeof(REAL )))));
   x = ((REAL *)(malloc((n * sizeof(REAL )))));
