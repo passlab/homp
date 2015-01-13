@@ -1,1 +1,1 @@
-OFFOMP: A runtime library for Offloading OpenMP
+OFFOMP: An Offloading OpenMP Runtime Library
