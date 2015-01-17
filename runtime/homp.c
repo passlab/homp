@@ -31,7 +31,7 @@ omp_device_t * omp_host_dev;
 volatile int omp_device_complete = 0;
 
 int omp_num_devices;
-volatile omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scrambled together */
+volatile int omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scramble together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
 	{OMP_DEVICE_HOST, "OMP_DEVICE_HOST", 1},
 	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", 0},
@@ -135,6 +135,29 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
 
+void omp_offloading_fini_info(omp_offloading_info_t * info) {
+	pthread_barrier_destroy(&info->barrier);
+}
+
+void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
+	int i;
+	for (i=0; i<info->top->nnodes; i++) {
+		omp_offloading_t * off = &info->offloadings[i];
+		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char * type = omp_get_device_typename(off->dev);
+		int j;
+		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------------------------\n", info->name,  type, devid, devsysid);
+		omp_event_print_profile_header();
+		for (j=0; j<off->num_events; j++) {
+			omp_event_t * ev = &off->events[j];
+			if (ev->event_name != NULL) omp_event_print_elapsed(ev);
+		}
+		printf("----------------------- End Profiling Report for Offloading kernel(%s) on dev: %d -----------------------------------------------\n", info->name, devid);
+		free(off->events);
+	}
+}
+
 void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x) {
 	info->halo_x_info = halo_x_info;
 	info->num_maps_halo_x = num_maps_halo_x;
@@ -163,27 +186,6 @@ char * omp_get_device_typename(omp_device_t * dev) {
 	return NULL;
 }
 
-void omp_offloading_clear_report_info(omp_offloading_info_t * info) {
-	pthread_barrier_destroy(&info->barrier);
-#if defined (OMP_BREAKDOWN_TIMING)
-	int i;
-	for (i=0; i<info->top->nnodes; i++) {
-		omp_offloading_t * off = &info->offloadings[i];
-		int devid = off->dev->id;
-		int devsysid = off->dev->sysid;
-		char * type = omp_get_device_typename(off->dev);
-		int j;
-		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------------------------\n", info->name,  type, devid, devsysid);
-		omp_event_print_profile_header();
-		for (j=0; j<off->num_events; j++) {
-			omp_event_t * ev = &off->events[j];
-			if (ev->event_name != NULL) omp_event_print_elapsed(ev);
-		}
-		printf("----------------------- End Profiling Report for Offloading kernel(%s) on dev: %d -----------------------------------------------\n", info->name, devid);
-		free(off->events);
-	}
-#endif
-}
 // Initialize data_map_info
 void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist) {

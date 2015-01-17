@@ -872,8 +872,12 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	omp_offloading_clear_report_info(&__offloading_info__);
 	omp_offloading_clear_report_info(&__off_info_1__);
 	omp_offloading_clear_report_info(&__off_info_2__);
+
 #if defined (STANDALONE_DATA_X)
 	omp_offloading_clear_report_info(&uuold_halo_x_off_info);
+#endif
+
+#if defined (OMP_BREAKDOWN_TIMING)
 #endif
 
 	printf("Total Number of Iterations:%d\n", k);

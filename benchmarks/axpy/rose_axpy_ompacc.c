@@ -161,8 +161,12 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 #endif
 	/* here we do not need sync start */
 	omp_offloading_start(&__offloading_info__);
+	omp_offloading_fini_info(&__offloading_info__);
 	ompacc_time = read_timer_ms() - ompacc_time;
-	omp_offloading_clear_report_info(&__offloading_info__);
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_offloading_info_report_profile(&__offloading_info__);
+#endif
+
 	double cpu_total = ompacc_time;
 	return cpu_total;
 }

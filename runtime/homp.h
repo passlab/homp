@@ -508,6 +508,9 @@ extern int omp_set_current_device(int id); /* return the current device id */
 
 extern void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type,
 		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args);
+extern void omp_offloading_fini_info(omp_offloading_info_t * info);
+extern void omp_offloading_info_report_profile(omp_offloading_info_t * info);
+
 extern void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x);
 extern void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_offloading_info_t * info,
 		omp_grid_topology_t * top, omp_device_t **targets, int recurring, int num_mapped_vars, omp_data_map_info_t * data_map_info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x );
