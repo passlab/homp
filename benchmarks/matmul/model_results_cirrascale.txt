@@ -1,0 +1,606 @@
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 64, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      1.00      1.00(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(64x64) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		2.000093	262.131751
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 128, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      2.00      2.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      2.00      2.00(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(128x128) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		2.000093	2097.054005
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 256, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      8.00      8.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      8.00      8.00(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(256x256) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		8.000135	4194.233001
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 512, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL     78.00     78.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN     78.00     78.00(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(512x512) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		78.000069	3441.477176
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 1024, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL    595.00    595.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN    595.00    595.00(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(1024x1024) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		596.000195	3603.159307
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 2014, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL   3917.00   3917.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN   3917.00   3917.00(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(2014x2014) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		3917.000055	4171.140479
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 64, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 8
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.23      0.23(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.06      0.06(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.14      0.14(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.04      0.04(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.03      0.03(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.08      0.08(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(64x64) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		1.000166	524.201014
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 128, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 32
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.30      0.30(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.10      0.10(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.14      0.14(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.04      0.04(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.13      0.13(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.09      0.09(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(128x128) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		1.999855	2097.304011
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 256, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 128
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      2.00      2.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.62      0.62(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.41      0.41(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.28      0.28(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.35      0.35(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.15      0.15(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.22      0.22(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(256x256) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		2.000093	16776.432037
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 512, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 512
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      7.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.82      1.82(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      2.53      2.53(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.96      0.96(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.84      0.84(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.67      0.67(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.84      0.84(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(512x512) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		6.999969	38348.089470
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 1024, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 2048
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL     29.00     29.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      5.50      5.50(1)		dev		Accumulated time for mapto data movement for all array
+        KERN     18.96     18.96(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      3.34      3.34(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      2.79      2.79(1)		dev		Time for mapto data movement for array A
+      MAPTO_      2.41      2.41(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      3.22      3.22(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(1024x1024) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		29.999971	71582.856533
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 2014, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 7923
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL    280.00    280.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO     21.32     21.32(1)		dev		Accumulated time for mapto data movement for all array
+        KERN    243.90    243.90(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM     12.47     12.47(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_     10.45     10.45(1)		dev		Time for mapto data movement for array A
+      MAPTO_     10.63     10.63(1)		dev		Time for mapto data movement for array B
+    MAPFROM_     12.34     12.34(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(2014x2014) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		280.000210	58351.233019
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 64, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 8
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.21      0.21(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.07      0.07(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.16      0.16(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.05      0.05(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.04      0.04(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.09      0.09(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(64x64) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		1.000166	524.201014
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 128, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 32
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.26      0.26(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.10      0.10(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.16      0.16(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.05      0.05(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.09      0.09(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.09      0.09(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(128x128) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		0.999928	4194.608022
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 256, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 128
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      3.00      3.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.63      0.63(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.41      0.41(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      0.29      0.29(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.35      0.35(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.15      0.15(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.21      0.21(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(256x256) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		3.000021	11184.732445
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 512, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 512
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      7.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.67      1.67(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      2.47      2.47(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      1.03      1.03(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.80      0.80(1)		dev		Time for mapto data movement for array A
+      MAPTO_      0.62      0.62(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      0.93      0.93(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(512x512) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		6.999969	38348.089470
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 1024, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 2048
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL     29.00     29.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      6.12      6.12(1)		dev		Accumulated time for mapto data movement for all array
+        KERN     18.50     18.50(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM      3.31      3.31(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      3.16      3.16(1)		dev		Time for mapto data movement for array A
+      MAPTO_      2.65      2.65(1)		dev		Time for mapto data movement for array B
+    MAPFROM_      3.17      3.17(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(1024x1024) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		31.000137	69273.359186
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- matmul 2014, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+threads: 512, teams: 7923
+
+----------------------- Profiling Report (ms) for Offloading kernel(matmul kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL    278.00    278.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO     21.87     21.87(1)		dev		Accumulated time for mapto data movement for all array
+        KERN    242.02    242.02(1)		dev		Time for kernel (matmul kernel) execution
+ ACC_MAPFROM     12.56     12.56(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_     11.05     11.05(1)		dev		Time for mapto data movement for array A
+      MAPTO_     10.49     10.49(1)		dev		Time for mapto data movement for array B
+    MAPFROM_     12.42     12.42(1)		dev		Time for mapfrom data movement for array C
+----------------------- End Profiling Report for Offloading kernel(matmul kernel) on dev: 0 -----------------------------------------------
+======================================================================================================
+	matmul(2014x2014) example on 1 devices, dist policy: 1 (1: row; 2: column; 3: row-column)
+------------------------------------------------------------------------------------------------------
+Error: inf
+------------------------------------------------------------------------------------------------------
+Performance:		Runtime (ms)	 MFLOPS
+Sequential:		0.000000	 inf
+OMP ACC:		277.999878	58771.095907
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------

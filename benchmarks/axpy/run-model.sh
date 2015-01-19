@@ -3,7 +3,7 @@ allsizes="100000 200000 300000 400000 500000 1000000"
 
 export OMP_NUM_NVGPU_DEVICES=0
 export OMP_NUM_THSIM_DEVICES=1
-export OMP_NUM_THREADS=4
+export OMP_NUM_THREADS=32
 unset OMP_NVGPU_DEVICES
 for size in $allsizes; do
 echo "-------------------------------------------------------------------------------------------------"

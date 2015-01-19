@@ -1,0 +1,504 @@
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 100000, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 100000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      2.00      2.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      1.00      1.00(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(100000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	2.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 200000, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 200000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      1.00      1.00(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(200000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	1.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 300000, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 300000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      1.00      1.00(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(300000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	1.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 400000, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 400000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      1.00      1.00(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(400000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	1.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 500000, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 500000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      1.00      1.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      1.00      1.00(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(500000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	1.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 1000000, host run with 32 threads -----------------------------
+System has total 1 devices(0 GPU and 1 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 1000000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_THSIM dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      2.00      2.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      0.00      0.00(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      2.00      2.00(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.00      0.00(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.00      0.00(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.00      0.00(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(1000000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	2.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 100000, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 100000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      3.00      3.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.48      1.48(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.05      0.05(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.69      0.69(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.76      0.76(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.50      0.50(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.57      0.57(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(100000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	3.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 200000, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 200000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      5.00      5.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      2.58      2.58(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.06      0.06(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      1.09      1.09(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      1.33      1.33(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.94      0.94(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.96      0.96(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(200000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	5.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 300000, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 300000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      7.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      3.79      3.79(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.07      0.07(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      1.39      1.39(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      2.01      2.01(1)		dev		Time for mapto data movement for array x
+      MAPTO_      1.49      1.49(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      1.27      1.27(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(300000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	7.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 400000, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 400000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      6.00      6.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      0.00      0.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      3.84      3.84(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.09      0.09(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      1.49      1.49(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      2.02      2.02(1)		dev		Time for mapto data movement for array x
+      MAPTO_      1.61      1.61(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      1.40      1.40(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(400000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	6.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 500000, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 500000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL     10.00     10.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      5.91      5.91(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.10      0.10(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      2.12      2.12(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      3.09      3.09(1)		dev		Time for mapto data movement for array x
+      MAPTO_      2.53      2.53(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      2.00      2.00(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(500000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	10.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 1000000, device run on GPU 0 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 1000000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 0) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL     13.00     13.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      8.50      8.50(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.16      0.16(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      3.32      3.32(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      4.33      4.33(1)		dev		Time for mapto data movement for array x
+      MAPTO_      3.94      3.94(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      3.23      3.23(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(1000000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	14.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 100000, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 100000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      4.00      4.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      1.52      1.52(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.05      0.05(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      0.65      0.65(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      0.69      0.69(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.51      0.51(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.52      0.52(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(100000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	4.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 200000, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 200000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      5.00      5.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      2.53      2.53(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.07      0.07(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      1.04      1.04(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      1.38      1.38(1)		dev		Time for mapto data movement for array x
+      MAPTO_      0.84      0.84(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      0.91      0.91(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(200000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	6.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 300000, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 300000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      7.00      7.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      3.66      3.66(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.08      0.08(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      1.41      1.41(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      1.97      1.97(1)		dev		Time for mapto data movement for array x
+      MAPTO_      1.38      1.38(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      1.28      1.28(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(300000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	7.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 400000, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 400000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL      8.00      8.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      4.92      4.92(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.09      0.09(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      1.78      1.78(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      2.55      2.55(1)		dev		Time for mapto data movement for array x
+      MAPTO_      2.05      2.05(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      1.65      1.65(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(400000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	8.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 500000, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 500000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL     10.00     10.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      1.00      1.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO      5.88      5.88(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.10      0.10(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      2.20      2.20(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      3.02      3.02(1)		dev		Time for mapto data movement for array x
+      MAPTO_      2.54      2.54(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      2.07      2.07(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(500000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	10.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+-------------------------------- AXPY 1000000, device run on GPU 1 -----------------------------
+System has total 1 devices(1 GPU and 0 THSIM devices).
+The number of each type of devices can be controlled by environment variables:
+	OMP_NUM_THSIM_DEVICES for THSIM devices (default 0)
+	OMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., "0,2,3", i.e. ,separated list with no spaces)
+	OMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)
+	To make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)
+n = 1000000
+
+----------------------- Profiling Report (ms) for Offloading kernel(axpy kernel) on OMP_DEVICE_NVGPU dev 0 (sysid: 1) ---------------------------------------------
+        Name    TOTAL     AVE(Times)  Measured from (host/dev)		Description
+   OFF_TOTAL     16.00     16.00(1)		host		Total offloading time (everything) on dev: 0
+      INIT_0      0.00      0.00(1)		host		Time for initialization of stream and event
+      INIT_1      1.00      1.00(1)		host		Time for init map, data dist, buffer allocation, and data marshalling
+      FINI_1      0.00      0.00(1)		host		Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarsha
+  BAR_FINI_2      0.00      0.00(1)		host		Time for barrier wait for other to complete
+   ACC_MAPTO     10.94     10.94(1)		dev		Accumulated time for mapto data movement for all array
+        KERN      0.17      0.17(1)		dev		Time for kernel (axpy kernel) execution
+ ACC_MAPFROM      3.94      3.94(1)		dev		Accumulated time for mapfrom data movement for all array
+      MAPTO_      5.62      5.62(1)		dev		Time for mapto data movement for array x
+      MAPTO_      5.02      5.02(1)		dev		Time for mapto data movement for array y
+    MAPFROM_      3.80      3.80(1)		dev		Time for mapfrom data movement for array y
+----------------------- End Profiling Report for Offloading kernel(axpy kernel) on dev: 0 -----------------------------------------------
+axpy(1000000): checksum: 0; time(ms):	Serial		OMPACC(1 devices)
+					0.000000	16.000000
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------

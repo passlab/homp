@@ -2,9 +2,9 @@
 unset OMP_NVGPU_DEVICES
 export OMP_NUM_THSIM_DEVICES=0
 
-for nd in 1 2 3 4; do
+for nd in 1 2 3 4 6 8; do
 export OMP_NUM_NVGPU_DEVICES=$nd
-for size in 512 1024 1536 2048 4096; do
+for size in 512 1024 1536 2048 4096 8192 20140 20480 40960; do
 echo "-------------------------------------------------------------------------------------------------"
 echo "-------------------------------- jacobi ${size}x${size}, $nd devices ------------------------------"
 ./jacobi-nvgpu $size

@@ -1,9 +1,9 @@
 #!/bin/bash
-allsizes="64 128 256 512 1024"
+allsizes="64 128 256 512 1024 2014"
 
 export OMP_NUM_NVGPU_DEVICES=0
 export OMP_NUM_THSIM_DEVICES=1
-export OMP_NUM_THREADS=4
+export OMP_NUM_THREADS=32
 unset OMP_NVGPU_DEVICES
 for size in $allsizes; do
 echo "-------------------------------------------------------------------------------------------------"
