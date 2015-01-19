@@ -869,15 +869,20 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	/* copy back u from each device and free others */
 	omp_offloading_start(&__offloading_info__);
 
-	omp_offloading_clear_report_info(&__offloading_info__);
-	omp_offloading_clear_report_info(&__off_info_1__);
-	omp_offloading_clear_report_info(&__off_info_2__);
-
+	omp_offloading_fini_info(&__offloading_info__);
+	omp_offloading_fini_info(&__off_info_1__);
+	omp_offloading_fini_info(&__off_info_2__);
 #if defined (STANDALONE_DATA_X)
-	omp_offloading_clear_report_info(&uuold_halo_x_off_info);
+	omp_offloading_fini_info(&uuold_halo_x_off_info);
 #endif
 
 #if defined (OMP_BREAKDOWN_TIMING)
+	omp_offloading_info_report_profile(&__offloading_info__);
+	omp_offloading_info_report_profile(&__off_info_1__);
+	omp_offloading_info_report_profile(&__off_info_2__);
+#if defined (STANDALONE_DATA_X)
+	omp_offloading_info_report_profile(&uuold_halo_x_off_info);
+#endif
 #endif
 
 	printf("Total Number of Iterations:%d\n", k);

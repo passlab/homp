@@ -536,6 +536,7 @@ extern void omp_grid_topology_init_simple (omp_grid_topology_t * top, omp_device
 /*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
 extern void omp_factor(int n, int factor[], int dims);
 extern void omp_topology_print(omp_grid_topology_t * top);
+extern int omp_grid_topology_get_seqid(omp_grid_topology_t * top, int devid);
 
 extern void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
@@ -566,6 +567,10 @@ extern void omp_map_marshal(omp_data_map_t * map);
 extern void omp_map_unmarshal(omp_data_map_t * map);
 extern void omp_map_free_dev(omp_device_t * dev, void * ptr);
 extern void * omp_map_malloc_dev(omp_device_t * dev, long size);
+extern void omp_map_mapto(omp_data_map_t * map);
+extern void omp_map_mapto_async(omp_data_map_t * map, omp_dev_stream_t * stream);
+extern void omp_map_mapfrom(omp_data_map_t * map);
+extern void omp_map_mapfrom_async(omp_data_map_t * map, omp_dev_stream_t * stream);
 extern void omp_map_memcpy_to(void * dst, omp_device_t * dstdev, const void * src, long size);
 extern void omp_map_memcpy_to_async(void * dst, omp_device_t * dstdev, const void * src, long size, omp_dev_stream_t * stream);
 extern void omp_map_memcpy_from(void * dst, const void * src, omp_device_t * srcdev, long size);

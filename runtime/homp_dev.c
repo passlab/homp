@@ -206,20 +206,20 @@ int omp_set_current_device_dev(omp_device_t * d) {
 	return d->id;
 }
 
-void omp_map_map_to(omp_data_map_t * map) {
+void omp_map_mapto(omp_data_map_t * map) {
 	if (map->map_type == OMP_DATA_MAP_COPY) omp_map_memcpy_to((void*)map->map_dev_ptr, map->dev, (void*)map->map_buffer, map->map_size);
 }
 
-void omp_map_map_to_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
+void omp_map_mapto_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
 	if (map->map_type == OMP_DATA_MAP_COPY) omp_map_memcpy_to_async((void*)map->map_dev_ptr, map->dev, (void*)map->map_buffer, map->map_size, stream);
 }
 
-void omp_map_map_from(omp_data_map_t * map) {
+void omp_map_mapfrom(omp_data_map_t * map) {
 	if (map->map_type == OMP_DATA_MAP_COPY)
 		omp_map_memcpy_from((void*)map->map_buffer, (void*)map->map_dev_ptr, map->dev, map->map_size); /* memcpy from host to device */
 }
 
-void omp_map_map_from_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
+void omp_map_mapfrom_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
 	if (map->map_type == OMP_DATA_MAP_COPY)
 		omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, map->dev, map->map_size, stream); /* memcpy from host to device */
 }

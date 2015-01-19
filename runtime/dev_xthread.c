@@ -184,7 +184,7 @@ omp_offloading_copyto: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 				omp_event_record_start(&events[misc_event_index], stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
 #endif
-				omp_map_map_to_async(map, off->stream);
+				omp_map_mapto_async(map, off->stream);
 				//omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 				omp_event_record_stop(&events[misc_event_index++]);
@@ -244,7 +244,7 @@ omp_offloading_copyfrom: ;
 				/* TODO bug here if this is reached from the above goto, since events is not available */
 				omp_event_record_start(&events[misc_event_index], stream, "MAPFROM_", "Time for mapfrom data movement for array %s", map_info->symbol);
 #endif
-				omp_map_map_from_async(map, off->stream);
+				omp_map_mapfrom_async(map, off->stream);
 				//omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, dev, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
 				omp_event_record_stop(&events[misc_event_index++]);
