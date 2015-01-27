@@ -408,7 +408,6 @@ void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void 
 	}
 }
 
-#if 0
 /* In the current implementation of the runtime, we will NOT use stream callback to do the timing and others such as reduction operation.
  * The reason is because CUDA use a driver thread to handle callback, which become not necessnary since we have a dedicated helper thread
  * for each GPU and the helper thread could do this kind of work
@@ -424,13 +423,10 @@ void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cud
 	rdata->result = result;
 }
 
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
 void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
-	float * time = (float*)userData;
+	double * time = (double*)userData;
 	*time = read_timer_ms();
 }
-#endif
-#endif
 #endif
 
 void omp_stream_create(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default) {
@@ -537,11 +533,8 @@ void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream,  const 
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
 			cudaError_t result;
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
 			result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->start_time_dev, 0);
-#else
 			result = cudaEventRecord(ev->start_event_dev, stream->systream.cudaStream);
-#endif
 			devcall_assert(result);
 		} else
 #endif
@@ -565,11 +558,8 @@ void omp_event_record_stop(omp_event_t * ev) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
 			cudaError_t result;
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
 			result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->stop_time_dev, 0);
-#else
 			result = cudaEventRecord(ev->stop_event_dev, stream->systream.cudaStream);
-#endif
 			devcall_assert(result);
 		} else
 #endif
@@ -593,9 +583,7 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	float elapsed = -1.0;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-#ifdef USE_STREAM_HOST_CALLBACK_4_TIMING
-		elapse = ev->stop_time_dev - ev->start_time_dev;
-#else
+		float elapse1 = ev->stop_time_dev - ev->start_time_dev;
 		cudaError_t result;
 		result = cudaEventSynchronize(ev->start_event_dev);
 		devcall_assert(result);
@@ -603,6 +591,7 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 		devcall_assert(result);
 		result = cudaEventElapsedTime(&elapsed, ev->start_event_dev, ev->stop_event_dev);
 		devcall_assert(result);
+		printf("timing difference, callback: %f, event: %f\n", elapse1, elapse);
 	} else
 #endif
 #endif
