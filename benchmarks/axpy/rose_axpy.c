@@ -59,7 +59,6 @@ int main(int argc,char *argv[])
   n = 500000;
   if (argc >= 2) 
     n = atoi(argv[1]);
-  printf("n = %d\n", n);  
   y = ((REAL *)(malloc((n * sizeof(REAL )))));
   y_ompacc = ((REAL *)(malloc((n * sizeof(REAL )))));
   x = ((REAL *)(malloc((n * sizeof(REAL )))));
