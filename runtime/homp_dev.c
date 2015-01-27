@@ -139,7 +139,8 @@ int omp_init_devices() {
 	pthread_attr_init(&attr);
 	/* initialize attr with default attributes */
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-	pthread_setconcurrency(omp_num_devices);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_setconcurrency(omp_num_devices+1);
 
 	int j = 0;
 	for (i=0; i<omp_num_devices; i++) {
@@ -190,6 +191,12 @@ void omp_fini_devices() {
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		int rt = pthread_join(dev->helperth, NULL);
+		omp_device_type_t devtype = dev->type;
+#if defined (DEVICE_NVGPU_SUPPORT)
+		if (devtype == OMP_DEVICE_NVGPU) {
+			free(dev->dev_properties);
+		}
+#endif
 	}
 
 	free(omp_host_dev);
