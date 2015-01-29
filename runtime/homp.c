@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/timeb.h>
+#include <time.h>
 
 #include "homp.h"
 
@@ -1243,15 +1243,32 @@ void omp_topology_get_neighbors(omp_grid_topology_t * top, int seqid, int topdim
 /* read timer in second */
 double read_timer()
 {
-	struct timeb tm;
-	ftime(&tm);
-	return (double)tm.time + (double)tm.millitm/1000.0;
+    return read_timer_ms()/1000.0;
 }
 
 /* read timer in ms */
 double read_timer_ms()
 {
-	struct timeb tm;
-	ftime(&tm);
-	return (double)tm.time * 1000.0 + (double)tm.millitm;
+	struct timespec ts;
+#if defined(CLOCK_MONOTONIC_PRECISE)
+	/* BSD. --------------------------------------------- */
+	const clockid_t id = CLOCK_MONOTONIC_PRECISE;
+#elif defined(CLOCK_MONOTONIC_RAW)
+	/* Linux. ------------------------------------------- */
+	const clockid_t id = CLOCK_MONOTONIC_RAW;
+#elif defined(CLOCK_HIGHRES)
+	/* Solaris. ----------------------------------------- */
+	const clockid_t id = CLOCK_HIGHRES;
+#elif defined(CLOCK_MONOTONIC)
+	/* AIX, BSD, Linux, POSIX, Solaris. ----------------- */
+	const clockid_t id = CLOCK_MONOTONIC;
+#elif defined(CLOCK_REALTIME)
+	/* AIX, BSD, HP-UX, Linux, POSIX. ------------------- */
+	const clockid_t id = CLOCK_REALTIME;
+#else
+	const clockid_t id = (clockid_t)-1;	/* Unknown. */
+#endif
+	if ( id != (clockid_t)-1 && clock_gettime( id, &ts ) != -1 )
+		return (double)ts.tv_sec * 1000.0 +
+			(double)ts.tv_nsec / 1000000.0;
 }

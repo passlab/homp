@@ -421,6 +421,7 @@ void omp_map_memcpy_DeviceToDeviceAsync(void * dst, omp_device_t * dstdev, void 
  */
 #if defined (DEVICE_NVGPU_SUPPORT)
 
+#if 0
 void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
 	omp_reduction_float_t * rdata = (omp_reduction_float_t*)userData;
 	float result = 0.0;
@@ -429,6 +430,7 @@ void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cud
 		result += rdata->input[i];
 	rdata->result = result;
 }
+#endif
 
 void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
 	double * time = (double*)userData;
@@ -590,7 +592,7 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	float elapsed = -1.0;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-		float elapse1 = ev->stop_time_dev - ev->start_time_dev;
+		double elapse1 = ev->stop_time_dev - ev->start_time_dev;
 		cudaError_t result;
 		result = cudaEventSynchronize(ev->start_event_dev);
 		devcall_assert(result);
@@ -598,9 +600,8 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 		devcall_assert(result);
 		result = cudaEventElapsedTime(&elapsed, ev->start_event_dev, ev->stop_event_dev);
 		devcall_assert(result);
-		printf("timing difference, callback: %f, event: %f\n", elapse1, elapse);
+		printf("timing difference, callback: %f, event: %f\n", elapse1, elapsed);
 	} else
-#endif
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 		elapsed = ev->stop_time_dev - ev->start_time_dev;
