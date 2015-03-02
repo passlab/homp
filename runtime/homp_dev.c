@@ -646,29 +646,6 @@ void omp_event_accumulate_elapsed_ms(omp_event_t * ev) {
 	ev->recorded = 0;
 }
 
-void omp_event_print_profile_header() {
-	printf("%*s    TOTAL     AVE(Times)  Measured from (host/dev)\t\tDescription\n",
-			OMP_EVENT_NAME_LENGTH, "Name");
-}
-
-void omp_event_print_elapsed(omp_event_t * ev) {
-	omp_event_record_method_t record_method = ev->record_method;
-	//char padding[OMP_EVENT_MSG_LENGTH];
-	//memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
-	if (record_method == OMP_EVENT_HOST_RECORD) {
-		printf("%*s%10.2f%10.2f(%d)\t\thost\t\t%s\n",
-				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
-	} else if (record_method == OMP_EVENT_DEV_RECORD) {
-		printf("%*s%10.2f%10.2f(%d)\t\tdev\t\t%s\n",
-				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
-	} else {
-		printf("%*s%10.2f%10.2f(%d)\thost\t\t%s\n",
-				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
-		printf("%*s%10.2f%10.2f(%d)\t\tdev\t\t%s\n",
-				OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
-	}
-}
-
 int omp_get_max_threads_per_team(omp_device_t * dev) {
 	omp_device_type_t devtype = dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)

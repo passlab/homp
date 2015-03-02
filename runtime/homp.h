@@ -172,6 +172,28 @@ typedef struct omp_event {
 	double elapsed_host;
 } omp_event_t;
 
+/* tracing
+ * The event tracing are performed by each helper thread that writes traces to a file.
+ * The master thread (who starts the offloading) will write a master trace file.
+ * Traces are stored in multiple files (1 index + #targets trace files), the trace_name is:
+ * <offloading_name>_<uid>_<recur_id>
+ *
+ * The master index file is named as <trace_name>.index
+ * Each trace file is named as <trace_name>_vdevid_pdevid.txt
+ *
+ * The content of master index:
+ * trace_name
+ * vdevid pdevid (one per line)
+ * ...
+ * starter time_stamp
+ * end time_stamp
+ *
+ * Trace file content:
+ * event_name start_timestamp stop_timestamp
+ * ....
+ *
+ */
+
 /**
  ********************** Compiler notes *********************************************
  * The recommended compiler flag name to output the
@@ -429,7 +451,10 @@ struct omp_offloading_info {
 	omp_device_t ** targets; /* a list of target devices */
 	const char * name; /* kernel name */
 
-	volatile int recurring; /* if an offload is within a loop (while/for, etc and with goto) of a function, it is a recurring */
+	volatile int count; /* if an offload is within a loop (while/for, etc and with goto) of a function, it is a recurring */
+	double start_time;
+	double compl_time;
+	double elapsed;
 
 	omp_offloading_type_t type; /* what to offload: data, code, or both*/
 	int num_mapped_vars;

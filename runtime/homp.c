@@ -121,10 +121,10 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 	info->name = name;
 	info->top = top;
 	info->targets = targets;
-	info->recurring = recurring == 0? 0 : 1;
+	info->count = recurring == 0? 0 : 1;
 	info->type = off_type;
 	if (off_type == OMP_OFFLOADING_DATA) { /* we handle offloading data as two steps, thus a recurruing offloading */
-		info->recurring = 1;
+		info->count = 1;
 	}
 	info->num_mapped_vars = num_mapped_vars;
 	info->data_map_info = data_map_info;
@@ -147,15 +147,42 @@ void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
 		int devsysid = off->dev->sysid;
 		char * type = omp_get_device_typename(off->dev);
 		int j;
-		printf("\n----------------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------------------------\n", info->name,  type, devid, devsysid);
+		printf("\n-------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------\n", info->name,  type, devid, devsysid);
+		printf("-------------- Last TOTAL: %10.2f, Last start: %10.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
 			omp_event_t * ev = &off->events[j];
-			if (ev->event_name != NULL) omp_event_print_elapsed(ev);
+			if (ev->event_name != NULL) {
+//                printf("%d   ", j);
+                omp_event_print_elapsed(ev);
+            }
 		}
-		printf("----------------------- End Profiling Report for Offloading kernel(%s) on dev: %d -----------------------------------------------\n", info->name, devid);
+		printf("---------------- End Profiling Report for Offloading kernel(%s) on dev: %d ----------------------------\n", info->name, devid);
 		free(off->events);
 	}
+}
+
+void omp_event_print_profile_header() {
+    printf("%*s    TOTAL     AVE(#Calls) Last Start Host/dev Measure\tDescription\n",
+            OMP_EVENT_NAME_LENGTH-1, "Name");
+}
+
+void omp_event_print_elapsed(omp_event_t * ev) {
+    omp_event_record_method_t record_method = ev->record_method;
+    //char padding[OMP_EVENT_MSG_LENGTH];
+    //memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
+    if (record_method == OMP_EVENT_HOST_RECORD) {
+        printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
+    } else if (record_method == OMP_EVENT_DEV_RECORD) {
+        printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+    } else {
+		printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+    }
 }
 
 void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x) {
@@ -168,7 +195,7 @@ void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_of
 	info->name = name;
 	info->top = top;
 	info->targets = targets;
-	info->recurring = recurring == 0? 0 : 1;
+	info->count = recurring == 0? 0 : 1;
 	info->type = OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE;
 	info->num_mapped_vars = num_mapped_vars;
 	info->data_map_info = data_map_info;
@@ -1249,7 +1276,7 @@ double read_timer()
 /* read timer in ms */
 double read_timer_ms()
 {
-	struct timespec ts;
+    struct timespec ts;
 #if defined(CLOCK_MONOTONIC_PRECISE)
 	/* BSD. --------------------------------------------- */
 	const clockid_t id = CLOCK_MONOTONIC_PRECISE;
@@ -1268,6 +1295,7 @@ double read_timer_ms()
 #else
 	const clockid_t id = (clockid_t)-1;	/* Unknown. */
 #endif
+
 	if ( id != (clockid_t)-1 && clock_gettime( id, &ts ) != -1 )
 		return (double)ts.tv_sec * 1000.0 +
 			(double)ts.tv_nsec / 1000000.0;

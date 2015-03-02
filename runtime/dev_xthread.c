@@ -4,6 +4,7 @@
 #include <sys/timeb.h>
 
 #include "homp.h"
+
 /**
  * notifying the helper threads to work on the offloading specified in off_info arg
  * It always start with copyto and may stops after copyto for target data
@@ -12,6 +13,10 @@
 void omp_offloading_start(omp_offloading_info_t * off_info) {
 	omp_device_t ** targets = off_info->targets;
 	int num_targets = off_info->top->nnodes;
+    /* generate master trace file */
+
+	off_info->start_time = read_timer_ms();
+
 	int i;
 	for (i = 0; i < num_targets; i++) {
 		if (targets[i]->offload_request != NULL) {
@@ -27,11 +32,13 @@ void omp_offloading_start(omp_offloading_info_t * off_info) {
 	if (off_info->type != OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE && off_info->halo_x_info != NULL) { /* appended halo exchange */
 		pthread_barrier_wait(&off_info->barrier);
 	}
-	if (off_info->recurring) off_info->recurring ++; /* recurring, increment the number of offloading */
+	if (off_info->count) off_info->count++; /* recurring, increment the number of offloading */
 
 #if defined (OMP_BREAKDOWN_TIMING)
 	pthread_barrier_wait(&off_info->barrier); /* this one make sure the profiling is collected */
 #endif
+
+	off_info->compl_time = read_timer_ms();
 
 }
 
@@ -65,7 +72,7 @@ void omp_offloading_run(omp_device_t * dev) {
 
 	int num_events;
 	omp_event_t *events;
-	if (off_info->recurring <= 1) { /* the first time of recurring offloading or a non-recurring offloading */
+	if (off_info->count <= 1) { /* the first time of recurring offloading or a non-recurring offloading */
 		num_events = off_info->num_mapped_vars * 2 + 10; /* the max posibble # of events to be used */
 		events = (omp_event_t *) malloc(sizeof(omp_event_t) * num_events); /**TODO: free this memory somewhere later */
 		off->num_events = num_events;
@@ -91,12 +98,12 @@ void omp_offloading_run(omp_device_t * dev) {
 	int misc_event_index = misc_event_index_start;
 
 	/* set up stream and event */
-	if (off_info->recurring <= 1) omp_event_init(&events[total_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+	if (off_info->count <= 1) omp_event_init(&events[total_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
 	omp_event_record_start(&events[total_event_index], NULL, "OFF_TOTAL", "Total offloading time (everything) on dev: %d", devid);
 #endif
 
 //	case OMP_OFFLOADING_INIT:
-	if (off_info->recurring <= 1) /* the first time of recurring offloading or a non-recurring offloading */
+	if (off_info->count <= 1) /* the first time of recurring offloading or a non-recurring offloading */
 	{
 		off->stage = OMP_OFFLOADING_INIT;
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -163,7 +170,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	omp_dev_stream_t *stream = off->stream;
 
 	if (off_info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE) goto data_exchange;
-	if (off_info->type == OMP_OFFLOADING_DATA && off_info->recurring > 1) {
+	if (off_info->type == OMP_OFFLOADING_DATA && off_info->count > 1) {
 		goto omp_offloading_copyfrom;
 	}
 
@@ -263,7 +270,7 @@ omp_offloading_copyfrom: ;
 omp_offloading_sync_cleanup: ;
 		/* sync stream to wait for completion */
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[sync_cleanup_event_index], NULL, "FINI_1", "Time for dev sync and cleaning up (destroy event/stream and data map, deallocation and unmarshalling)");
+		omp_event_record_start(&events[sync_cleanup_event_index], NULL, "FINI_1", "Time for dev sync and cleaning (event/stream/map, deallocation/unmarshalling)");
 #endif
 		omp_stream_sync(off->stream);
 		if (off->stage == OMP_OFFLOADING_SYNC) {
