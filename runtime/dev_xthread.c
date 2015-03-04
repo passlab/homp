@@ -15,7 +15,9 @@ void omp_offloading_start(omp_offloading_info_t * off_info) {
 	int num_targets = off_info->top->nnodes;
     /* generate master trace file */
 
+#if defined (OMP_BREAKDOWN_TIMING)
 	off_info->start_time = read_timer_ms();
+#endif
 
 	int i;
 	for (i = 0; i < num_targets; i++) {
@@ -36,9 +38,8 @@ void omp_offloading_start(omp_offloading_info_t * off_info) {
 
 #if defined (OMP_BREAKDOWN_TIMING)
 	pthread_barrier_wait(&off_info->barrier); /* this one make sure the profiling is collected */
-#endif
-
 	off_info->compl_time = read_timer_ms();
+#endif
 
 }
 

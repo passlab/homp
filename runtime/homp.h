@@ -54,6 +54,7 @@ extern char * omp_device_type_name[];
 typedef struct omp_device_type_info {
 	omp_device_type_t type;
 	char name[32];
+	char shortname[8];
 	int num_devs;
 } omp_device_type_info_t;
 extern omp_device_type_info_t omp_device_types[];
@@ -552,7 +553,7 @@ extern void omp_event_print(omp_event_t * ev);
 extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, const char * event_name, const char * event_msg, ...);
 extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_print_profile_header();
-extern void omp_event_print_elapsed(omp_event_t * ev);
+extern void omp_event_print_elapsed(omp_event_t * ev, double * start_time, double * elapsed);
 extern void omp_event_elapsed_ms(omp_event_t * ev);
 extern void omp_event_accumulate_elapsed_ms(omp_event_t * ev);
 extern void omp_offloading_clear_report_info(omp_offloading_info_t * info);

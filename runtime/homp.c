@@ -33,14 +33,14 @@ volatile int omp_device_complete = 0;
 int omp_num_devices;
 volatile int omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scramble together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
-	{OMP_DEVICE_HOST, "OMP_DEVICE_HOST", 1},
-	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", 0},
-	{OMP_DEVICE_ITLMIC, "OMP_DEVICE_ITLMIC", 0},
-	{OMP_DEVICE_TIDSP, "OMP_DEVICE_TIDSP", 0},
-	{OMP_DEVICE_AMDAPU, "OMP_DEVICE_AMDAPU", 0},
-	{OMP_DEVICE_THSIM, "OMP_DEVICE_THSIM", 0},
-	{OMP_DEVICE_REMOTE, "OMP_DEVICE_REMOTE", 0},
-	{OMP_DEVICE_LOCALPS, "OMP_DEVICE_LOCALPS", 0}
+	{OMP_DEVICE_HOST, "OMP_DEVICE_HOST", "HOST", 1},
+	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", "NVGPU", 0},
+	{OMP_DEVICE_ITLMIC, "OMP_DEVICE_ITLMIC", "ITLMIC", 0},
+	{OMP_DEVICE_TIDSP, "OMP_DEVICE_TIDSP", "TIDSP", 0},
+	{OMP_DEVICE_AMDAPU, "OMP_DEVICE_AMDAPU", "AMDAPU", 0},
+	{OMP_DEVICE_THSIM, "OMP_DEVICE_THSIM", "THSIM", 0},
+	{OMP_DEVICE_REMOTE, "OMP_DEVICE_REMOTE", "REMOTE", 0},
+	{OMP_DEVICE_LOCALPS, "OMP_DEVICE_LOCALPS", "LOCALPS", 0}
 };
 
 /* APIs to support multiple devices: */
@@ -139,14 +139,118 @@ void omp_offloading_fini_info(omp_offloading_info_t * info) {
 	pthread_barrier_destroy(&info->barrier);
 }
 
-void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
+void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * filename) {
+	char *original_name = info->name;
+
+	int name_len = 4;
+	int guid_len = 8;
+	int recu_len = 6;
+	char name[name_len];
 	int i;
+	for (i=0; i<strlen(original_name) && i<name_len; i++) {
+		name[i] = original_name[i];
+	}
+	for (;i<name_len; i++) {
+		name[i] = '_';
+	}
+
+	int filename_length = name_len + 1 + guid_len + 1 + recu_len + 5 + 1;
+	sprintf(filename, "%*s", name_len, name);
+	sprintf(filename +name_len, "%s", "_");
+	sprintf(filename +name_len+1, "%0*X", guid_len, info);
+	sprintf(filename +name_len+1+guid_len, "%s", "_");
+	sprintf(filename +name_len+1+guid_len+1, "%0*d", recu_len, info->count);
+	sprintf(filename +name_len+1+guid_len+1+recu_len, "%s", ".plot");
+	filename[filename_length] = '\0';
+}
+
+#if defined(PROFILE_PLOT)
+char *colors[] = {
+		"#FFFFFF", /* white */
+		"#FF0000", /* red */
+		"#00FF00", /* Lime */
+		"#0000FF", /* Blue */
+		"#FFFF00", /* Yellow */
+		"#00FFFF", /* Cyan/Aqua */
+		"#FF00FF", /* Megenta/Fuchsia */
+		"#808080", /* Gray */
+		"#800000", /* Maroon */
+		"#808000", /* Olive */
+		"#008000", /* Green */
+		"#800080", /* Purple */
+		"#008080", /* Teal */
+		"#000080", /* Navy */
+};
+#endif
+void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
+	int i, j;
+#if defined(PROFILE_PLOT)
+	char plotscript_filename[128];
+	omp_offloading_info_report_filename(info, plotscript_filename);
+	FILE * plotscript_file = fopen(plotscript_filename, "w+");
+	fprintf(plotscript_file, "set title \"Offloading Kernel (%s) Profile on %d Devices\"\n", info->name, info->top->nnodes);
+	double xrange = (info->compl_time - info->start_time)*1.1;
+	int yoffset_per_entry = 10;
+	double yrange = info->top->nnodes*yoffset_per_entry+12;
+	int xsize = 1600;
+	int ysize = 700;
+	fprintf(plotscript_file, "set yrange [0:%f]\n", yrange);
+	fprintf(plotscript_file, "set xlabel \"execution time in ms\"\n");
+	fprintf(plotscript_file, "set xrange [0:%f]\n", xrange);
+	fprintf(plotscript_file, "set style fill pattern 2 bo 1\n");
+	fprintf(plotscript_file, "set style rect fs solid 1 noborder\n");
+//	fprintf(plotscript_file, "set style line 1 lt 1 lw 1 lc rgb \"#000000\"\n");
+	fprintf(plotscript_file, "set border 15 lw 0.2\n");
+//	fprintf(plotscript_file, "set style line 2 lt 1 lw 1 lc rgb \"#9944CC\"\n");
+	fprintf(plotscript_file, "set xtics out nomirror\n");
+	fprintf(plotscript_file, "unset key\n");
+	fprintf(plotscript_file, "set ytics out nomirror (");
+	int yposoffset = 5;
+	omp_offloading_t *off;
+	for (i=0; i<info->top->nnodes; i++) {
+		off = &info->offloadings[i];
+		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char *type = omp_get_device_typename(off->dev);
+		fprintf(plotscript_file, "\"dev %d(sysid:%d,type:%s)\" %d", devid, devsysid, type, yposoffset);
+		yposoffset += yoffset_per_entry;
+		if (i != info->top->nnodes - 1) fprintf(plotscript_file, ",");
+	}
+	fprintf(plotscript_file, ")\n");
+	int recobj_count = 1;
+	int legend_bottom = info->top->nnodes*yoffset_per_entry+5;
+	int legend_width = xrange/12 > 10? xrange/12: 10;
+	int legend_offset = legend_width/3;
+	for (j=1; j<off->num_events; j++) {
+		omp_event_t * ev = &off->events[j];
+		if (ev->event_name != NULL) {
+			fprintf(plotscript_file, "set object %d rect from %d, %d to %d, %d fc rgb \"%s\"\n",
+				recobj_count++, legend_offset, legend_bottom,  legend_offset+legend_width, legend_bottom+3, colors[j]);
+			fprintf(plotscript_file, "set label \"%s\" at %d,%d font \"Helvetica,8\'\"\n\n", ev->event_name, legend_offset, legend_bottom-2);
+			legend_offset += legend_width + legend_width/3;
+		}
+	}
+/*
+set yrange [0:25.5]
+set xlabel "execution time in ms"
+set xrange [0:25]
+set style fill pattern 2 bo 1
+set style rect fs solid 1 noborder
+set style line 1 lt 1 lw 1 lc rgb "#000000"
+set border 15 lw 0.2
+set style line 2 lt 1 lw 1 lc rgb "#9944CC"
+set xtics out nomirror
+unset key
+# for each device, we have an entry like the following
+set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12, "device 4" 15)
+*/
+#endif
+
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		int devid = off->dev->id;
 		int devsysid = off->dev->sysid;
 		char * type = omp_get_device_typename(off->dev);
-		int j;
 		printf("\n-------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------\n", info->name,  type, devid, devsysid);
 		printf("-------------- Last TOTAL: %10.2f, Last start: %10.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
 		omp_event_print_profile_header();
@@ -154,12 +258,28 @@ void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
 			omp_event_t * ev = &off->events[j];
 			if (ev->event_name != NULL) {
 //                printf("%d   ", j);
-                omp_event_print_elapsed(ev);
+				double start_time, elapsed;
+				omp_event_print_elapsed(ev, &start_time, &elapsed);
+#if defined(PROFILE_PLOT)
+				start_time = start_time - info->start_time;
+				/* if (j>0) */ { /* we do not do the first one (the global one) */
+					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
+							recobj_count++, start_time, i * yoffset_per_entry,  start_time + elapsed, (i + 1) * yoffset_per_entry, colors[j]);
+				}
+#endif
             }
 		}
 		printf("---------------- End Profiling Report for Offloading kernel(%s) on dev: %d ----------------------------\n", info->name, devid);
+
+#if defined(PROFILE_PLOT)
+		fprintf(plotscript_file, "set arrow from  0,%d to %f,%d nohead\n", i * yoffset_per_entry, xrange, i * yoffset_per_entry);
+#endif
 		free(off->events);
 	}
+#if defined(PROFILE_PLOT)
+	fprintf(plotscript_file, "plot 0\n");
+	fclose(plotscript_file);
+#endif
 }
 
 void omp_event_print_profile_header() {
@@ -167,21 +287,27 @@ void omp_event_print_profile_header() {
             OMP_EVENT_NAME_LENGTH-1, "Name");
 }
 
-void omp_event_print_elapsed(omp_event_t * ev) {
+void omp_event_print_elapsed(omp_event_t * ev, double * start_time, double * elapsed) {
     omp_event_record_method_t record_method = ev->record_method;
     //char padding[OMP_EVENT_MSG_LENGTH];
     //memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
     if (record_method == OMP_EVENT_HOST_RECORD) {
         printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
+		*start_time = ev->start_time_host;
+		*elapsed = ev->elapsed_host;
     } else if (record_method == OMP_EVENT_DEV_RECORD) {
         printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+		*start_time = ev->start_time_dev;
+		*elapsed = ev->elapsed_dev;
     } else {
 		printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
 		printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+		*start_time = ev->start_time_host;
+		*elapsed = ev->elapsed_host;
     }
 }
 
@@ -208,7 +334,7 @@ void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_of
 char * omp_get_device_typename(omp_device_t * dev) {
 	int i;
 	for (i=0; i<OMP_NUM_DEVICE_TYPES; i++) {
-		if (omp_device_types[i].type == dev->type) return omp_device_types[i].name;
+		if (omp_device_types[i].type == dev->type) return omp_device_types[i].shortname;
 	}
 	return NULL;
 }
