@@ -1,5 +1,5 @@
 TEST_INCLUDES = -I../../runtime -I.
-TEST_LINK = -lpthread -lm
+TEST_LINK = -lm -lrt -lpthread
 
 NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 NVGPU_CUDA_PATH=/APPS/cuda/include

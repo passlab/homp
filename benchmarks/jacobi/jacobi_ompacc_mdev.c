@@ -886,7 +886,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	omp_offloading_info_report_profile(&uuold_halo_x_off_info);
 #endif
 
-	omp_offloading_t *infos[num_infos];
+	omp_offloading_info_t *infos[num_infos];
 	infos[0] = &__offloading_info__;
 	infos[1] = &__off_info_1__;
 	infos[2] = &__off_info_2__;

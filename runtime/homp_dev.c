@@ -601,7 +601,6 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 		devcall_assert(result);
 		result = cudaEventElapsedTime(&elapsed, ev->start_event_dev, ev->stop_event_dev);
 		devcall_assert(result);
-		printf("timing difference, callback: %f, event: %f\n", elapse1, elapsed);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
