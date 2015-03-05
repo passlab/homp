@@ -3,6 +3,7 @@ TEST_LINK = -lpthread -lm
 
 #NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 NVGPU_CUDA_PATH=/usr/local/cuda-5.5/
+NVGPU_CUDA_PATH=/APPS/cuda/include
 
 matmul-thsim:	
 #	gcc $(TEST_INCLUDES) -DOMP_BREAKDOWN_TIMING -g ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c matmul_mdev.c -c

@@ -2,6 +2,7 @@ TEST_INCLUDES = -I../../runtime -I.
 TEST_LINK = -lpthread -lm
 
 NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
+NVGPU_CUDA_PATH=/APPS/cuda/include
 
 jacobi-thsim:	
 	gcc $(TEST_INCLUDES) -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 -g -O0 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c  jacobi_ompacc_mdev.c -c

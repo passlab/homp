@@ -194,7 +194,25 @@ typedef struct omp_event {
  * ....
  *
  */
+#define OMP_BREAKDOWN_TIMING 1
+#if defined (OMP_BREAKDOWN_TIMING)
 
+extern int total_event_index;       		/* host event */
+extern int timing_init_event_index; 		/* host event */
+extern int map_init_event_index;  			/* host event */
+extern int sync_cleanup_event_index;		/* host event */
+extern int barrier_wait_event_index;		/* host event */
+
+extern int acc_mapto_event_index; 			/* dev event */
+extern int kernel_exe_event_index;			/* dev event */
+extern int acc_mapfrom_event_index;		/* dev event */
+extern int acc_ex_event_index;  			/* host event for data exchange such as halo xchange */
+extern int acc_ex_barrier_event_index;  	/* host event */
+
+extern int misc_event_index_start;        /* other events, e.g. mapto/from for each array, start with 9*/
+extern void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count);
+
+#endif
 /**
  ********************** Compiler notes *********************************************
  * The recommended compiler flag name to output the

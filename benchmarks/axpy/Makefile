@@ -3,6 +3,8 @@ TEST_LINK = -lm -lpthread
 
 #NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 NVGPU_CUDA_PATH=/usr/local/cuda-5.5/
+NVGPU_CUDA_PATH=/APPS/cuda/include
+
 all: axpy-thsim axpy-nvgpu
 
 axpy-thsim:

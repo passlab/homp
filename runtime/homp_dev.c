@@ -497,6 +497,7 @@ void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_metho
 	ev->recorded = 0;
 	ev->elapsed_dev = ev->elapsed_host = 0.0;
 	ev->event_name = NULL;
+	ev->event_description[0] = '\0';
 	if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {

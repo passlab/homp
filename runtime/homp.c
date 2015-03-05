@@ -131,6 +131,7 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 	info->kernel_launcher = kernel_launcher;
 	info->args = args;
 	info->halo_x_info = NULL;
+	info->start_time = 0;
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
@@ -138,6 +139,49 @@ void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, o
 void omp_offloading_fini_info(omp_offloading_info_t * info) {
 	pthread_barrier_destroy(&info->barrier);
 }
+
+#if defined (OMP_BREAKDOWN_TIMING)
+/**
+ * sum up all the profiling info of the infos to a info at location 0, all the infos should have the same target and topology
+ * also the call make assumptions that the first info is the first one started and the last info is the last one finished.
+ */
+void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count) {
+	int i, j, k;
+	omp_offloading_info_t *suminfo = infos[0];
+	suminfo->compl_time = infos[count - 1]->compl_time;
+	printf("suminfo start: %f\n", suminfo->start_time);
+	suminfo->name = "Accumulated profiling of multiple offloading";
+	for (i = 0; i < suminfo->top->nnodes; i++) {
+		suminfo->offloadings[i].num_events = misc_event_index_start;
+	}
+	//printf("count: %d, #events: %d, #dev: %d\n", count, misc_event_index_start, suminfo->top->nnodes);
+
+	for (k = 0; k < misc_event_index_start; k++) {
+		for (i = 0; i < suminfo->top->nnodes; i++) {
+
+			for (j = 1; j < count; j++) {
+				omp_offloading_info_t *info = infos[j];
+				omp_offloading_t *off = &info->offloadings[i];
+				omp_event_t *ev = &off->events[k];
+				omp_event_t *sumev = &(suminfo->offloadings[i].events[k]);
+				sumev->elapsed_host += ev->elapsed_host;
+				sumev->elapsed_dev += ev->elapsed_dev;
+				//printf("%d %d %d\n", k, i, j);
+				if (k == 0) {
+					sumev->start_time_host = suminfo->start_time;
+					sumev->start_time_dev = suminfo->start_time;
+				} else {
+					omp_event_t *lastev = &(suminfo->offloadings[i].events[k-1]);
+					sumev->start_time_host = lastev->start_time_host + lastev->elapsed_host;
+					sumev->start_time_dev = lastev->start_time_dev + lastev->elapsed_dev;
+				}
+				if (sumev->event_name == NULL) sumev->event_name = ev->event_name;
+				//if (strlen(sumev->event_description) == 0) memcpy(sumev->event_description, ev->event_description, strlen(ev->event_description));
+			}
+		}
+	}
+}
+#endif
 
 void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * filename) {
 	char *original_name = info->name;
@@ -251,7 +295,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		int devid = off->dev->id;
 		int devsysid = off->dev->sysid;
 		char * type = omp_get_device_typename(off->dev);
-		printf("\n-------------- Profiling Report (ms) for Offloading kernel(%s) on %s dev %d (sysid: %d) ---------------------------\n", info->name,  type, devid, devsysid);
+		printf("\n-------------- Profiling Report (ms) for Offloading(%s) on %s dev %d (sysid: %d) ---------------------------\n", info->name,  type, devid, devsysid);
 		printf("-------------- Last TOTAL: %10.2f, Last start: %10.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
@@ -269,12 +313,12 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #endif
             }
 		}
-		printf("---------------- End Profiling Report for Offloading kernel(%s) on dev: %d ----------------------------\n", info->name, devid);
+		printf("---------------- End Profiling Report for Offloading(%s) on dev: %d ----------------------------\n", info->name, devid);
 
 #if defined(PROFILE_PLOT)
 		fprintf(plotscript_file, "set arrow from  0,%d to %f,%d nohead\n", i * yoffset_per_entry, xrange, i * yoffset_per_entry);
 #endif
-		free(off->events);
+		//free(off->events);
 	}
 #if defined(PROFILE_PLOT)
 	fprintf(plotscript_file, "plot 0\n");
@@ -283,7 +327,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 }
 
 void omp_event_print_profile_header() {
-    printf("%*s    TOTAL     AVE(#Calls) Last Start Host/dev Measure\tDescription\n",
+    printf("%*s    TOTAL     AVE(#Calls) Host/dev Measure\tDescription\n",
             OMP_EVENT_NAME_LENGTH-1, "Name");
 }
 
@@ -292,20 +336,20 @@ void omp_event_print_elapsed(omp_event_t * ev, double * start_time, double * ela
     //char padding[OMP_EVENT_MSG_LENGTH];
     //memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
     if (record_method == OMP_EVENT_HOST_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
+        printf("%*s%10.2f%10.2f(%d)\thost\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
 		*start_time = ev->start_time_host;
 		*elapsed = ev->elapsed_host;
     } else if (record_method == OMP_EVENT_DEV_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+        printf("%*s%10.2f%10.2f(%d)\tdev\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
 		*start_time = ev->start_time_dev;
 		*elapsed = ev->elapsed_dev;
     } else {
-		printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
-		printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\thost\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\tdev\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
 		*start_time = ev->start_time_host;
 		*elapsed = ev->elapsed_host;
     }

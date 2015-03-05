@@ -877,12 +877,24 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 #endif
 
 #if defined (OMP_BREAKDOWN_TIMING)
+	int num_infos = 3;
 	omp_offloading_info_report_profile(&__offloading_info__);
 	omp_offloading_info_report_profile(&__off_info_1__);
 	omp_offloading_info_report_profile(&__off_info_2__);
 #if defined (STANDALONE_DATA_X)
+	num_infos = 4;
 	omp_offloading_info_report_profile(&uuold_halo_x_off_info);
 #endif
+
+	omp_offloading_t *infos[num_infos];
+	infos[0] = &__offloading_info__;
+	infos[1] = &__off_info_1__;
+	infos[2] = &__off_info_2__;
+#if defined (STANDALONE_DATA_X)
+	infos[3] = &uuold_halo_x_off_inf;
+#endif
+	omp_offloading_info_sum_profile(infos, num_infos);
+	omp_offloading_info_report_profile(&__offloading_info__);
 #endif
 
 	printf("Total Number of Iterations:%d\n", k);
