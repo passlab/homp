@@ -327,7 +327,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 }
 
 void omp_event_print_profile_header() {
-    printf("%*s    TOTAL     AVE(#Calls) Host/dev Measure\tDescription\n",
+    printf("%*s    TOTAL     AVE(#Calls) Last Start Host/dev Measure\tDescription\n",
             OMP_EVENT_NAME_LENGTH-1, "Name");
 }
 
@@ -336,20 +336,20 @@ void omp_event_print_elapsed(omp_event_t * ev, double * start_time, double * ela
     //char padding[OMP_EVENT_MSG_LENGTH];
     //memset(padding, ' ', OMP_EVENT_MSG_LENGTH);
     if (record_method == OMP_EVENT_HOST_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
+        printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
 		*start_time = ev->start_time_host;
 		*elapsed = ev->elapsed_host;
     } else if (record_method == OMP_EVENT_DEV_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
+        printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
 		*start_time = ev->start_time_dev;
 		*elapsed = ev->elapsed_dev;
     } else {
-		printf("%*s%10.2f%10.2f(%d)\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->event_description);
-		printf("%*s%10.2f%10.2f(%d)\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
 		*start_time = ev->start_time_host;
 		*elapsed = ev->elapsed_host;
     }
