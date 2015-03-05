@@ -156,27 +156,27 @@ void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count) 
 	}
 	//printf("count: %d, #events: %d, #dev: %d\n", count, misc_event_index_start, suminfo->top->nnodes);
 
-	for (k = 0; k < misc_event_index_start; k++) {
-		for (i = 0; i < suminfo->top->nnodes; i++) {
-
+	for (i = 0; i < suminfo->top->nnodes; i++) {
+		for (k = 0; k < misc_event_index_start; k++) {
+			omp_event_t *sumev = &(suminfo->offloadings[i].events[k]);
 			for (j = 1; j < count; j++) {
 				omp_offloading_info_t *info = infos[j];
 				omp_offloading_t *off = &info->offloadings[i];
 				omp_event_t *ev = &off->events[k];
-				omp_event_t *sumev = &(suminfo->offloadings[i].events[k]);
 				sumev->elapsed_host += ev->elapsed_host;
 				sumev->elapsed_dev += ev->elapsed_dev;
 				//printf("%d %d %d\n", k, i, j);
-				if (k == 0) {
-					sumev->start_time_host = suminfo->start_time;
-					sumev->start_time_dev = suminfo->start_time;
-				} else {
-					omp_event_t *lastev = &(suminfo->offloadings[i].events[k-1]);
-					sumev->start_time_host = lastev->start_time_host + lastev->elapsed_host;
-					sumev->start_time_dev = lastev->start_time_dev + lastev->elapsed_dev;
-				}
+
 				if (sumev->event_name == NULL) sumev->event_name = ev->event_name;
 				//if (strlen(sumev->event_description) == 0) memcpy(sumev->event_description, ev->event_description, strlen(ev->event_description));
+			}
+			if (k == 0) {
+				sumev->start_time_host = suminfo->start_time;
+				sumev->start_time_dev = suminfo->start_time;
+			} else {
+				omp_event_t *lastev = &(suminfo->offloadings[i].events[k-1]);
+				sumev->start_time_host = lastev->start_time_host + lastev->elapsed_host;
+				sumev->start_time_dev = lastev->start_time_dev + lastev->elapsed_dev;
 			}
 		}
 	}
@@ -232,7 +232,7 @@ void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
 	char plotscript_filename[128];
 	omp_offloading_info_report_filename(info, plotscript_filename);
 	FILE * plotscript_file = fopen(plotscript_filename, "w+");
-	fprintf(plotscript_file, "set title \"Offloading Kernel (%s) Profile on %d Devices\"\n", info->name, info->top->nnodes);
+	fprintf(plotscript_file, "set title \"Offloading (%s) Profile on %d Devices\"\n", info->name, info->top->nnodes);
 	double xrange = (info->compl_time - info->start_time)*1.1;
 	int yoffset_per_entry = 10;
 	double yrange = info->top->nnodes*yoffset_per_entry+12;
