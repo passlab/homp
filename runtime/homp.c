@@ -305,7 +305,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
 			omp_event_t * ev = &off->events[j];
-			if (j = misc_event_index_start) printf("---------------------------------------------------------------------------------\n");
+			if (j == misc_event_index_start) printf("---------------------------------------------------------------------------------\n");
 			if (ev->event_name != NULL) {
 //                printf("%d   ", j);
 				double start_time, elapsed;
