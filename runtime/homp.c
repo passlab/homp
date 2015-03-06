@@ -142,14 +142,19 @@ void omp_offloading_fini_info(omp_offloading_info_t * info) {
 
 #if defined (OMP_BREAKDOWN_TIMING)
 /**
- * sum up all the profiling info of the infos to a info at location 0, all the infos should have the same target and topology
- * also the call make assumptions that the first info is the first one started and the last info is the last one finished.
+ * sum up all the profiling info of the infos to a info at location 0, all the infos should have the same target and topology.
+ * Will also align the start_time with the provided info if it has, otherwise,
+ * the call make assumptions that the first info is the one start first and finish last.
  */
-void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count) {
+void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time) {
 	int i, j, k;
 	omp_offloading_info_t *suminfo = infos[0];
-	suminfo->compl_time = infos[count - 1]->compl_time;
-	printf("suminfo start: %f\n", suminfo->start_time);
+	if (start_time == 0) {
+		printf("suminfo start: %f\n", suminfo->start_time);
+	} else {
+		suminfo->start_time = start_time;
+		suminfo->compl_time = compl_time;
+	}
 	suminfo->name = "Accumulated profiling of multiple offloading";
 	for (i = 0; i < suminfo->top->nnodes; i++) {
 		suminfo->offloadings[i].num_events = misc_event_index_start;

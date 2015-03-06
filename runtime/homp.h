@@ -211,7 +211,7 @@ extern int sync_cleanup_event_index;		/* host event */
 extern int barrier_wait_event_index;		/* host event */
 
 extern int misc_event_index_start;        /* other events, e.g. mapto/from for each array, start with 9*/
-extern void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count);
+extern void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time);
 
 #endif
 /**

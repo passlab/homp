@@ -635,6 +635,8 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 }
 
 void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL * u_p, REAL * f_p, REAL tol, int mits) {
+	double start_time, compl_time;
+	start_time = read_timer_ms();
 	int i, j, k;
 	REAL error;
 	REAL ax;
@@ -868,6 +870,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	}
 	/* copy back u from each device and free others */
 	omp_offloading_start(&__offloading_info__);
+	compl_time = read_timer_ms();
 
 	omp_offloading_fini_info(&__offloading_info__);
 	omp_offloading_fini_info(&__off_info_1__);
@@ -893,7 +896,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 #if defined (STANDALONE_DATA_X)
 	infos[3] = &uuold_halo_x_off_inf;
 #endif
-	omp_offloading_info_sum_profile(infos, num_infos);
+	omp_offloading_info_sum_profile(infos, num_infos, start_time, compl_time);
 	omp_offloading_info_report_profile(&__offloading_info__);
 #endif
 
