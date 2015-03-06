@@ -175,7 +175,7 @@ void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, 
 				if (sumev->event_name == NULL) sumev->event_name = ev->event_name;
 				//if (strlen(sumev->event_description) == 0) memcpy(sumev->event_description, ev->event_description, strlen(ev->event_description));
 			}
-			if (k == 0) {
+			if (k == total_event_index) { /* 0, the first one */
 				sumev->start_time_host = suminfo->start_time;
 				sumev->start_time_dev = suminfo->start_time;
 			} else {
@@ -305,6 +305,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
 			omp_event_t * ev = &off->events[j];
+			if (j = misc_event_index_start) printf("---------------------------------------------------------------------------------\n");
 			if (ev->event_name != NULL) {
 //                printf("%d   ", j);
 				double start_time, elapsed;
