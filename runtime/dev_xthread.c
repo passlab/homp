@@ -48,14 +48,15 @@ void omp_offloading_start(omp_offloading_info_t * off_info) {
 int total_event_index = 0;       		/* host event */
 int timing_init_event_index = 1; 		/* host event */
 int map_init_event_index = 2;  			/* host event */
-int sync_cleanup_event_index = 3;		/* host event */
-int barrier_wait_event_index = 4;		/* host event */
 
-int acc_mapto_event_index = 5; 			/* dev event */
-int kernel_exe_event_index = 6;			/* dev event */
+int acc_mapto_event_index = 3; 			/* dev event */
+int kernel_exe_event_index = 4;			/* dev event */
+int acc_ex_event_index = 5;  			/* host event for data exchange such as halo xchange */
+int acc_ex_barrier_event_index = 6;  	/* host event */
 int acc_mapfrom_event_index = 7;		/* dev event */
-int acc_ex_event_index = 8;  			/* host event for data exchange such as halo xchange */
-int acc_ex_barrier_event_index = 9;  	/* host event */
+
+int sync_cleanup_event_index = 8;		/* host event */
+int barrier_wait_event_index = 9;		/* host event */
 
 int misc_event_index_start = 10;        /* other events, e.g. mapto/from for each array, start with 9*/
 #endif

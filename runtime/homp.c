@@ -306,7 +306,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 				omp_event_print_elapsed(ev, &start_time, &elapsed);
 #if defined(PROFILE_PLOT)
 				start_time = start_time - info->start_time;
-				/* if (j>0) */ { /* we do not do the first one (the global one) */
+				if (j>0 && j < misc_event_index_start) { /* only plot the major event */
 					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
 							recobj_count++, start_time, i * yoffset_per_entry,  start_time + elapsed, (i + 1) * yoffset_per_entry, colors[j]);
 				}
