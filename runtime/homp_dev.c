@@ -591,9 +591,10 @@ void omp_event_record_stop(omp_event_t * ev) {
 static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	omp_device_type_t devtype = ev->dev->type;
 	float elapsed = -1.0;
+	double elapsed1 = -1.0;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
-		double elapse1 = ev->stop_time_dev - ev->start_time_dev;
+		elapsed1 = ev->stop_time_dev - ev->start_time_dev;
 		cudaError_t result;
 		result = cudaEventSynchronize(ev->start_event_dev);
 		devcall_assert(result);
@@ -601,6 +602,7 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 		devcall_assert(result);
 		result = cudaEventElapsedTime(&elapsed, ev->start_event_dev, ev->stop_event_dev);
 		devcall_assert(result);
+		//printf("timing difference, callback: %f, event: %f\n", elapsed1, elapsed);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
@@ -608,12 +610,15 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	} else {
 		fprintf(stderr, "other type of devices are not yet supported to calculate elapsed\n");
 	}
+	printf("dev event: start: %f, stop: %f, elapsed: %f (%f)\n", ev->start_time_dev, ev->stop_time_dev, elapsed, elapsed1);
 
 	return elapsed;
 }
 
 static double omp_event_elapsed_ms_host(omp_event_t * ev) {
-	return ev->stop_time_host - ev->start_time_host;
+	double elapsed = ev->stop_time_host - ev->start_time_host;
+	printf("host event: start: %f, stop: %f, elapsed: %f\n", ev->start_time_host, ev->stop_time_host, elapsed);
+	return elapsed;
 }
 
 /**

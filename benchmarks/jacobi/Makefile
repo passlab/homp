@@ -14,4 +14,4 @@ jacobi-nvgpu:
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ -L/usr/lib/gcc/x86_64-redhat-linux/4.4.6 -lgomp ${TEST_LINK}
 
 clean:
-	rm -rf *.o jacobi-*
+	rm -rf *.o jacobi-* *.plot

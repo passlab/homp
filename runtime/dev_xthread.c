@@ -16,7 +16,7 @@ void omp_offloading_start(omp_offloading_info_t * off_info) {
     /* generate master trace file */
 
 #if defined (OMP_BREAKDOWN_TIMING)
-	if (off_info->start_time == 0.0) off_info->start_time = read_timer_ms(); /* only for the first time */
+	if (off_info->count <= 1) off_info->start_time = read_timer_ms(); /* only for the first time */
 #endif
 
 	int i;

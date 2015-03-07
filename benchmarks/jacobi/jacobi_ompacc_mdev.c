@@ -850,11 +850,8 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 #endif
 
 		/* jacobi */
-	  	int __i__;
-		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
-			__reduction_error__[__i__] = error;
-		}
 	  	omp_offloading_start(&__off_info_2__);
+		int __i__;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			error += __reduction_error__[__i__];
 		}
