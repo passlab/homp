@@ -238,11 +238,11 @@ void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
 	omp_offloading_info_report_filename(info, plotscript_filename);
 	FILE * plotscript_file = fopen(plotscript_filename, "w+");
 	fprintf(plotscript_file, "set title \"Offloading (%s) Profile on %d Devices\"\n", info->name, info->top->nnodes);
-	double xrange = (info->compl_time - info->start_time)*1.1;
-	int yoffset_per_entry = 10;
+	double xsize = (info->compl_time - info->start_time)*1.1;
 	double yrange = info->top->nnodes*yoffset_per_entry+12;
-	int xsize = 1600;
-	int ysize = 700;
+	double xrange = yrange * 2.2;
+	double xratio = xrange/xsize; /* so new mapped len will be len*xratio */
+	int yoffset_per_entry = 10;
 	fprintf(plotscript_file, "set yrange [0:%f]\n", yrange);
 	fprintf(plotscript_file, "set xlabel \"execution time in ms\"\n");
 	fprintf(plotscript_file, "set xrange [0:%f]\n", xrange);
@@ -314,7 +314,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 				start_time = start_time - info->start_time;
 				if (j>0 && j < misc_event_index_start) { /* only plot the major event */
 					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
-							recobj_count++, start_time, i * yoffset_per_entry,  start_time + elapsed, (i + 1) * yoffset_per_entry, colors[j]);
+							recobj_count++, start_time, i * yoffset_per_entry,  start_time + elapsed*xratio, (i + 1) * yoffset_per_entry, colors[j]);
 				}
 #endif
             }
