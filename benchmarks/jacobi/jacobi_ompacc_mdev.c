@@ -446,8 +446,8 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
         uold_1_offset = map_uold->info->halo_info[1].left;
     } else uold_1_offset = 0;
 
-    long uold_0_length = map_uold->map_dim[0];
-    long uold_1_length = map_uold->map_dim[1];
+    long uold_0_length = map_uold->map_dist[0].length;
+    long uold_1_length = map_uold->map_dist[1].length;
 
     REAL (*uold)[uold_1_length] = (REAL(*)[uold_1_length])uold_p; /** cast a pointer to a 2-D array */
 
@@ -537,8 +537,8 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
         uold_1_offset = map_uold->info->halo_info[1].left;
     } else uold_1_offset = 0;
 
-    int uold_0_length = map_uold->map_dim[0];
-    int uold_1_length = map_uold->map_dim[1];
+	int uold_0_length = map_uold->map_dist[0].length;
+    int uold_1_length = map_uold->map_dist[1].length;
 
     REAL (*uold)[uold_1_length] = (REAL(*)[uold_1_length])uold_p; /** cast a pointer to a 2-D array */
 
@@ -726,14 +726,14 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
   	long f_dims[2];f_dims[0] = n;f_dims[1] = m;
   	omp_data_map_t f_maps[__num_target_devices__];
-  	omp_data_map_dist_t f_dist[2];
+  	omp_dist_info_t f_dist[2];
   	omp_data_map_init_info("f", __info__, &__top__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, f_dist);
 
   	/* u map info */
   	__info__ = &__data_map_infos__[1];
   	long u_dims[2];u_dims[0] = n;u_dims[1] = m;
   	omp_data_map_t u_maps[__num_target_devices__];
-  	omp_data_map_dist_t u_dist[2];
+  	omp_dist_info_t u_dist[2];
   	//omp_data_map_halo_region_info_t u_halo[2];
   	omp_data_map_init_info("u", __info__, &__top__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, u_dist);
 
@@ -741,44 +741,44 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	__info__ = &__data_map_infos__[2];
   	long uold_dims[2];uold_dims[0] = n; uold_dims[1] = m;
   	omp_data_map_t uold_maps[__num_target_devices__];
-  	omp_data_map_dist_t uold_dist[2];
+  	omp_dist_info_t uold_dist[2];
   	omp_data_map_halo_region_info_t uold_halo[2];
   	omp_data_map_init_info_with_halo("uold", __info__, &__top__, uold, 2, uold_dims, sizeof(REAL),uold_maps,OMP_DATA_MAP_ALLOC, OMP_DATA_MAP_AUTO, uold_dist, uold_halo);
 
   	/**************************************** dist-specific *****************************************/
   	if (dist == 1) {
-  		omp_data_map_init_dist(&f_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-  		omp_data_map_init_dist(&f_dist[1], 0, m, OMP_DATA_MAP_DIST_FULL, 0);
+		omp_dist_init_info(&f_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+		omp_dist_init_info(&f_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, m, 0, NULL);
 
-  		omp_data_map_init_dist(&u_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-  		omp_data_map_init_dist(&u_dist[1], 0, m, OMP_DATA_MAP_DIST_FULL, 0);
+		omp_dist_init_info(&u_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+		omp_dist_init_info(&u_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, m, 0, NULL);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 0, 1, 1, 0);
 
-  		omp_data_map_init_dist(&uold_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-  		omp_data_map_init_dist(&uold_dist[1], 0, m, OMP_DATA_MAP_DIST_FULL, 0);
+		omp_dist_init_info(&uold_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+		omp_dist_init_info(&uold_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, m, 0, NULL);
   		omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
   	} else if (dist == 2) {
-  		omp_data_map_init_dist(&f_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-  		omp_data_map_init_dist(&f_dist[1], 0, m, OMP_DATA_MAP_DIST_EVEN, 0);
+		omp_dist_init_info(&f_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+		omp_dist_init_info(&f_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, m, 0, NULL);
 
-  		omp_data_map_init_dist(&u_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-  		omp_data_map_init_dist(&u_dist[1], 0, m, OMP_DATA_MAP_DIST_EVEN, 0);
+		omp_dist_init_info(&u_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+		omp_dist_init_info(&u_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, m, 0, NULL);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 1, 1, 1, 0);
 
-  		omp_data_map_init_dist(&uold_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-  		omp_data_map_init_dist(&uold_dist[1], 0, m, OMP_DATA_MAP_DIST_EVEN, 0);
+		omp_dist_init_info(&uold_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+		omp_dist_init_info(&uold_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, m, 0, NULL);
   		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, 0);
   	} else /* dist == 3 */{
-  		omp_data_map_init_dist(&f_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-  		omp_data_map_init_dist(&f_dist[1], 0, m, OMP_DATA_MAP_DIST_EVEN, 1);
+		omp_dist_init_info(&f_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+		omp_dist_init_info(&f_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, m, 1, NULL);
 
-  		omp_data_map_init_dist(&u_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-  		omp_data_map_init_dist(&u_dist[1], 0, m, OMP_DATA_MAP_DIST_EVEN, 1);
+		omp_dist_init_info(&u_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+		omp_dist_init_info(&u_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, m, 1, NULL);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 0, 1, 1, 0);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 1, 1, 1, 0);
 
-  		omp_data_map_init_dist(&uold_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-  		omp_data_map_init_dist(&uold_dist[1], 0, m, OMP_DATA_MAP_DIST_EVEN, 1);
+		omp_dist_init_info(&uold_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+		omp_dist_init_info(&uold_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, m, 1, NULL);
   		omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
   		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, 0);
   	}
@@ -787,7 +787,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_offloading_info_t __offloading_info__;
   	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
   	/* we use universal args and launcher because axpy can do it */
-  	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL);
+	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, NULL, NULL);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
@@ -804,7 +804,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	struct OUT__2__10550__args args_1;
 	args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
 
-	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1);
+	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1, NULL, NULL, NULL);
 
   	omp_offloading_info_t __off_info_2__;
   	omp_offloading_t __offs_2__[__num_target_devices__];
@@ -812,7 +812,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	struct OUT__1__10550__args args_2;
   	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
   	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
-  	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2);
+	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2, NULL, NULL, NULL);
 
   	/* halo exchange offloading */
   	omp_data_map_halo_exchange_info_t x_halos[1];

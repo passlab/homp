@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+
 #define REAL float
 #include "homp.h"
 
@@ -208,7 +209,7 @@ int main(int argc,char *argv[])
 
 /* sequential run */
   seq_elapsed = read_timer();
-//  iter_matmul(A, B, C_seq, n);
+  iter_matmul(A, B, C_seq, n);
   seq_elapsed = (read_timer() - seq_elapsed);
 #if CORRECTNESS_CHECK
   print_array("Array C_seq", "C", C_seq, n, n);
@@ -388,50 +389,50 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long A_dims[2];A_dims[0] = n;A_dims[1] = n;
 	omp_data_map_t A_maps[__num_target_devices__];
-	omp_data_map_dist_t A_dist[2];
+	omp_dist_info_t A_dist[2];
 	omp_data_map_init_info("A", __info__, &__top__, A, 2, A_dims, sizeof(REAL), A_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO,  A_dist);
 
 	/* B map info */
 	__info__ = &__data_map_infos__[1];
 	long B_dims[2];B_dims[0] = n;B_dims[1] = n;
 	omp_data_map_t B_maps[__num_target_devices__];
-	omp_data_map_dist_t B_dist[2];
+	omp_dist_info_t B_dist[2];
 	omp_data_map_init_info("B", __info__, &__top__, B, 2, B_dims, sizeof(REAL),B_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, B_dist);
 
 	__info__ = &__data_map_infos__[2];
 	long C_dims[2];C_dims[0] = n; C_dims[1] = n;
 	omp_data_map_t C_maps[__num_target_devices__];
-	omp_data_map_dist_t C_dist[2];
+	omp_dist_info_t C_dist[2];
 	omp_data_map_init_info("C", __info__, &__top__, C, 2, C_dims, sizeof(REAL),C_maps, OMP_DATA_MAP_FROM, OMP_DATA_MAP_AUTO, C_dist);
 
 	/**************************************** dist-specific *****************************************/
 	if (dist == 1) {
-		omp_data_map_init_dist(&A_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-		omp_data_map_init_dist(&A_dist[1], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
+        omp_dist_init_info(&A_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+        omp_dist_init_info(&A_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
 
-		omp_data_map_init_dist(&B_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-		omp_data_map_init_dist(&B_dist[1], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
+        omp_dist_init_info(&B_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&B_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
 
-		omp_data_map_init_dist(&C_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-		omp_data_map_init_dist(&C_dist[1], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
+        omp_dist_init_info(&C_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+        omp_dist_init_info(&C_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
 	} else if (dist == 2) {
-		omp_data_map_init_dist(&A_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-		omp_data_map_init_dist(&A_dist[1], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
+        omp_dist_init_info(&A_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&A_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
 
-		omp_data_map_init_dist(&B_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-		omp_data_map_init_dist(&B_dist[1], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
+        omp_dist_init_info(&B_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&B_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
 
-		omp_data_map_init_dist(&C_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-		omp_data_map_init_dist(&C_dist[1], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
+        omp_dist_init_info(&C_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&C_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
 	} else /* dist == 3 */{
-		omp_data_map_init_dist(&A_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-		omp_data_map_init_dist(&A_dist[1], 0, n, OMP_DATA_MAP_DIST_FULL, 1);
+        omp_dist_init_info(&A_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+        omp_dist_init_info(&A_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 1, NULL);
 
-		omp_data_map_init_dist(&B_dist[0], 0, n, OMP_DATA_MAP_DIST_FULL, 0);
-		omp_data_map_init_dist(&B_dist[1], 0, n, OMP_DATA_MAP_DIST_EVEN, 1);
+        omp_dist_init_info(&B_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&B_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 1, NULL);
 
-		omp_data_map_init_dist(&C_dist[0], 0, n, OMP_DATA_MAP_DIST_EVEN, 0);
-		omp_data_map_init_dist(&C_dist[1], 0, n, OMP_DATA_MAP_DIST_EVEN, 1);
+        omp_dist_init_info(&C_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+        omp_dist_init_info(&C_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 1, NULL);
 	}
 	/************************************************************************************************/
 
@@ -446,7 +447,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args);
+    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, NULL, NULL, NULL);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

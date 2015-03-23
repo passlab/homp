@@ -125,14 +125,14 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_t x_maps[__num_target_devices__];
-	omp_data_map_dist_t x_dist[1];
-	omp_data_map_init_info_straight_dist("x", __info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_dist_info_t x_dist[1];
+	omp_data_map_init_info_straight_dist("x", __info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DATA_MAP_DIST_BLOCK);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
 	omp_data_map_t y_maps[__num_target_devices__];
-	omp_data_map_dist_t y_dist[1];
-	omp_data_map_init_info_straight_dist("y", __info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DATA_MAP_DIST_EVEN);
+	omp_dist_info_t y_dist[1];
+	omp_data_map_init_info_straight_dist("y", __info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DATA_MAP_DIST_BLOCK);
 	
 	struct OUT__3__5904__other_args args;
 	args.a = a;
@@ -142,7 +142,7 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info ("axpy kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args);
+	omp_offloading_init_info("axpy kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args, NULL, NULL, NULL);
 
 #if 0
 	/* we could specify dev-specific args and kernel_launcher */

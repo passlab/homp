@@ -118,6 +118,8 @@ struct omp_device {
 
 	unsigned long bandwidth; /* between host memory and dev memory for profile data movement cost */
 
+	double real_flopss; /* the sustained flops/s after testing */
+
 	int status;
 	struct omp_device * next; /* the device list */
 	volatile omp_offloading_info_t * offload_request; /* this is the notification flag that the helper thread will pick up the offloading request */
@@ -261,19 +263,36 @@ typedef enum omp_data_map_type {
 } omp_data_map_type_t;
 
 typedef enum omp_data_map_dist_type {
-	OMP_DATA_MAP_DIST_EVEN,
-	OMP_DATA_MAP_DIST_FULL,
-	OMP_DATA_MAP_DIST_BALANCE, /* the balanced data distribution so computation is balanced distributed, ideally */
-	OMP_DATA_MAP_DIST_FIX, /* user defined */
-	OMP_DATA_MAP_DIST_CHUNK, /* with chunk size, and cyclic */
+	OMP_DATA_MAP_DIST_BLOCK,
+	OMP_DATA_MAP_DIST_DUPLICATE,
+	OMP_DATA_MAP_DIST_AUTO, /* the balanced data distribution so computation is balanced distributed, ideally */
+	OMP_DATA_MAP_DIST_ALIGN,
+	OMP_DATA_MAP_DIST_CYCLIC, /* user defined */
+	OMP_DATA_MAP_DIST_FIX, /* fixed dist */
 } omp_data_map_dist_type_t;
 
-typedef struct omp_data_map_dist {
-	long start; /* the start index for the dim of the original array */
-	long length;   /* the length (# element) */
+/**
+ * Info object for dist (array and iteration)
+ */
+typedef struct omp_dist_info {
 	omp_data_map_dist_type_t type; /* the dist type */
-	int topdim; /* which top dim to apply dist, for dist_even, copy*/
-} omp_data_map_dist_t;
+	long start; /* the start index for the dim of the original array */
+	long length;   /* the length (total # element to be distributed) */
+	long stride; /* stride between ele, default 1 of course */
+	long chunk_size;
+	omp_offloading_info_t * aligned_off_info;
+	int dim_index; /* the index of top dim to apply dist, for dist_even, duplicate. For align, the dist index (0,1,2) in aligned_off_info*/
+} omp_dist_info_t;
+
+/**
+ * dist object, a subregion of the whole region defined in info object
+ */
+typedef struct omp_dist {
+	omp_dist_info_t * info;
+	long offset;
+	long length;
+	struct omp_dist * aligned_dist; /* if it is aligned dist, offset/length is a copy from the aligned_dist */
+} omp_dist_t;
 
 /**
  * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
@@ -283,7 +302,7 @@ typedef struct omp_data_map_halo_region {
 	int left; /* element size */
 	int right; /* element size */
 	short cyclic;
-	int topdim; /* which dimension of the device topology this halo region is related to, it is the same as the topdim of dist object of the same dimension */
+	int topdim; /* which dimension of the device topology this halo region is related to, it is the same as the dim_index of dist object of the same dimension */
 } omp_data_map_halo_region_info_t;
 
 typedef struct omp_data_map_halo_region_mem {
@@ -340,7 +359,7 @@ typedef struct omp_data_map_info {
 	 * The dist array maintains info on how the array should be distributed among dev topology, not including
 	 * the halo region info.
 	 */
-	omp_data_map_dist_t *dist;
+	omp_dist_info_t *dist;
 
 	 /* the halo region: halo region is considered out-of-bound access of the main array region,
 	  * thus the index could be -1, -2, or larger than the dimensions. Our memory allocation and pointer
@@ -366,14 +385,14 @@ typedef enum omp_data_map_access_level {
 struct omp_data_map {
 	omp_data_map_access_level_t access_level;
 	omp_data_map_info_t * info;
-        omp_device_t * dev;
+    omp_device_t * dev;
 
-	long map_dim[OMP_NUM_ARRAY_DIMENSIONS]; /* the dimensions for the mapped region */
-	/* the offset of each dimension from the original array for the mapped region (not the mem region)*/
-	long map_offset[OMP_NUM_ARRAY_DIMENSIONS];
+	/* the subarray for the mapped region, including the offset and length */
+	omp_dist_t map_dist[OMP_NUM_ARRAY_DIMENSIONS];
+
 	char * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
 	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
-        char * map_buffer; /* the mapped buffer on host. This pointer is either the	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
+    char * map_buffer; /* the mapped buffer on host. This pointer is either the	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
 
 	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
 
@@ -481,6 +500,9 @@ struct omp_offloading_info {
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
 	omp_offloading_t * offloadings; /* a list of dev-specific offloading objects, num of this is num of targets from top */
 
+	/* max three level of loop nest */
+	omp_dist_info_t *loop_dist_info[3];
+
 	/* the universal kernel launcher and args, the helper thread will use this one if no dev-specific one is provided */
 	/* the helper thread will first check these two field, if they are not null, it will use them, otherwise, it will use the dev-specific one */
 	void * args;
@@ -527,6 +549,8 @@ struct omp_offloading {
 	} map_cache[OFF_MAP_CACHE_SIZE];
 	int num_maps;
 
+	omp_dist_t loop_dist[3];
+
 	/* for profiling purpose */
 	omp_event_t *events;
 	int num_events;
@@ -551,8 +575,7 @@ extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
 
-extern void omp_offloading_init_info(const char * name, omp_offloading_info_t * info, omp_grid_topology_t * top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type,
-		int num_mapped_vars, omp_data_map_info_t * data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void * args);
+extern void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp_grid_topology_t *top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type, int num_mapped_vars, omp_data_map_info_t *data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void *args, omp_dist_info_t *loop_nest1_dist, omp_dist_info_t *loop_nest2_dist, omp_dist_info_t *loop_nest3_dist);
 extern void omp_offloading_fini_info(omp_offloading_info_t * info);
 extern void omp_offloading_info_report_profile(omp_offloading_info_t * info);
 
@@ -584,16 +607,16 @@ extern void omp_topology_print(omp_grid_topology_t * top);
 extern int omp_grid_topology_get_seqid(omp_grid_topology_t * top, int devid);
 
 extern void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist);
+		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t * dist);
 extern void omp_data_map_init_info_with_halo(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_halo_region_info_t * halo_info);
+		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t * dist, omp_data_map_halo_region_info_t * halo_info);
 
 extern void omp_data_map_init_info_straight_dist(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type) ;
+		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t * dist, omp_data_map_dist_type_t dist_type) ;
 
 extern void omp_data_map_init_info_straight_dist_and_halo(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_data_map_dist_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic);
-extern void omp_data_map_init_dist(omp_data_map_dist_t * dist, long start, long length, omp_data_map_dist_type_t dist_type, int topdim);
+		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t * dist, omp_data_map_dist_type_t dist_type, omp_data_map_halo_region_info_t * halo_info, int halo_left, int halo_right, int halo_cyclic);
+extern void omp_dist_init_info(omp_dist_info_t *dist_info, omp_data_map_dist_type_t dist_type, long start, long length, int dim_index, void *dist_para);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t * info, omp_device_t * dev,	omp_dev_stream_t * stream, omp_offloading_t * off);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid, omp_offloading_t * off) ;
 extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);

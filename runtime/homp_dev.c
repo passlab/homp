@@ -610,14 +610,14 @@ static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	} else {
 		fprintf(stderr, "other type of devices are not yet supported to calculate elapsed\n");
 	}
-	printf("dev event: start: %f, stop: %f, elapsed: %f (%f)\n", ev->start_time_dev, ev->stop_time_dev, elapsed, elapsed1);
+	//printf("dev event: start: %f, stop: %f, elapsed: %f (%f)\n", ev->start_time_dev, ev->stop_time_dev, elapsed, elapsed1);
 
 	return elapsed;
 }
 
 static double omp_event_elapsed_ms_host(omp_event_t * ev) {
 	double elapsed = ev->stop_time_host - ev->start_time_host;
-	printf("host event: start: %f, stop: %f, elapsed: %f\n", ev->start_time_host, ev->stop_time_host, elapsed);
+	//printf("host event: start: %f, stop: %f, elapsed: %f\n", ev->start_time_host, ev->stop_time_host, elapsed);
 	return elapsed;
 }
 
