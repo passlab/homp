@@ -160,8 +160,8 @@ void omp_offloading_run(omp_device_t * dev) {
 			int inherited = 1;
 			if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
 				map = &map_info->maps[seqid];
-				omp_data_map_init_map(map, map_info, dev, off->stream, off);
-				omp_data_map_dist(map, seqid, off);
+				omp_data_map_init_map(map, map_info, dev);
+				omp_data_map_dist(map, seqid);
 				omp_map_buffer(map, off);
 				inherited = 0;
 			}

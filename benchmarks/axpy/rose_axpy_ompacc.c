@@ -71,7 +71,8 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
     REAL * x = (REAL *)map_x->map_dev_ptr;
     REAL * y = (REAL *)map_y->map_dev_ptr;
     
-    omp_loop_map_range(map_x, 0, -1, -1, &start_n, &length_n);
+    omp_loop_map_range(map_x, 0, -1, -1, &start_n, &length_n);/* this is alignment policy */
+
 //    printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
     
 	omp_device_type_t devtype = off->dev->type;
@@ -126,13 +127,13 @@ REAL axpy_ompacc_mdev_v2(REAL *x, REAL *y,  long n,REAL a)
 	long x_dims[1]; x_dims[0] = n;
 	omp_data_map_t x_maps[__num_target_devices__];
 	omp_dist_info_t x_dist[1];
-	omp_data_map_init_info_straight_dist("x", __info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DATA_MAP_DIST_BLOCK);
+	omp_data_map_init_info_straight_dist("x", __info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DIST_POLICY_BLOCK);
 
 	__info__ = &__data_map_infos__[1];
 	long y_dims[1]; y_dims[0] = n;
 	omp_data_map_t y_maps[__num_target_devices__];
 	omp_dist_info_t y_dist[1];
-	omp_data_map_init_info_straight_dist("y", __info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DATA_MAP_DIST_BLOCK);
+	omp_data_map_init_info_straight_dist("y", __info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DIST_POLICY_BLOCK);
 	
 	struct OUT__3__5904__other_args args;
 	args.a = a;

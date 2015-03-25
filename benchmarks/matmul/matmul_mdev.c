@@ -407,32 +407,32 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 
 	/**************************************** dist-specific *****************************************/
 	if (dist == 1) {
-        omp_dist_init_info(&A_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
-        omp_dist_init_info(&A_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+        omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
-        omp_dist_init_info(&B_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
-        omp_dist_init_info(&B_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&B_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+        omp_dist_init_info(&B_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
-        omp_dist_init_info(&C_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
-        omp_dist_init_info(&C_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&C_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+        omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 	} else if (dist == 2) {
-        omp_dist_init_info(&A_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
-        omp_dist_init_info(&A_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
+        omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+        omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
-        omp_dist_init_info(&B_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
-        omp_dist_init_info(&B_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+        omp_dist_init_info(&B_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+        omp_dist_init_info(&B_dist[1], OMP_DIST_POLICY_BLOCK, 0, n, 0);
 
-        omp_dist_init_info(&C_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
-        omp_dist_init_info(&C_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
+        omp_dist_init_info(&C_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+        omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_BLOCK, 0, n, 0);
 	} else /* dist == 3 */{
-        omp_dist_init_info(&A_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
-        omp_dist_init_info(&A_dist[1], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 1, NULL);
+        omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+        omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 1);
 
-        omp_dist_init_info(&B_dist[0], OMP_DATA_MAP_DIST_DUPLICATE, 0, n, 0, NULL);
-        omp_dist_init_info(&B_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 1, NULL);
+        omp_dist_init_info(&B_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+        omp_dist_init_info(&B_dist[1], OMP_DIST_POLICY_BLOCK, 0, n, 1);
 
-        omp_dist_init_info(&C_dist[0], OMP_DATA_MAP_DIST_BLOCK, 0, n, 0, NULL);
-        omp_dist_init_info(&C_dist[1], OMP_DATA_MAP_DIST_BLOCK, 0, n, 1, NULL);
+        omp_dist_init_info(&C_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+        omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_BLOCK, 0, n, 1);
 	}
 	/************************************************************************************************/
 
