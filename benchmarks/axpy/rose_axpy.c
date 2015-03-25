@@ -1,11 +1,3 @@
-// Experimental test input for Accelerator directives
-// Liao 1/15/2013
-/* the following headers crashed ROSE on coil because of stddef.h not found
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-*/
 #include <assert.h>
 #include "axpy.h"
 #define VEC_LEN 1024000 //use a fixed number for now
