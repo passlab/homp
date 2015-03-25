@@ -2,7 +2,7 @@
 #define __AXPY_H__
 
 /* change this to do saxpy or daxpy : single precision or double precision*/
-#define REAL double
+#define REAL float
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
