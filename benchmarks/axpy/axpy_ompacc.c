@@ -1,5 +1,4 @@
 #include "axpy.h"
-/* standard one-dev support */
 #include "homp.h"
 
 #if 0
