@@ -4,10 +4,10 @@
 
 #if 0
 void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
-
-#pragma omp target device (:) map(tofrom: y[0:n]>>(:)) map(to: x[0:n]>>(:),a,n)
-#pragma omp parallel for shared(x, y, n, a) private(i) dist_iteration match_range x[:]
-/* in this example, the y[0:n], and x[0:n] will be evenly distributed among the ndev devices, scalars such as a and n will each have a mapped copy in all the devices */
+/* in this example, the y[0:n], and x[0:n] will be evenly distributed among the ndev devices,
+ scalars such as a and n will each have a mapped copy in all the devices */
+#pragma omp target device (*) map(tofrom: y[0:n] dist_data(BLOCK)) map(to: x[0:n] dist_data(BLOCK),a,n)
+#pragma omp parallel for shared(x, y, n, a) dist_iteration(BLOCK)
   for (i = 0; i < n; ++i)
     y[i] += a * x[i];
 }
