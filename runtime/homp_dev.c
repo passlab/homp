@@ -20,6 +20,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <math.h>
 #include "homp.h"
 
 inline void devcall_errchk(int code, char *file, int line, int ab) {
@@ -34,6 +36,32 @@ inline void devcall_errchk(int code, char *file, int line, int ab) {
 		if (ab) { abort();}
 	}
 #endif
+}
+
+double addmul(double add, double mul, int ops){
+	// need to initialise differently otherwise compiler might optimise away
+	double sum1=0.1, sum2=-0.1, sum3=0.2, sum4=-0.2, sum5=0.0;
+	double mul1=1.0, mul2= 1.1, mul3=1.2, mul4= 1.3, mul5=1.4;
+	int loops=ops/10;          // we have 10 floating point ops inside the loop
+	double expected = 5.0*add*loops + (sum1+sum2+sum3+sum4+sum5)
+			+ pow(mul,loops)*(mul1+mul2+mul3+mul4+mul5);
+
+	int i;
+	for(i=0; i<loops; i++) {
+		mul1*=mul; mul2*=mul; mul3*=mul; mul4*=mul; mul5*=mul;
+		sum1+=add; sum2+=add; sum3+=add; sum4+=add; sum5+=add;
+	}
+	return  sum1+sum2+sum3+sum4+sum5+mul1+mul2+mul3+mul4+mul5 - expected;
+}
+
+double cpu_sustain_gflopss (double * flopss) {
+	double x=M_PI;
+	double y=1.0+1e-8;
+	int n = 1000000;
+	double timer = read_timer();
+	x=addmul(x,y,n);
+	timer = read_timer() - timer;
+	*flopss = n/timer/1e9;
 }
 
 void * omp_init_dev_specific(omp_device_t * dev) {
@@ -58,6 +86,8 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 		dev->dev_properties = &dev->helperth; /* make it point to the thread id */
+		dev->num_cores = sysconf( _SC_NPROCESSORS_ONLN );
+		double dummy = cpu_sustain_gflopss(&dev->flopss_percore);
 	} else {
 
 	}

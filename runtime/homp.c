@@ -800,6 +800,33 @@ void omp_dist(omp_dist_info_t * dist_infos, omp_dist_t * dist, int num_dims, omp
 			dist[i].length = alignee_dist->length;
 			dist[i].offset = alignee_dist->offset;
 		} else if (info->policy == OMP_DIST_POLICY_AUTO) {
+			omp_offloading_t *off = NULL;
+			if (target_type == OMP_DIST_TARGET_LOOP_ITERATION ) {
+				off = (omp_offloading_t *) target;
+			} else {
+				/* error, so far AUTO is only applied to loop iteration */
+			}
+			omp_offloading_info_t * off_info = off->off_info;
+			/* compute the total capability */
+			int i;
+			double total_flops = 0.0;
+			double flops_beforeme = 0.0;
+			omp_dist_info_t * dist_info = &off_info->loop_dist_info[0];
+			for (i=0; i<off_info->top->nnodes; i++) {
+				double flops = off_info->targets[i]->total_real_flopss;
+				total_flops += flops;
+			}
+			for (i=0; i<off_info->top->nnodes; i++) {
+				double flops = off_info->targets[i]->total_real_flopss;
+				flops_beforeme += flops;
+				long offset = (flops_beforeme / total_flops) * dist_info->length + dist_info->start;
+				long length = (flops/total_flops) * dist_info->length;
+				if (off->devseqid == i) {
+					dist[i].length = length;
+					dist[i].offset = offset;
+				}
+				printf("Node %d: offset: %d, length: %d of total length: %d from start: %d\n", i, offset, length, dist_info->length, dist_info->start);
+			}
 			/* TODO the AUTO polic */
 		} else {
 			fprintf(stderr, "other dist_info type %d is not yet supported\n",

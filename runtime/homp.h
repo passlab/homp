@@ -119,7 +119,8 @@ struct omp_device {
 
 	unsigned long bandwidth; /* between host memory and dev memory for profile data movement cost */
 
-	double real_flopss; /* the sustained flops/s after testing */
+	double total_real_flopss; /* the sustained flops/s after testing */
+	double flopss_percore; /* per core performance */
 
 	int status;
 	struct omp_device * next; /* the device list */
@@ -485,11 +486,9 @@ typedef enum omp_offloading_stage {
  * data access pattern that has locality/cache access impact, etc
  */
 typedef struct omp_kernel_profile_info {
-	unsigned long num_iterations;
 	unsigned long num_load;
 	unsigned long num_store;
 	unsigned long num_fp_operations;
-
 } omp_kernel_profile_info_t;
 
 /**
@@ -519,6 +518,8 @@ struct omp_offloading_info {
 	int num_mapped_vars;
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
 	omp_offloading_t * offloadings; /* a list of dev-specific offloading objects, num of this is num of targets from top */
+	omp_kernel_profile_info_t * full_kernel_profile;
+	omp_kernel_profile_info_t * per_iteration_profile;
 
 	/* max three level of loop nest */
 	omp_dist_info_t *loop_dist_info[3];
@@ -571,6 +572,8 @@ struct omp_offloading {
 	int num_maps;
 
 	omp_dist_t loop_dist[3];
+	omp_kernel_profile_info_t kernel_profile;
+	omp_kernel_profile_info_t per_iteration_profile;
 
 	/* for profiling purpose */
 	omp_event_t *events;
