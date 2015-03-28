@@ -417,12 +417,12 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
     /* get the right length for each dimension */
 	long start;
 	if (dist == 1) {
-		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
+		omp_loop_get_range(off, 0, &start, &n);
 	} else if (dist == 2) {
-		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
+		omp_loop_get_range(off, 0, &start, &m);
 	} else /* vx == 3) */ {
-		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
-		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
+		omp_loop_get_range(off, 0, &start, &n);
+		omp_loop_get_range(off, 0, &start, &m);
 	}
 
 	/* get the right base address, and offset in each dimension,
@@ -550,12 +550,12 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 
 	long start;
 	if (dist == 1) {
-		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
+		omp_loop_get_range(NULL, 0, &start, &n);
 	} else if (dist == 2) {
-		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
+		omp_loop_get_range(NULL, 0, &start, &m);
 	} else /* vx == 3) */ {
-		omp_loop_map_range(map_u, 0, -1, -1, &start, &n);
-		omp_loop_map_range(map_u, 1, -1, -1, &start, &m);
+		omp_loop_get_range(NULL, 0, &start, &n);
+		omp_loop_get_range(NULL, 0, &start, &m);
 	}
 
 	int i_start, j_start;
@@ -787,7 +787,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_offloading_info_t __offloading_info__;
   	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
   	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, NULL, NULL);
+	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, 0);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
@@ -804,7 +804,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	struct OUT__2__10550__args args_1;
 	args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
 
-	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1, NULL, NULL, NULL);
+	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1, NULL, 0);
 
   	omp_offloading_info_t __off_info_2__;
   	omp_offloading_t __offs_2__[__num_target_devices__];
@@ -812,7 +812,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	struct OUT__1__10550__args args_2;
   	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
   	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
-	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2, NULL, NULL, NULL);
+	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2, NULL, 0);
 
   	/* halo exchange offloading */
   	omp_data_map_halo_exchange_info_t x_halos[1];

@@ -320,12 +320,12 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 
 	long start;
 	if (dist == 1) {
-		omp_loop_map_range(map_A, 0, -1, -1, &start, &i);
+        omp_loop_get_range(off, 0, &start, &i);
 	} else if (dist == 2) {
-		omp_loop_map_range(map_B, 1, -1, -1, &start, &j);
+        omp_loop_get_range(off, 0, &start, &j);
 	} else /* vx == 3) */ {
-		omp_loop_map_range(map_C, 0, -1, -1, &start, &i);
-		omp_loop_map_range(map_C, 1, -1, -1, &start, &j);
+        omp_loop_get_range(off, 0, &start, &i);
+        omp_loop_get_range(off, 0, &start, &j);
 	}
 	//printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
 	omp_device_type_t devtype = off->dev->type;
@@ -447,7 +447,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	omp_offloading_info_t __offloading_info__;
 	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, NULL, NULL, NULL);
+    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, NULL, 0);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

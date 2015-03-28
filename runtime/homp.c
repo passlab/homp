@@ -116,10 +116,9 @@ void omp_cleanup(omp_offloading_t * off) {
 	}
 }
 
-void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp_grid_topology_t *top,
-		omp_device_t **targets, int recurring, omp_offloading_type_t off_type, int num_mapped_vars,
-		omp_data_map_info_t *data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void *args,
-		omp_dist_info_t *loop_nest1_dist, omp_dist_info_t *loop_nest2_dist, omp_dist_info_t *loop_nest3_dist) {
+void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp_grid_topology_t *top, omp_device_t **targets,
+		int recurring, omp_offloading_type_t off_type, int num_mapped_vars, omp_data_map_info_t *data_map_info,
+		void (*kernel_launcher)(omp_offloading_t *, void *), void *args, omp_dist_info_t *loop_nest_dist, int loop_nest_depth) {
 	info->name = name;
 	info->top = top;
 	info->targets = targets;
@@ -134,9 +133,9 @@ void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp
 	info->args = args;
 	info->halo_x_info = NULL;
 	info->start_time = 0;
-	info->loop_dist_info[0] = loop_nest1_dist;
-	info->loop_dist_info[1] = loop_nest2_dist;
-	info->loop_dist_info[2] = loop_nest3_dist;
+	info->loop_dist_info = loop_nest_dist;
+	info->loop_depth = loop_nest_depth;
+	memset(info->offloadings, NULL, sizeof(omp_offloading_t)*top->nnodes);
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 }
@@ -469,8 +468,9 @@ void omp_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_polic
 	dist_info->dim_index = topdim;
 }
 
-void omp_align_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, omp_dist_target_type_t alignee_type, void *alignee, int alignee_dim) {
+void omp_align_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, void * alignee, omp_dist_target_type_t alignee_type, int alignee_dim) {
 	dist_info->policy = dist_policy; /* TODO assert dist_type == OMP_DIST_POLICY_ALIGN */
+	dist_info->alignee_type = alignee_type;
 	if (alignee_type == OMP_DIST_TARGET_DATA_MAP) {
 		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
 	} else if (alignee_type == OMP_DIST_TARGET_LOOP_ITERATION) {
@@ -706,12 +706,15 @@ void omp_dist(omp_dist_info_t * dist_infos, omp_dist_t * dist, int num_dims, omp
 	int coords[top->ndims];
 	omp_topology_get_coords(top, seqid, top->ndims, coords);
 	int i;
+
+	//printf("omp_dist_call: %d\n", __LINE__);
 	for (i = 0; i < num_dims; i++) { /* process each dimension */
 		omp_dist_info_t *info = &dist_infos[i];
 		dist[i].info = info;
 		long n = info->length;
 
 		int dim_index = info->dim_index;
+	//	printf("dim_index: %d\n", dim_index);
 		if (info->policy == OMP_DIST_POLICY_BLOCK) { /* even distributions */
 			int topdimcoord = coords[dim_index]; /* dim_indx is top dim the dist is applied onto */
 			int topdimsize = top->dims[dim_index];
@@ -799,6 +802,7 @@ void omp_dist(omp_dist_info_t * dist_infos, omp_dist_t * dist, int num_dims, omp
 			}
 			dist[i].length = alignee_dist->length;
 			dist[i].offset = alignee_dist->offset;
+			printf("aligned dist on dev %d: offset: %d, length: %d\n", seqid, alignee_dist->offset, alignee_dist->length);
 		} else if (info->policy == OMP_DIST_POLICY_AUTO) {
 			omp_offloading_t *off = NULL;
 			if (target_type == OMP_DIST_TARGET_LOOP_ITERATION ) {
@@ -808,24 +812,24 @@ void omp_dist(omp_dist_info_t * dist_infos, omp_dist_t * dist, int num_dims, omp
 			}
 			omp_offloading_info_t * off_info = off->off_info;
 			/* compute the total capability */
-			int i;
+			int i_node;
 			double total_flops = 0.0;
 			double flops_beforeme = 0.0;
 			omp_dist_info_t * dist_info = &off_info->loop_dist_info[0];
-			for (i=0; i<off_info->top->nnodes; i++) {
-				double flops = off_info->targets[i]->total_real_flopss;
+			for (i_node =0; i_node <off_info->top->nnodes; i_node++) {
+				double flops = off_info->targets[i_node]->total_real_flopss;
 				total_flops += flops;
 			}
-			for (i=0; i<off_info->top->nnodes; i++) {
-				double flops = off_info->targets[i]->total_real_flopss;
+			for (i_node =0; i_node <off_info->top->nnodes; i_node++) {
+				double flops = off_info->targets[i_node]->total_real_flopss;
 				flops_beforeme += flops;
 				long offset = (flops_beforeme / total_flops) * dist_info->length + dist_info->start;
 				long length = (flops/total_flops) * dist_info->length;
-				if (off->devseqid == i) {
+				if (off->devseqid == i_node) {
 					dist[i].length = length;
 					dist[i].offset = offset;
 				}
-				printf("Node %d: offset: %d, length: %d of total length: %d from start: %d\n", i, offset, length, dist_info->length, dist_info->start);
+				printf("Node %d: offset: %d, length: %d of total length: %d from start: %d\n", i_node, offset, length, dist_info->length, dist_info->start);
 			}
 			/* TODO the AUTO polic */
 		} else {
@@ -840,6 +844,15 @@ void omp_loop_iteration_dist(omp_offloading_t * off) {
 	omp_offloading_info_t * info = off->off_info;
 	omp_grid_topology_t * top = info->top;
 	omp_dist(info->loop_dist_info, off->loop_dist, info->loop_depth, top, off->devseqid, off, OMP_DIST_TARGET_LOOP_ITERATION);
+}
+
+long omp_loop_get_range(omp_offloading_t *off, int loop_level, long *start, long *length) {
+	if (off->loop_dist[loop_level].info == NULL) {
+		omp_loop_iteration_dist(off);
+	}
+	*start = 0;
+	*length = off->loop_dist[loop_level].length;
+	return off->loop_dist[loop_level].offset;
 }
 
 /**
@@ -1344,54 +1357,6 @@ printf("CPUSync from %d to %d\n",map->devsid,  right_map->devsid);
 }
 
 #endif
-
-/**
- * return the mapped range index from the iteration range of the original array
- * e.g. A[128], when being mapped to a device for A[64:64] (from 64 to 128), then, the range 100 to 128 in the original A will be
- * mapped to 36 to 64 in the mapped region of A
- *
- * @param: omp_data_map_t * map: the mapped variable, we should use the original pointer and let the runtime retrieve the map
- * @param: int dim: which dimension to retrieve the range
- * @param: int start: the start index from the original array, if start is -1, use the map_offset_<dim>, which will simply set
- * 		map_start = 0 for obvious reasons
- * @param: int length: the length of the range, if -1, use the mapped dim from the start
- * @param: int * map_start: the mapped start index in the mapped range, if return <0 value, wrong input
- * @param: int * map_length: normally just the length, if lenght == -1, use the map_dim[dim]
- *
- * @return: return the actual offset for map_start from the original iteration range
- *
- * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
- *
- */
-long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length) {
-	if (start <=0) {
-		if (length < 0) {
-			*map_start = 0;
-			*map_length = map->map_dist[dim].length;
-			return map->map_dist[dim].offset;
-		} else if (length <= map->map_dist[dim].length) {
-			*map_start = 0;
-			*map_length = length;
-			return map->map_dist[dim].offset;
-		} else {
-			/* error */
-		}
-	} else { /* start > 0 */
-		*map_start = start - map->map_dist[dim].offset;
-		*map_length = map->map_dist[dim].length - *map_start; /* the max length */
-		if (*map_start < 0) { /* out of the range */
-			*map_length = -1;
-			return -1;
-		} else if (length <= *map_length) {
-			return start;
-		}
-	}
-
-	/* out of range */
-	*map_start = -1;
-	*map_length = -1;
-	return -1;
-}
 
 /**
  * utilities

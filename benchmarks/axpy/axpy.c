@@ -62,7 +62,7 @@ int main(int argc,char *argv[])
 // reference serial execution for error checking  
   //axpy(x,y,n,a);
   omp_time = (read_timer_ms() - omp_time);
-  double ompacc_time = axpy_ompacc_mdev_v2(x,y_ompacc,n,a);
+  double ompacc_time = axpy_ompacc_mdev(x,y_ompacc,n,a);
   omp_fini_devices();
   REAL cksm;
   //cksm = check(y,y_ompacc,n) ;

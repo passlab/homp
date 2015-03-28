@@ -288,7 +288,7 @@ typedef struct omp_dist_info {
 	long chunk_size;
 	int dim_index; /* the index of top dim to apply dist, for block, duplicate, auto. For ALIGN, this is dim at the alignee*/
 
-	omp_dist_target_type_t * alignee_type; /* a data map or a loop iteration */
+	omp_dist_target_type_t alignee_type; /* a data map or a loop iteration */
 	union alignee_t { /* The dist this dist_info aligns with, it could be a loop iteration or a data map. It uses dim_index to reference which dim */
 		omp_offloading_info_t * loop_iteration;
 		omp_data_map_info_t * data_map_info;
@@ -297,7 +297,7 @@ typedef struct omp_dist_info {
 	/* this is not used so far */
 #if ENABLE_DIST_TARGET_INFO
 	/* the following are the container so we know which array/loop uses this dist */
-	omp_dist_target_type_t * target_type;
+	omp_dist_target_type_ts target_type;
 	union dist_target_t { /* is the dist applied to an array dimension or a loop iteration? it is where dist is stored */
 		omp_offloading_info_t * loop_iteration;
 		omp_data_map_info_t * data_map_info;
@@ -518,12 +518,12 @@ struct omp_offloading_info {
 	int num_mapped_vars;
 	omp_data_map_info_t * data_map_info; /* an entry for each mapped variable */
 	omp_offloading_t * offloadings; /* a list of dev-specific offloading objects, num of this is num of targets from top */
-	omp_kernel_profile_info_t * full_kernel_profile;
-	omp_kernel_profile_info_t * per_iteration_profile;
+	omp_kernel_profile_info_t full_kernel_profile;
+	omp_kernel_profile_info_t per_iteration_profile;
 
 	/* max three level of loop nest */
-	omp_dist_info_t *loop_dist_info[3];
-	int loop_depth;
+	omp_dist_info_t *loop_dist_info;
+	int loop_depth; /* max 3 so far */
 
 	/* the universal kernel launcher and args, the helper thread will use this one if no dev-specific one is provided */
 	/* the helper thread will first check these two field, if they are not null, it will use them, otherwise, it will use the dev-specific one */
@@ -599,7 +599,7 @@ extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
 
-extern void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp_grid_topology_t *top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type, int num_mapped_vars, omp_data_map_info_t *data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void *args, omp_dist_info_t *loop_nest1_dist, omp_dist_info_t *loop_nest2_dist, omp_dist_info_t *loop_nest3_dist);
+extern void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp_grid_topology_t *top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type, int num_mapped_vars, omp_data_map_info_t *data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void *args, omp_dist_info_t *loop_nest_dist, int loop_nest_depth);
 extern void omp_offloading_fini_info(omp_offloading_info_t * info);
 extern void omp_offloading_info_report_profile(omp_offloading_info_t * info);
 
@@ -641,6 +641,7 @@ extern void omp_data_map_init_info_straight_dist(const char *symbol, omp_data_ma
 extern void omp_data_map_init_info_straight_dist_and_halo(const char *symbol, omp_data_map_info_t *info, omp_grid_topology_t *top, void *source_ptr, int num_dims, long *dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t *dist, omp_dist_policy_t dist_policy, omp_data_map_halo_region_info_t *halo_info, int halo_left, int halo_right, int halo_cyclic);
 extern void omp_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, long start, long length, int topdim);
+extern void omp_align_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, void * alignee, omp_dist_target_type_t alignee_type, int alignee_dim);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid);
 extern void omp_loop_iteration_dist(omp_offloading_t * off);
@@ -700,7 +701,7 @@ extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t strea
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
  */
-extern long omp_loop_map_range (omp_data_map_t * map, int dim, long start, long length, long * map_start, long * map_length);
+extern long omp_loop_get_range(omp_offloading_t *off, int loop_level, long *start, long *length);
 
 /* util */
 extern double read_timer_ms();

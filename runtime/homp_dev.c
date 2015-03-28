@@ -163,7 +163,6 @@ int omp_init_devices() {
 	omp_host_dev->offload_request = NULL;
 	omp_host_dev->offload_stack_top = -1;
 
-
 	/* the helper thread setup */
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
@@ -205,6 +204,7 @@ int omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
+
 	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
 	printf("The number of each type of devices can be controlled by environment variables:\n");
 	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
