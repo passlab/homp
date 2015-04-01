@@ -88,20 +88,12 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 		dev->dev_properties = &dev->helperth; /* make it point to the thread id */
 		dev->num_cores = omp_host_dev->num_cores;
 		dev->flopss_percore = omp_host_dev->flopss_percore;
-		dev->total_real_flopss = dev->num_cores * (dev->flopss_percore*(1+dev->id));
-		dev->bandwidth = omp_host_dev->bandwidth;
-		dev->latency = omp_host_dev->latency;
-
-		/* simple testing */
-		if (dev->id != 0) {
-			dev->bandwidth = dev->id*omp_host_dev->bandwidth / 100;
-			dev->latency = dev->id*omp_host_dev->latency * 1000;
-		}
 	} else {
-		dev->total_real_flopss = omp_host_dev->total_real_flopss;
-		dev->bandwidth = omp_host_dev->bandwidth/100;
-		dev->latency = omp_host_dev->latency * 1000;
 	}
+
+	dev->total_real_flopss = dev->num_cores * (dev->flopss_percore*(1+dev->id));
+	dev->bandwidth = (1+dev->id)*omp_host_dev->bandwidth / 100;
+	dev->latency = (1+dev->id)*omp_host_dev->latency * 1000;
 	return dev->dev_properties;
 }
 
@@ -193,7 +185,11 @@ int omp_init_devices() {
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		dev->id = i;
-		if (i < omp_device_types[OMP_DEVICE_NVGPU].num_devs) {
+		if (i < num_thsim_dev) {
+			dev->type  = OMP_DEVICE_THSIM;
+			dev->mem_type = OMP_DEVICE_MEM_SHARED_CC_NUMA;
+			dev->sysid = i;
+		} else {
 			dev->type = OMP_DEVICE_NVGPU;
 			dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
 			for (; j<total_gpudevs; j++) {
@@ -203,10 +199,6 @@ int omp_init_devices() {
 			}
 			dev->sysid = j;
 			j++;
-		} else {
-			dev->type  = OMP_DEVICE_THSIM;
-			dev->mem_type = OMP_DEVICE_MEM_SHARED_CC_NUMA;
-			dev->sysid = i;
 		}
 		dev->status = 1;
 		dev->resident_data_maps = NULL;
