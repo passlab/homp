@@ -82,6 +82,10 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 		cudaMemcpy(dummy_dev, dummy_host, 1024, cudaMemcpyHostToDevice);
 		cudaMemcpy(dummy_host, dummy_dev, 1024, cudaMemcpyDeviceToHost);
 		cudaFree(dummy_dev);
+
+		dev->total_real_flopss = omp_host_dev->total_real_flopss*(1+dev->id);
+		dev->bandwidth = (1+dev->id)*omp_host_dev->bandwidth / 100;
+		dev->latency = (1+dev->id)*omp_host_dev->latency * 1000;
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
@@ -93,9 +97,7 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 		dev->bandwidth = omp_host_dev->bandwidth;
 		dev->latency = omp_host_dev->latency;
 	} else {
-		dev->total_real_flopss = omp_host_dev->total_real_flopss*(1+dev->id);
-		dev->bandwidth = (1+dev->id)*omp_host_dev->bandwidth / 100;
-		dev->latency = (1+dev->id)*omp_host_dev->latency * 1000;
+		printf("Unknow device type\n");
 	}
 
 	return dev->dev_properties;
