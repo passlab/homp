@@ -89,11 +89,11 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 		dev->num_cores = omp_host_dev->num_cores;
 		dev->flopss_percore = omp_host_dev->flopss_percore;
 
-		dev->total_real_flopss = omp_host_dev->num_cores * dev->flopss_percore;
+		dev->total_real_flopss = omp_host_dev->total_real_flopss;
 		dev->bandwidth = omp_host_dev->bandwidth;
 		dev->latency = omp_host_dev->latency;
 	} else {
-		dev->total_real_flopss = omp_host_dev->num_cores * (dev->flopss_percore*(1+dev->id));
+		dev->total_real_flopss = omp_host_dev->total_real_flopss*(1+dev->id);
 		dev->bandwidth = (1+dev->id)*omp_host_dev->bandwidth / 100;
 		dev->latency = (1+dev->id)*omp_host_dev->latency * 1000;
 	}
