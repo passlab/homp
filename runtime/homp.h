@@ -117,10 +117,11 @@ struct omp_device {
 	unsigned long core_frequency;
 	unsigned int arch_factor; /* means to capture micro arch factor that impact performance, e.g. superscalar, deeper pipeline, etc */
 
-	unsigned long bandwidth; /* between host memory and dev memory for profile data movement cost */
+	double bandwidth; /* between host memory and dev memory for profile data movement cost MB/s */
+	double latency; /* us (10e-6 seconds) */
 
-	double total_real_flopss; /* the sustained flops/s after testing */
-	double flopss_percore; /* per core performance */
+	double total_real_flopss; /* the sustained flops/s after testing, GFLOPs/s */
+	double flopss_percore; /* per core performance GFLOPs/s */
 
 	int status;
 	struct omp_device * next; /* the device list */
@@ -365,7 +366,7 @@ typedef struct omp_data_map_halo_region_mem {
 
 /* for each mapped host array, we have one such object */
 struct omp_data_map_info {
-    omp_grid_topology_t * top;
+    omp_offloading_info_t *off_info;
     const char * symbol; /* the user symbol */
 	char * source_ptr;
 	int num_dims;
@@ -540,7 +541,9 @@ struct omp_offloading_info {
 	int num_maps_halo_x;
 
 	/* the participating barrier */
-	pthread_barrier_t barrier;
+	pthread_barrier_t barrier; /* this barrier sync with offloading thread */
+	pthread_barrier_t inter_dev_barrier; /* this barrier sync between devices only */
+
 };
 
 #define OFF_MAP_CACHE_SIZE 64
@@ -574,10 +577,15 @@ struct omp_offloading {
 	omp_dist_t loop_dist[3];
 	omp_kernel_profile_info_t kernel_profile;
 	omp_kernel_profile_info_t per_iteration_profile;
+	int loop_dist_done; /* a flag */
 
 	/* for profiling purpose */
 	omp_event_t *events;
 	int num_events;
+
+	/* the auto model purpose */
+	double Ar;
+	double Br;
 
 	/* kernel info */
 	long X1, Y1, Z1; /* the first level kernel thread configuration, e.g. CUDA blockDim */
@@ -630,16 +638,28 @@ extern void omp_factor(int n, int factor[], int dims);
 extern void omp_topology_print(omp_grid_topology_t * top);
 extern int omp_grid_topology_get_seqid(omp_grid_topology_t * top, int devid);
 
-extern void omp_data_map_init_info(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t * dist);
-extern void omp_data_map_init_info_with_halo(const char * symbol, omp_data_map_info_t *info, omp_grid_topology_t * top, void * source_ptr, int num_dims, long* dims, int sizeof_element,
-		omp_data_map_t * maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t * dist, omp_data_map_halo_region_info_t * halo_info);
+extern void omp_data_map_init_info(const char *symbol, omp_data_map_info_t *info, omp_offloading_info_t *off_info,
+								   void *source_ptr, int num_dims, long *dims, int sizeof_element,
+								   omp_data_map_t *maps, omp_data_map_direction_t map_direction,
+								   omp_data_map_type_t map_type, omp_dist_info_t *dist);
+extern void omp_data_map_init_info_with_halo(const char *symbol, omp_data_map_info_t *info,
+											 omp_offloading_info_t *off_info, void *source_ptr, int num_dims,
+											 long *dims, int sizeof_element,
+											 omp_data_map_t *maps, omp_data_map_direction_t map_direction,
+											 omp_data_map_type_t map_type, omp_dist_info_t *dist,
+											 omp_data_map_halo_region_info_t *halo_info);
 
 extern void omp_data_map_init_info_straight_dist(const char *symbol, omp_data_map_info_t *info, omp_grid_topology_t *top, void *source_ptr, int num_dims, long *dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t *dist, omp_dist_policy_t dist_policy) ;
 
-extern void omp_data_map_init_info_straight_dist_and_halo(const char *symbol, omp_data_map_info_t *info, omp_grid_topology_t *top, void *source_ptr, int num_dims, long *dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t *dist, omp_dist_policy_t dist_policy, omp_data_map_halo_region_info_t *halo_info, int halo_left, int halo_right, int halo_cyclic);
+extern void omp_data_map_init_info_straight_dist_and_halo(const char *symbol, omp_data_map_info_t *info,
+														  omp_offloading_info_t *off_info, void *source_ptr,
+														  int num_dims, long *dims, int sizeof_element,
+														  omp_data_map_t *maps, omp_data_map_direction_t map_direction,
+														  omp_data_map_type_t map_type, omp_dist_info_t *dist,
+														  omp_dist_policy_t dist_policy,
+														  omp_data_map_halo_region_info_t *halo_info, int halo_left,
+														  int halo_right, int halo_cyclic);
 extern void omp_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, long start, long length, int topdim);
 extern void omp_align_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, void * alignee, omp_dist_target_type_t alignee_type, int alignee_dim);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev);

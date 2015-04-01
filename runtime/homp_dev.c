@@ -86,10 +86,21 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 		dev->dev_properties = &dev->helperth; /* make it point to the thread id */
-		dev->num_cores = sysconf( _SC_NPROCESSORS_ONLN );
-		double dummy = cpu_sustain_gflopss(&dev->flopss_percore);
-	} else {
+		dev->num_cores = omp_host_dev->num_cores;
+		dev->flopss_percore = omp_host_dev->flopss_percore;
+		dev->total_real_flopss = dev->num_cores * (dev->flopss_percore*(1+dev->id));
+		dev->bandwidth = omp_host_dev->bandwidth;
+		dev->latency = omp_host_dev->latency;
 
+		/* simple testing */
+		if (dev->id != 0) {
+			dev->bandwidth = dev->id*omp_host_dev->bandwidth / 100;
+			dev->latency = dev->id*omp_host_dev->latency * 1000;
+		}
+	} else {
+		dev->total_real_flopss = omp_host_dev->total_real_flopss;
+		dev->bandwidth = omp_host_dev->bandwidth/100;
+		dev->latency = omp_host_dev->latency * 1000;
 	}
 	return dev->dev_properties;
 }
@@ -108,8 +119,8 @@ int omp_init_devices() {
 	char * num_thsim_dev_str = getenv("OMP_NUM_THSIM_DEVICES");
 	if (num_thsim_dev_str != NULL ) {
 		sscanf(num_thsim_dev_str, "%d", &num_thsim_dev);
-		if (num_thsim_dev < 0) num_thsim_dev = 0;
-	} else num_thsim_dev = 0;
+		if (num_thsim_dev < 0) num_thsim_dev = 1;
+	} else num_thsim_dev = 1;
 
 	omp_num_devices += num_thsim_dev;
 	omp_device_types[OMP_DEVICE_THSIM].num_devs = num_thsim_dev;
@@ -162,6 +173,13 @@ int omp_init_devices() {
 	omp_host_dev->next = omp_devices;
 	omp_host_dev->offload_request = NULL;
 	omp_host_dev->offload_stack_top = -1;
+	/** compute the performance */
+	omp_host_dev->num_cores = sysconf( _SC_NPROCESSORS_ONLN );
+	double dummy = cpu_sustain_gflopss(&omp_host_dev->flopss_percore);
+	omp_host_dev->total_real_flopss = omp_host_dev->num_cores * omp_host_dev->flopss_percore;
+	omp_host_dev->num_cores = omp_host_dev->num_cores - num_nvgpu_dev; /* reserve the cores for dev thread */
+	omp_host_dev->bandwidth = 600*1000; /* GB/s */
+	omp_host_dev->latency = 0.02; /* us, i.e. 20 ns */
 
 	/* the helper thread setup */
 	pthread_attr_t attr;
@@ -196,6 +214,9 @@ int omp_init_devices() {
 		dev->offload_request = NULL;
 		dev->offload_stack_top = -1;
 		omp_init_dev_specific(dev);
+
+		printf("Dev %d, %dcores,%fGFLOPs/s, %fMB/s, %fus\n",
+			   i, dev->num_cores, dev->total_real_flopss, dev->bandwidth,dev->latency);
 
 		int rt = pthread_create(&dev->helperth, &attr, (void *(*)(void *))helper_thread_main, (void *) dev);
 		if (rt) {fprintf(stderr, "cannot create helper threads for devices.\n"); exit(1); }

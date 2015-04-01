@@ -722,12 +722,17 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	int __num_mapped_array__ = 3; /* XXX: need compiler output */
   	omp_data_map_info_t __data_map_infos__[__num_mapped_array__ ];
 
+	omp_offloading_info_t __offloading_info__;
+	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
+	/* we use universal args and launcher because axpy can do it */
+	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, 0);
+
   	/* f map info */
   	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
   	long f_dims[2];f_dims[0] = n;f_dims[1] = m;
   	omp_data_map_t f_maps[__num_target_devices__];
   	omp_dist_info_t f_dist[2];
-  	omp_data_map_init_info("f", __info__, &__top__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, f_dist);
+  	omp_data_map_init_info("f", __info__, &__offloading_info__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, f_dist);
 
   	/* u map info */
   	__info__ = &__data_map_infos__[1];
@@ -735,7 +740,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_t u_maps[__num_target_devices__];
   	omp_dist_info_t u_dist[2];
   	//omp_data_map_halo_region_info_t u_halo[2];
-  	omp_data_map_init_info("u", __info__, &__top__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, u_dist);
+  	omp_data_map_init_info("u", __info__, &__offloading_info__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, u_dist);
 
   	/* uold map info */
   	__info__ = &__data_map_infos__[2];
@@ -743,7 +748,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_t uold_maps[__num_target_devices__];
   	omp_dist_info_t uold_dist[2];
   	omp_data_map_halo_region_info_t uold_halo[2];
-  	omp_data_map_init_info_with_halo("uold", __info__, &__top__, uold, 2, uold_dims, sizeof(REAL),uold_maps,OMP_DATA_MAP_ALLOC, OMP_DATA_MAP_AUTO, uold_dist, uold_halo);
+  	omp_data_map_init_info_with_halo("uold", __info__, &__offloading_info__, uold, 2, uold_dims, sizeof(REAL),uold_maps,OMP_DATA_MAP_ALLOC, OMP_DATA_MAP_AUTO, uold_dist, uold_halo);
 
   	/**************************************** dist-specific *****************************************/
   	if (dist == 1) {
@@ -783,11 +788,6 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, 0);
   	}
   	/************************************************************************************************/
-
-  	omp_offloading_info_t __offloading_info__;
-  	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
-  	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, 0);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

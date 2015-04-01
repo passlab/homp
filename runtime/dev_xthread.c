@@ -152,6 +152,7 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[map_init_event_index], NULL, "INIT_1", "Time for init map, data dist, buffer allocation, and data marshalling");
 #endif
+		omp_loop_iteration_dist(off);
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];

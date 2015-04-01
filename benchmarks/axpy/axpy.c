@@ -23,7 +23,7 @@ void init(REAL *A, long n)
 {
    long i;
   for (i = 0; i < n; i++) {
-    A[i] = ((REAL )(drand48()));
+    A[i] = ((REAL )(drand48())+13);
   }
 }
 

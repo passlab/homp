@@ -109,12 +109,40 @@ void openacc_matmul(float *A,float *B,float *C,long n)
 /* multiple device */
 
 /* A, C row-major partition */
-void ompacc_matmul_mdev_v1(REAL *A, REAL *B, REAL *C, long n)
-{
+void ompacc_matmul_mdev_v1_block_block(REAL *A, REAL *B, REAL *C, long n) {
     long i, j, k;
-#pragma omp target device(*) map(from:C{0:n}[0:n]>>(*)), map(to:n,A{0:n}[0:n]>>(*),B[0:n][0:n])
-#pragma omp parallel for private(i,j,k) dist_iteration match_range C{}[]
+#pragma omp target device(*) map(from:C[0:n][0:n] dist_data(BLOCK,DUPLICATE)),
+     map(to:n,A[0:n][0:n] dist_data(BLOCK, DUPLICATE), B[0:n][0:n] dist_data(DUPLICATE,DUPLICATE))
+#pragma omp parallel for private(i,j,k) dist_iteration(BLOCK)
     for (i = 0; i < n; i++)
+        for (k = 0; k < n; k++) {
+            REAL c = 0.0;
+            for (j = 0; j < n; j++)
+                c += A[i * n + j] * B[j * n + k];
+            C[i * n + k] = c;
+        }
+}
+
+void ompacc_matmul_mdev_v1_block_align(REAL *A, REAL *B, REAL *C, long n) {
+    long i, j, k;
+#pragma omp target device(*) map(from:C[0:n][0:n] dist_data(BLOCK,DUPLICATE)),
+     map(to:n,A[0:n][0:n] dist_data(ALIGN(C)), B[0:n][0:n] dist_data(DUPLICATE,DUPLICATE))
+#pragma omp parallel for private(i,j,k) dist_iteration(ALIGN(C[]))
+    for (i = 0; i < n; i++)
+        for (k = 0; k < n; k++) {
+            REAL c = 0.0;
+            for (j = 0; j < n; j++)
+                c += A[i * n + j] * B[j * n + k];
+            C[i * n + k] = c;
+        }
+}
+
+void ompacc_matmul_mdev_v1_align_auto(REAL *A, REAL *B, REAL *C, long n) {
+    long i, j, k;
+#pragma omp target device(*) map(from:C[0:n][0:n] dist_data(ALIGN(lp1),DUPLICATE)),
+     map(to:n,A[0:n][0:n] dist_data(ALIGN(lp1),DUPLICATE), B[0:n][0:n] dist_data(DUPLICATE,DUPLICATE))
+#pragma omp parallel for private(i,j,k) dist_iteration(AUTO)
+lp1:    for (i = 0; i < n; i++)
         for (k = 0; k < n; k++) {
             REAL c = 0.0;
             for (j = 0; j < n; j++)
@@ -385,36 +413,91 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	int __num_mapped_array__ = 3; /* XXX: need compiler output */
 	omp_data_map_info_t __data_map_infos__[__num_mapped_array__ ];
 
+    omp_offloading_info_t __offloading_info__;
+    __offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
+    struct OUT__1__11058__args args;
+    args.i = n;
+    args.j = n;
+    args.k = n;
+    args.A = A;
+    args.B = B;
+    args.C = C;
+    args.dist = dist;
+    __offloading_info__.per_iteration_profile.num_fp_operations = 2*n*n;
+    __offloading_info__.per_iteration_profile.num_load = n*n;
+    __offloading_info__.per_iteration_profile.num_store = n;
+    omp_dist_info_t loop_nest_dist[1];
+    /* we use universal args and launcher because axpy can do it */
+    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, loop_nest_dist, 1);
+
 	/* A map info */
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
 	long A_dims[2];A_dims[0] = n;A_dims[1] = n;
 	omp_data_map_t A_maps[__num_target_devices__];
 	omp_dist_info_t A_dist[2];
-	omp_data_map_init_info("A", __info__, &__top__, A, 2, A_dims, sizeof(REAL), A_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO,  A_dist);
+	omp_data_map_init_info("A", __info__, &__offloading_info__, A, 2, A_dims, sizeof(REAL), A_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO,  A_dist);
 
 	/* B map info */
 	__info__ = &__data_map_infos__[1];
 	long B_dims[2];B_dims[0] = n;B_dims[1] = n;
 	omp_data_map_t B_maps[__num_target_devices__];
 	omp_dist_info_t B_dist[2];
-	omp_data_map_init_info("B", __info__, &__top__, B, 2, B_dims, sizeof(REAL),B_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, B_dist);
+	omp_data_map_init_info("B", __info__, &__offloading_info__, B, 2, B_dims, sizeof(REAL),B_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, B_dist);
 
 	__info__ = &__data_map_infos__[2];
 	long C_dims[2];C_dims[0] = n; C_dims[1] = n;
 	omp_data_map_t C_maps[__num_target_devices__];
 	omp_dist_info_t C_dist[2];
-	omp_data_map_init_info("C", __info__, &__top__, C, 2, C_dims, sizeof(REAL),C_maps, OMP_DATA_MAP_FROM, OMP_DATA_MAP_AUTO, C_dist);
+	omp_data_map_init_info("C", __info__, &__offloading_info__, C, 2, C_dims, sizeof(REAL),C_maps, OMP_DATA_MAP_FROM, OMP_DATA_MAP_AUTO, C_dist);
 
 	/**************************************** dist-specific *****************************************/
+    int v1_policy=1; /* block_block: 1, block_align: 2, align_auto: 3 */
 	if (dist == 1) {
-        omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-        omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+        if (v1_policy == 1) {
+            /* block_block */
+            omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+            omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
-        omp_dist_init_info(&B_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
-        omp_dist_init_info(&B_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+            omp_dist_init_info(&B_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+            omp_dist_init_info(&B_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
-        omp_dist_init_info(&C_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-        omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+            omp_dist_init_info(&C_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+            omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+
+            omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+        } else if (v1_policy == 2) {
+            /* block_align */
+            omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+            omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+
+            omp_dist_init_info(&B_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+            omp_dist_init_info(&B_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+
+            omp_align_dist_init_info(&C_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+                                     OMP_DIST_TARGET_DATA_MAP, 0);
+            omp_align_dist_init_info(&C_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+                                     OMP_DIST_TARGET_DATA_MAP, 1);
+
+            omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+                                     OMP_DIST_TARGET_DATA_MAP, 0);
+
+        } else if (v1_policy == 3) {
+            /* align_auto */
+            omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_AUTO, 0, n, 0);
+
+            omp_align_dist_init_info(&A_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
+                                     OMP_DIST_TARGET_LOOP_ITERATION, 0);
+            omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+
+            omp_dist_init_info(&B_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+            omp_dist_init_info(&B_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+
+            omp_align_dist_init_info(&C_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
+                                     OMP_DIST_TARGET_LOOP_ITERATION, 0);
+            omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+        } else {
+
+        }
 	} else if (dist == 2) {
         omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
@@ -435,19 +518,6 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
         omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_BLOCK, 0, n, 1);
 	}
 	/************************************************************************************************/
-
-	struct OUT__1__11058__args args;
-	args.i = n;
-	args.j = n;
-	args.k = n;
-	args.A = A;
-	args.B = B;
-	args.C = C;
-	args.dist = dist;
-	omp_offloading_info_t __offloading_info__;
-	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
-	/* we use universal args and launcher because axpy can do it */
-    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, NULL, 0);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
