@@ -194,7 +194,7 @@ void ompacc_matmul_mdev_v3(REAL *A, REAL *B, REAL *C, long n)
  * dist = 2: B/C column dist,
  * dist = 3: A-row, B-column dist
  */
-void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C,  long n, int dist);
+void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C,  long n, int dist_row_col, int dist_policy);
 
 int main(int argc,char *argv[])
 {
@@ -206,17 +206,24 @@ int main(int argc,char *argv[])
   double seq_elapsed;
   double ompacc_elapsed;
   if (argc < 2) {
-    fprintf(stderr,"Usage: matmul <n> [<1|2|3>]\n");
+    fprintf(stderr,"Usage: matmul <n> [<1|2|3>] [<1|2|3>]\\n");
     fprintf(stderr,"\t 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
+    fprintf(stderr,"\t 1: block_block; 2: block_align; 3: auto_align; default 1\n");
     fprintf(stderr,"\t num of active devices can be controlled by OMP_NUM_ACTIVE_DEVICES variable\n");
     exit(1);
   }
   n = atoi(argv[1]);
-  int dist = 1;
-  if (argc == 3) dist = atoi(argv[2]);
-  if (dist != 1 && dist != 2 && dist != 3) {
-	  fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist);
-	  dist = 1;
+  int dist_row_col = 1;
+  int dist_policy = 1;
+  if (argc == 3) dist_row_col = atoi(argv[2]);
+  if (argc == 4) dist_policy = atoi(argv[3]);
+  if (dist_row_col != 1 && dist_row_col != 2 && dist_row_col != 3) {
+	  fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist_row_col);
+	  dist_row_col = 1;
+  }
+  if (dist_policy != 1 && dist_policy != 2 && dist_policy != 3) {
+      fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist_policy);
+      dist_policy = 1;
   }
 
   A = ((float *)(malloc(((n * n) * sizeof(float )))));
@@ -247,7 +254,7 @@ int main(int argc,char *argv[])
 /* openmp acc version */
   omp_init_devices();
   ompacc_elapsed = read_timer();
-  matmul_ompacc_mdev(A,B,C_ompacc,n, dist);
+  matmul_ompacc_mdev(A,B,C_ompacc,n, dist_row_col, dist_policy);
   ompacc_elapsed = (read_timer() - ompacc_elapsed);
 #if CORRECTNESS_CHECK
   print_array("Array C_ompacc", "C", C_ompacc, n, n);
@@ -257,7 +264,7 @@ int main(int argc,char *argv[])
 
   printf("======================================================================================================\n");
   printf("\tmatmul(%dx%d) example on %d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n",
-		  n,n,omp_get_num_active_devices(), dist);
+		  n,n,omp_get_num_active_devices(), dist_row_col);
   printf("------------------------------------------------------------------------------------------------------\n");
   printf("Error: %g\n", maxerror(C_seq,C_ompacc,n));
   printf("------------------------------------------------------------------------------------------------------\n");
@@ -385,7 +392,7 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 #endif
 }
 
-void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
+void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_row_col, int dist_policy) {
 	double ompacc_time = read_timer_ms();
 	/* get number of target devices specified by the programmers */
 	int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
@@ -401,7 +408,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	omp_grid_topology_t __top__;
 	int __top_ndims__;
 	/**************************************** dist-specific *****************************************/
-	if (dist == 1 || dist == 2) __top_ndims__ = 1;
+	if (dist_row_col == 1 || dist_row_col == 2) __top_ndims__ = 1;
 	else /* dist == 3 */__top_ndims__ = 2;
 	/************************************************************************************************/
 
@@ -422,7 +429,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
     args.A = A;
     args.B = B;
     args.C = C;
-    args.dist = dist;
+    args.dist = dist_row_col;
     __offloading_info__.per_iteration_profile.num_fp_operations = 2*n*n;
     __offloading_info__.per_iteration_profile.num_load = n*n;
     __offloading_info__.per_iteration_profile.num_store = n;
@@ -451,9 +458,9 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
 	omp_data_map_init_info("C", __info__, &__offloading_info__, C, 2, C_dims, sizeof(REAL),C_maps, OMP_DATA_MAP_FROM, OMP_DATA_MAP_AUTO, C_dist);
 
 	/**************************************** dist-specific *****************************************/
-    int v1_policy=1; /* block_block: 1, block_align: 2, align_auto: 3 */
-	if (dist == 1) {
-        if (v1_policy == 1) {
+    /* dist_policy: block_block: 1, block_align: 2, align_auto: 3 */
+	if (dist_row_col == 1) {
+        if (dist_policy == 1) {
             /* block_block */
             omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
             omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
@@ -465,7 +472,8 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
             omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
             omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-        } else if (v1_policy == 2) {
+            printf("BLOCK dist policy for arrays and loop dist\n");
+        } else if (dist_policy == 2) {
             /* block_align */
             omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
             omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
@@ -481,7 +489,8 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
             omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
                                      OMP_DIST_TARGET_DATA_MAP, 0);
 
-        } else if (v1_policy == 3) {
+            printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
+        } else if (dist_policy == 3) {
             /* align_auto */
             omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_AUTO, 0, n, 0);
 
@@ -495,10 +504,11 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist) {
             omp_align_dist_init_info(&C_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
                                      OMP_DIST_TARGET_LOOP_ITERATION, 0);
             omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+            printf("AUTO dist policy for loop dist and array align with loops\n");
         } else {
 
         }
-	} else if (dist == 2) {
+	} else if (dist_row_col == 2) {
         omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 

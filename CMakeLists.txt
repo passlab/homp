@@ -8,7 +8,11 @@ set(RUNTIME_SOURCE_FILES
     runtime/dev_xthread.c
     runtime/homp.c
     runtime/homp.h
-    runtime/homp_dev.c)
+    runtime/homp_dev.c
+    util/dictionary.c
+    util/dictionary.h
+    util/iniparser.c
+    util/iniparser.h)
 
 set(AXPY_SOURCE_FILES
     benchmarks/axpy/axpy.c

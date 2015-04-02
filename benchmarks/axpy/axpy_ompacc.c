@@ -115,7 +115,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 	}
 }
 
-int axpy_mdev_v = 2;
+int axpy_mdev_v = 4;
 double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a)
 {
 	double ompacc_time = read_timer_ms(); //read_timer_ms();

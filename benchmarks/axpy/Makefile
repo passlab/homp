@@ -1,4 +1,4 @@
-TEST_INCLUDES = -I../../runtime -I.
+TEST_INCLUDES = -I../../runtime -I../../util -I.
 TEST_LINK = -lm -lrt -lpthread
 
 #NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
@@ -8,8 +8,8 @@ NVGPU_CUDA_PATH=/APPS/cuda/include
 all: axpy-thsim axpy-nvgpu
 
 axpy-thsim:
-	gcc $(TEST_INCLUDES) -g -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 -fopenmp ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c axpy_ompacc.c axpy.c -c
-#	gcc $(TEST_INCLUDES) -g ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c axpy_ompacc.c axpy.c -c
+	gcc $(TEST_INCLUDES) -g -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 -fopenmp ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c axpy_ompacc.c axpy.c -c
+#	gcc $(TEST_INCLUDES) -g ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c axpy_ompacc.c axpy.c -c
 	gcc $(TEST_INCLUDES) -g *.o -o $@ -L/usr/lib/gcc/x86_64-linux-gnu/4.8.2/ -lgomp ${TEST_LINK}
 
 axpy-nvgpu:

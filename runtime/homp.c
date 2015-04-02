@@ -219,6 +219,8 @@ void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * fi
 	filename[filename_length] = '\0';
 }
 
+#define PROFILE_PLOT 1
+
 #if defined(PROFILE_PLOT)
 char *colors[] = {
 		"#FFFFFF", /* white */
@@ -320,7 +322,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 				start_time = start_time - info->start_time;
 				if (j>0 && j < misc_event_index_start) { /* only plot the major event */
 					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
-							recobj_count++, start_time, i * yoffset_per_entry,  start_time + elapsed*xratio, (i + 1) * yoffset_per_entry, colors[j]);
+							recobj_count++, start_time, i * yoffset_per_entry,  (start_time + elapsed)*xratio, (i + 1) * yoffset_per_entry, colors[j]);
 				}
 #endif
             }
@@ -711,7 +713,7 @@ void omp_dist_block(long start, long full_length, long position, int dim, long *
 	*length = len;
 }
 
-#define LINEAR_MODEL_1 1
+#define LINEAR_MODEL_2 1
 /**
  * The general dist algorithm that applies to both data distribution and iteration distribution
  */
@@ -818,7 +820,7 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 				dist->length = length;
 				dist->offset = offset;
 			}
-			//printf("LINEAR_MODEL_1: Dev %d (%f GFlops/s): offset: %d, length: %d of total length: %d from start: %d\n", i, flops, offset, length, dist_info->length, dist_info->start);
+			printf("LINEAR_MODEL_1: Dev %d (%f GFlops/s): offset: %d, length: %d of total length: %d from start: %d\n", i, flops, offset, length, dist_info->length, dist_info->start);
 			offset += length;
 		}
 #endif
@@ -851,8 +853,15 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 		int num_aligned_maps = 0;
 		double A = 0.0;
 		double B = 0.0;
+		int num_transfer = 0;
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
+			if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TO) {
+				num_transfer++;
+			} else if (map_info->map_type == OMP_DATA_MAP_TOFROM) {
+				num_transfer += 2;
+			} else continue;
+
 			omp_data_map_t * map = &map_info->maps[seqid];
 			long map_size = map_info->sizeof_element;
 			align_maps[i].align_dist = NULL;
@@ -875,6 +884,9 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 				}
 			}
 			map->map_size = map_size;
+			if (map_info->map_type == OMP_DATA_MAP_TOFROM) {
+				map_size = map_size*2;
+			}
 			if (align_maps[i].align_dist != NULL) { /* we have an alignment */
 				A += map_size;
 			} else {
@@ -885,7 +897,7 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 		A = A/(off->dev->bandwidth*10.0e6); /* bandwidth in MB/s */
 		B = B/(off->dev->bandwidth*10.0e6);
 		A += off_info->per_iteration_profile.num_fp_operations/(off->dev->total_real_flopss * 10.0e9); /* FLOPs is in GFLOPs/s */
-		B += off_info->num_mapped_vars * (off->dev->latency * 10.0e-6); /* latency in us */
+		B += num_transfer * (off->dev->latency * 10.0e-6); /* latency in us */
 		/* here T = n*A+B --> n = T/A - B/A. We have then Ar = 1/A, and Br = -B/A*/
 
 		double Ar = 1.0/A;
@@ -903,7 +915,7 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 			allArs += anoff->Ar;
 			allBrs += anoff->Br;
 		}
-		printf("allArs: %f, allBrs: %f\n", allArs, allBrs);
+		//printf("allArs: %f, allBrs: %f\n", allArs, allBrs);
 		double T0 = (dist_info->length - allBrs)/allArs; /* the predicted execution time by all the devices of the loop */
 		/* now compute the offset and length for AUTO dist policy */
 		offset = 0;
