@@ -247,7 +247,10 @@ int omp_init_devices() {
 
 				sprintf(keyname, "%s:%s", devname, "flopss");
 				dev->total_real_flopss = iniparser_getdouble(ini, keyname, -1);
-
+				if (id == 0) { /* host */
+					dev->num_cores = dev->num_cores - num_nvgpu_dev;
+					dev->total_real_flopss = dev->num_cores * dev->total_real_flopss;
+				}
 				sprintf(keyname, "%s:%s", devname, "Bandwidth");
 				dev->bandwidth = iniparser_getdouble(ini, keyname, -1);
 
