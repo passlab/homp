@@ -49,7 +49,7 @@ int main(int argc,char *argv[])
   REAL a = 123.456;
 //  n = 1024*1024*1024; // too large for tux268
   n = 500000;
-  printf("usage: axpy [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2", n);
+  printf("usage: axpy [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n", n);
   if (argc >= 2)
     n = atoi(argv[1]);
   if (argc >= 3)

@@ -213,9 +213,6 @@ int omp_init_devices() {
 		dev->offload_stack_top = -1;
 		omp_init_dev_specific(dev);
 
-		printf("Dev %d, %dcores,%fGFLOPs/s, %fMB/s, %fus\n",
-			   i, dev->num_cores, dev->total_real_flopss, dev->bandwidth,dev->latency);
-
 		int rt = pthread_create(&dev->helperth, &attr, (void *(*)(void *))helper_thread_main, (void *) dev);
 		if (rt) {fprintf(stderr, "cannot create helper threads for devices.\n"); exit(1); }
 	}
@@ -223,7 +220,6 @@ int omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
-
 	char * dev_spec_file = getenv("OMP_DEV_SPEC_FILE");
 	if (dev_spec_file != NULL) {
 		dictionary  *   ini ;
@@ -235,18 +231,20 @@ int omp_init_devices() {
 		}
 		//iniparser_dump(ini, stderr);
 		int nsecs = iniparser_getnsec(ini);
-		printf("%d sections\n", nsecs);
 		char devname[32];
 		int id;
 		for (i=0; i<nsecs; i++) {
 			sprintf(devname, "%s", iniparser_getsecname(ini, i));
-			printf("section name: %s\n", devname);
 			char keyname[48];
 			sprintf(keyname, "%s:%s", devname, "id");
 			id = iniparser_getint(ini, keyname, -1);
 
-			if (id <= omp_num_devices) {
-				omp_device_t * dev = &omp_devices[i];
+			if (id>=0 && id < omp_num_devices) {
+				omp_device_t * dev = &omp_devices[id];
+
+				sprintf(keyname, "%s:%s", devname, "ncores");
+				dev->num_cores = iniparser_getint(ini, keyname, 1);
+
 				sprintf(keyname, "%s:%s", devname, "flopss");
 				dev->total_real_flopss = iniparser_getdouble(ini, keyname, -1);
 
@@ -256,18 +254,25 @@ int omp_init_devices() {
 				sprintf(keyname, "%s:%s", devname, "Latency");
 				dev->latency = iniparser_getdouble(ini, keyname, 0.00000000001);
 
-				printf("%s: id: %d, flops: %fGFLOPS/s, bandwidth: %fMB/s, latency: %fus\n", devname, id, dev->total_real_flopss, dev->bandwidth, dev->latency);
 			} else continue;
 		}
+		iniparser_freedict(ini);
 	}
-
+	printf("=====================================================================================================================\n");
 	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
+	for (i=0; i<omp_num_devices; i++) {
+		omp_device_t * dev = &omp_devices[i];
+		printf("\tid: %d, type: %s, ncores: %d, flops: %fGFLOPS/s, bandwidth: %fMB/s, latency: %fus\n",
+			   i, omp_get_device_typename(dev), dev->num_cores, dev->total_real_flopss, dev->bandwidth,
+			   dev->latency);
+	}
 	printf("The number of each type of devices can be controlled by environment variables:\n");
 	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
-	printf("\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\", i.e. ,separated list with no spaces)\n");
-	printf("\tOMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available, overwritten by OMP_NVGPU_DEVICES)\n");
+	printf("\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
+	printf("\tOMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available).\n\t\t this variable is overwritten by OMP_NVGPU_DEVICES)\n");
 	printf("\tTo make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)\n");
 	printf("\tTo specify device performance details (flops, bandwidth, latency, etc), use OMP_DEV_SPEC_FILE variable\n");
+	printf("=====================================================================================================================\n");
 
 	return omp_num_devices;
 }
