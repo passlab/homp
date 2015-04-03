@@ -37,7 +37,7 @@ REAL check(REAL *A,REAL *B, long n)
   }
   return sum;
 }
-
+extern int axpy_mdev_v;
 int main(int argc,char *argv[])
 {
   int status = 0;
@@ -49,8 +49,11 @@ int main(int argc,char *argv[])
   REAL a = 123.456;
 //  n = 1024*1024*1024; // too large for tux268
   n = 500000;
-  if (argc >= 2) 
+  printf("usage: axpy [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2", n);
+  if (argc >= 2)
     n = atoi(argv[1]);
+  if (argc >= 3)
+    axpy_mdev_v = atoi(argv[2]);
   y = ((REAL *)(malloc((n * sizeof(REAL )))));
   y_ompacc = ((REAL *)(malloc((n * sizeof(REAL )))));
   x = ((REAL *)(malloc((n * sizeof(REAL )))));
