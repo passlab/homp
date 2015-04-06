@@ -931,8 +931,8 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 				dist->length = length;
 				dist->offset = offset;
 			}
-			printf("LINEAR_MODEL_2: Dev %d(%dcores,%fGFLOPs/s, %fMB/s, %fus): offset: %d, length: %d of total length: %d from start: %d, predicted exe time: %f\n",
-				   i, off->dev->num_cores, off->dev->total_real_flopss, off->dev->bandwidth,off->dev->latency, offset, length, dist_info->length, dist_info->start, T0);
+			printf("LINEAR_MODEL_2: Dev %d: offset: %d, length: %d of total length: %d from start: %d, predicted exe time: %f\n",
+				   i, offset, length, dist_info->length, dist_info->start, T0);
 			offset += length;
 		}
 
