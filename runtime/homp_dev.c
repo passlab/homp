@@ -88,30 +88,129 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 #endif
 	if (devtype == OMP_DEVICE_THSIM) {
 		dev->dev_properties = &dev->helperth; /* make it point to the thread id */
-		dev->num_cores = omp_host_dev->num_cores;
+		/*
+ 		dev->num_cores = omp_host_dev->num_cores;
 		dev->flopss_percore = omp_host_dev->flopss_percore;
+		dev->total_real_flopss = omp_host_dev->total_real_flopss*(1+dev->id);
+		dev->bandwidth = (2*(1+dev->id))*omp_host_dev->bandwidth / 100;
+		dev->latency = (1+dev->id)*omp_host_dev->latency * 1000;
+		*/
 	} else {
-		printf("Unknow device type\n");
+		printf("Unknown device type\n");
 	}
-	dev->total_real_flopss = omp_host_dev->total_real_flopss*(1+dev->id);
-	dev->bandwidth = (2*(1+dev->id))*omp_host_dev->bandwidth / 100;
-	dev->latency = (1+dev->id)*omp_host_dev->latency * 1000;
 
-//	dev->total_real_flopss = omp_host_dev->total_real_flopss;
-//	dev->bandwidth = omp_host_dev->bandwidth;
-//	dev->latency = omp_host_dev->latency;
 	return dev->dev_properties;
 }
 
-/* init the device objects, num_of_devices, helper threads, default_device_var ICV etc
- *
- */
-int omp_init_devices() {
+void omp_init_host_device() {
+	omp_host_dev = malloc(sizeof(omp_device_t));
+	omp_host_dev->id = -1;
+	omp_host_dev->type = OMP_DEVICE_HOST;
+	omp_host_dev->sysid = 0;
+	omp_host_dev->status = 1;
+	omp_host_dev->resident_data_maps = NULL;
+	omp_host_dev->next = omp_devices;
+	omp_host_dev->offload_request = NULL;
+	omp_host_dev->offload_stack_top = -1;
+	/** compute the performance */
+	omp_host_dev->num_cores = sysconf( _SC_NPROCESSORS_ONLN );
+	double dummy = cpu_sustain_gflopss(&omp_host_dev->flopss_percore);
+	omp_host_dev->total_real_flopss = omp_host_dev->num_cores * omp_host_dev->flopss_percore;
+	omp_host_dev->bandwidth = 600*1000; /* GB/s */
+	omp_host_dev->latency = 0.02; /* us, i.e. 20 ns */
+}
+
+int num_thsim_dev = 0; /* the host actually */
+/* for NVDIA GPU devices */
+int num_nvgpu_dev = 0;
+
+int omp_read_device_spec(char * dev_spec_file) {
 	/* query hardware device */
 	omp_num_devices = 0; /* we always have at least host device */
 
 	/* the thread-simulated devices */
-	int num_thsim_dev;
+	int i;
+
+	dictionary *ini;
+	ini = iniparser_load(dev_spec_file);
+	if (ini == NULL) {
+		fprintf(stderr, "cannot parse file: %s\n", dev_spec_file);
+		return -1;
+	}
+	//iniparser_dump(ini, stderr);
+	omp_num_devices = iniparser_getnsec(ini);
+	omp_devices = malloc(sizeof(omp_device_t) * (omp_num_devices));
+
+	/* the helper thread setup */
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	/* initialize attr with default attributes */
+	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_setconcurrency(omp_num_devices+1);
+
+	char devname[32];
+	int devsysid;
+	for (i = 0; i < omp_num_devices; i++) {
+		sprintf(devname, "%s", iniparser_getsecname(ini, i));
+		char keyname[48];
+		sprintf(keyname, "%s:%s", devname, "id");
+		devsysid = iniparser_getint(ini, keyname, -1);
+
+		omp_device_t *dev = &omp_devices[i];
+		dev->id = i;
+		dev->sysid = devsysid;
+
+		sprintf(keyname, "%s:%s", devname, "ncores");
+		dev->num_cores = iniparser_getint(ini, keyname, 1);
+
+		sprintf(keyname, "%s:%s", devname, "flopss");
+		dev->total_real_flopss = iniparser_getdouble(ini, keyname, -1);
+
+		sprintf(keyname, "%s:%s", devname, "Bandwidth");
+		dev->bandwidth = iniparser_getdouble(ini, keyname, -1);
+
+		sprintf(keyname, "%s:%s", devname, "Latency");
+		dev->latency = iniparser_getdouble(ini, keyname, 0.00000000001);
+
+		char * devtype;
+		sprintf(keyname, "%s:%s", devname, "type");
+		devtype = iniparser_getstring(ini, keyname, "NULL");
+		if (strcmp(devtype, "cpu") == 0) {
+			dev->type  = OMP_DEVICE_THSIM;
+			dev->mem_type = OMP_DEVICE_MEM_SHARED_CC_NUMA;
+			num_thsim_dev++;
+		} else if (strcmp(devtype, "gpu") == 0) {
+			dev->type = OMP_DEVICE_NVGPU;
+			dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
+			num_nvgpu_dev++;
+		} else {
+			fprintf(stderr, "unsupported device type:%s\n", devtype);
+		}
+
+		dev->status = 1;
+		dev->resident_data_maps = NULL;
+		dev->next = &omp_devices[i+1];
+		dev->offload_request = NULL;
+		dev->offload_stack_top = -1;
+		omp_init_dev_specific(dev);
+
+		int rt = pthread_create(&dev->helperth, &attr, (void *(*)(void *))helper_thread_main, (void *) dev);
+		if (rt) {fprintf(stderr, "cannot create helper threads for devices.\n"); exit(1); }
+	}
+	if (omp_num_devices) {
+		default_device_var = 0;
+		omp_devices[omp_num_devices-1].next = NULL;
+	}
+	iniparser_freedict(ini);
+
+	return omp_num_devices;
+}
+
+int omp_probe_devices() {
+	/* query hardware device */
+	omp_num_devices = 0; /* we always have at least host device */
+
 	int i;
 
 	char * num_thsim_dev_str = getenv("OMP_NUM_THSIM_DEVICES");
@@ -124,7 +223,6 @@ int omp_init_devices() {
 	omp_device_types[OMP_DEVICE_THSIM].num_devs = num_thsim_dev;
 
 	/* for NVDIA GPU devices */
-	int num_nvgpu_dev = 0;
 	int total_gpudevs = 0;
 
 #if defined (DEVICE_NVGPU_SUPPORT)
@@ -161,23 +259,7 @@ int omp_init_devices() {
 	}
 #endif
 
-	omp_host_dev = malloc(sizeof(omp_device_t) * (omp_num_devices+1));
-	omp_devices = &omp_host_dev[1];
-	omp_host_dev->id = -1;
-	omp_host_dev->type = OMP_DEVICE_HOST;
-	omp_host_dev->sysid = 0;
-	omp_host_dev->status = 1;
-	omp_host_dev->resident_data_maps = NULL;
-	omp_host_dev->next = omp_devices;
-	omp_host_dev->offload_request = NULL;
-	omp_host_dev->offload_stack_top = -1;
-	/** compute the performance */
-	omp_host_dev->num_cores = sysconf( _SC_NPROCESSORS_ONLN );
-	double dummy = cpu_sustain_gflopss(&omp_host_dev->flopss_percore);
-	omp_host_dev->total_real_flopss = omp_host_dev->num_cores * omp_host_dev->flopss_percore;
-	omp_host_dev->num_cores = omp_host_dev->num_cores - num_nvgpu_dev; /* reserve the cores for dev thread */
-	omp_host_dev->bandwidth = 600*1000; /* GB/s */
-	omp_host_dev->latency = 0.02; /* us, i.e. 20 ns */
+	omp_devices = malloc(sizeof(omp_device_t) * (omp_num_devices));
 
 	/* the helper thread setup */
 	pthread_attr_t attr;
@@ -220,46 +302,24 @@ int omp_init_devices() {
 		default_device_var = 0;
 		omp_devices[omp_num_devices-1].next = NULL;
 	}
+
+	return omp_num_devices;
+}
+/* init the device objects, num_of_devices, helper threads, default_device_var ICV etc
+ *
+ */
+int omp_init_devices() {
+	/* query hardware device */
+	omp_num_devices = 0; /* we always have at least host device */
+
+	int i;
+	omp_init_host_device();
+
 	char * dev_spec_file = getenv("OMP_DEV_SPEC_FILE");
 	if (dev_spec_file != NULL) {
-		dictionary  *   ini ;
-
-		ini = iniparser_load(dev_spec_file);
-		if (ini==NULL) {
-			fprintf(stderr, "cannot parse file: %s\n", dev_spec_file);
-			return -1 ;
-		}
-		//iniparser_dump(ini, stderr);
-		int nsecs = iniparser_getnsec(ini);
-		char devname[32];
-		int id;
-		for (i=0; i<nsecs; i++) {
-			sprintf(devname, "%s", iniparser_getsecname(ini, i));
-			char keyname[48];
-			sprintf(keyname, "%s:%s", devname, "id");
-			id = iniparser_getint(ini, keyname, -1);
-
-			if (id>=0 && id < omp_num_devices) {
-				omp_device_t * dev = &omp_devices[id];
-
-				sprintf(keyname, "%s:%s", devname, "ncores");
-				dev->num_cores = iniparser_getint(ini, keyname, 1);
-
-				sprintf(keyname, "%s:%s", devname, "flopss");
-				dev->total_real_flopss = iniparser_getdouble(ini, keyname, -1);
-				if (id == 0) { /* host */
-					dev->num_cores = dev->num_cores - num_nvgpu_dev;
-					dev->total_real_flopss = dev->num_cores * dev->total_real_flopss;
-				}
-				sprintf(keyname, "%s:%s", devname, "Bandwidth");
-				dev->bandwidth = iniparser_getdouble(ini, keyname, -1);
-
-				sprintf(keyname, "%s:%s", devname, "Latency");
-				dev->latency = iniparser_getdouble(ini, keyname, 0.00000000001);
-
-			} else continue;
-		}
-		iniparser_freedict(ini);
+		omp_read_device_spec(dev_spec_file);
+	} else {
+		omp_probe_devices();
 	}
 	printf("=====================================================================================================================\n");
 	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
@@ -269,16 +329,17 @@ int omp_init_devices() {
 			   i, omp_get_device_typename(dev), dev->num_cores, dev->total_real_flopss, dev->bandwidth,
 			   dev->latency);
 	}
-	printf("The number of each type of devices can be controlled by environment variables:\n");
-	printf("\tOMP_NUM_THSIM_DEVICES for THSIM devices (default 0)\n");
-	printf("\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
-	printf("\tOMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available).\n\t\t this variable is overwritten by OMP_NVGPU_DEVICES)\n");
-	printf("\tTo make a specific number of devices available, use OMP_NUM_ACTIVE_DEVICES (default, total number of system devices)\n");
-	printf("\tTo specify device performance details (flops, bandwidth, latency, etc), use OMP_DEV_SPEC_FILE variable\n");
+	printf("The device specifications can be provided by giving a spec file, or through system probing:\n");
+	printf("\tTo provide dev spec file, use OMP_DEV_SPEC_FILE variable\n");
+	printf("\tTo help system probing and customize configuration, using the following environment variable\n");
+	printf("\t\tOMP_NUM_THSIM_DEVICES for selecting a number of THSIM devices (default 0)\n");
+	printf("\t\tOMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available).\n\t\t\t this variable is overwritten by OMP_NVGPU_DEVICES)\n");
+	printf("\t\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
 	printf("=====================================================================================================================\n");
 
 	return omp_num_devices;
 }
+
 // terminate helper threads
 void omp_fini_devices() {
 	int i;
@@ -296,6 +357,7 @@ void omp_fini_devices() {
 	}
 
 	free(omp_host_dev);
+	free(omp_devices);
 }
 
 int omp_set_current_device_dev(omp_device_t * d) {
