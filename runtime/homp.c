@@ -278,7 +278,7 @@ void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
 	int legend_bottom = info->top->nnodes*yoffset_per_entry+5;
 	int legend_width = xrange/12 > 10? xrange/12: 10;
 	int legend_offset = legend_width/3;
-	for (j=1; j<off->num_events; j++) {
+	for (j=1; j<misc_event_index_start; j++) {
 		omp_event_t * ev = &off->events[j];
 		if (ev->event_name != NULL) {
 			fprintf(plotscript_file, "set object %d rect from %d, %d to %d, %d fc rgb \"%s\"\n",
@@ -322,7 +322,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 				start_time = start_time - info->start_time;
 				if (j>0 && j < misc_event_index_start) { /* only plot the major event */
 					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
-							recobj_count++, xratio*start_time, i * yoffset_per_entry,  (start_time + elapsed)*xratio, (i + 1) * yoffset_per_entry, colors[j]);
+							recobj_count++, start_time, i * yoffset_per_entry,  (start_time + elapsed)*xratio, (i + 1) * yoffset_per_entry, colors[j]);
 				}
 #endif
             }
