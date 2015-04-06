@@ -154,7 +154,7 @@ int omp_read_device_spec(char * dev_spec_file) {
 	for (i = 0; i < omp_num_devices; i++) {
 		sprintf(devname, "%s", iniparser_getsecname(ini, i));
 		char keyname[48];
-		sprintf(keyname, "%s:%s", devname, "id");
+		sprintf(keyname, "%s:%s", devname, "sysid");
 		devsysid = iniparser_getint(ini, keyname, -1);
 
 		omp_device_t *dev = &omp_devices[i];
@@ -325,8 +325,8 @@ int omp_init_devices() {
 	printf("System has total %d devices(%d GPU and %d THSIM devices).\n", omp_num_devices, num_nvgpu_dev, num_thsim_dev);
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
-		printf("\tid: %d, type: %s, ncores: %d, flops: %fGFLOPS/s, bandwidth: %fMB/s, latency: %fus\n",
-			   i, omp_get_device_typename(dev), dev->num_cores, dev->total_real_flopss, dev->bandwidth,
+		printf("\tid: %d, sysid: %d, type: %s, ncores: %d, flops: %fGFLOPS/s, bandwidth: %fMB/s, latency: %fus\n",
+			   i, dev->sysid, omp_get_device_typename(dev), dev->num_cores, dev->total_real_flopss, dev->bandwidth,
 			   dev->latency);
 	}
 	printf("The device specifications can be provided by giving a spec file, or through system probing:\n");

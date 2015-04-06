@@ -245,7 +245,7 @@ int main(int argc,char *argv[])
 
 /* sequential run */
   seq_elapsed = read_timer();
-  iter_matmul(A, B, C_seq, n);
+  //iter_matmul(A, B, C_seq, n);
   seq_elapsed = (read_timer() - seq_elapsed);
 #if CORRECTNESS_CHECK
   print_array("Array C_seq", "C", C_seq, n, n);
