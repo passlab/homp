@@ -516,7 +516,9 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t * dstdev, omp_device_t * s
 		    	return 0;
 		    } else return 1;
 		} else return 1;
-	} else
+	} else if ((dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_NVGPU) || (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_THSIM)) {
+		return 1;
+	}
 #endif
 	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
 #if defined EXPERIMENT_RELAY_BUFFER_FOR_HALO_EXCHANGE
@@ -541,7 +543,18 @@ void omp_map_memcpy_DeviceToDevice(void * dst, omp_device_t * dstdev, void * src
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToDevice);
 //		result = cudaMemcpyPeer(dst, dstdev->sysid, src, srcdev->sysid, size);
 		devcall_assert(result);
-	} else
+	    return;
+	} else if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_NVGPU) {
+		cudaError_t result;
+	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost);
+		devcall_assert(result);
+	    return;
+	} else if(dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_THSIM)) {
+		cudaError_t result;
+	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice);
+		devcall_assert(result);
+	    return;
+	}
 #endif
 	if (dst_devtype == OMP_DEVICE_THSIM && src_devtype == OMP_DEVICE_THSIM) {
 		memcpy((void *)dst, (const void *)src, size);

@@ -1802,4 +1802,5 @@ double read_timer_ms()
 	if ( id != (clockid_t)-1 && clock_gettime( id, &ts ) != -1 )
 		return (double)ts.tv_sec * 1000.0 +
 			(double)ts.tv_nsec / 1000000.0;
+
 }
