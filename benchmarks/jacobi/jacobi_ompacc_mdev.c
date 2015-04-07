@@ -146,8 +146,8 @@ int main(int argc, char * argv[]) {
 
 	dist_dim = 1;
 	dist_policy = 1;
-	if (argc == 2) dist_dim = atoi(argv[1]);
-	if (argc == 3) dist_policy = atoi(argv[2]);
+	if (argc >= 2) dist_dim = atoi(argv[1]);
+	if (argc >= 3) dist_policy = atoi(argv[2]);
 	if (dist_dim != 1 && dist_dim != 2 && dist_dim != 3) {
 		fprintf(stderr, "Unknown dist dimensions: %d, now fall to default (1)\n", dist_dim);
 		dist_dim = 1;
@@ -168,7 +168,6 @@ int main(int argc, char * argv[]) {
     }
     printf("jacobi %d %d %g %g %g %d\n", n, m, alpha, tol, relax, mits);
     printf("------------------------------------------------------------------------------------------------------\n");
-
     /** init the array */
     //REAL u[n][m];
     //REAL f[n][m];
@@ -320,7 +319,7 @@ __global__ void OUT__1__10550__(long n,long m,REAL omega,REAL ax,REAL ay,REAL b,
       _p_error = (_p_error + (_p_resid * _p_resid));
     }
   }
-  xomp_inner_block_reduction_double(_p_error,_dev_per_block_error,6);
+  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
 }
 #else
 __global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold,long uold_m, int uold_0_offset, int uold_1_offset)
@@ -411,7 +410,7 @@ __global__ void OUT__1__10550__(long n,long m,REAL omega,REAL ax,REAL ay,REAL b,
     }
   }
 
-  xomp_inner_block_reduction_double(_p_error,_dev_per_block_error,6);
+  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
 }
 #endif /* LOOP_CLAPSE */
 #endif /* NVGPU support */
@@ -618,8 +617,8 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 		omp_map_memcpy_from_async(_host_per_block_error, _dev_per_block_error, off->dev, sizeof(REAL)*teams_per_league, off->stream);
 		omp_stream_sync(off->stream);
 
-		iargs->error[off->devseqid] = xomp_beyond_block_reduction_double(_host_per_block_error, teams_per_league, XOMP_REDUCTION_PLUS);
-		//cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_double_stream_callback, args, 0);
+		iargs->error[off->devseqid] = xomp_beyond_block_reduction_float(_host_per_block_error, teams_per_league, XOMP_REDUCTION_PLUS);
+		//cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, args, 0);
 		omp_map_free_dev(off->dev, _dev_per_block_error);
 
 	} else
@@ -978,7 +977,6 @@ loop1:for (i=0;i<n;i++) {
 #endif
 	/* here we do not need sync start */
 	omp_offloading_start(&__copy_data_off_info__);
-	printf("----- data copyin .... \n");
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;

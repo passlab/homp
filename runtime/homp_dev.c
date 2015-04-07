@@ -549,7 +549,7 @@ void omp_map_memcpy_DeviceToDevice(void * dst, omp_device_t * dstdev, void * src
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost);
 		devcall_assert(result);
 	    return;
-	} else if(dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_THSIM)) {
+	} else if(dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_THSIM) {
 		cudaError_t result;
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice);
 		devcall_assert(result);
