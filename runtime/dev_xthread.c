@@ -111,22 +111,10 @@ void omp_offloading_run(omp_device_t * dev) {
 //	case OMP_OFFLOADING_INIT:
 	if (off_info->count <= 1) /* the first time of recurring offloading or a non-recurring offloading */
 	{
-		off->stage = OMP_OFFLOADING_INIT;
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_init(&events[timing_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
 		omp_event_record_start(&events[timing_init_event_index], NULL, "INIT_0", "Time for initialization of stream and event", devid);
 #endif
-
-#if defined USING_PER_OFFLOAD_STREAM
-		omp_stream_create(dev, &off->mystream, 0);
-		off->stream = &off->mystream;
-#else
-		off->stream = &dev->devstream;
-#endif
-		off->devseqid = seqid;
-		off->dev = dev;
-		off->off_info = off_info;
-		off->num_maps = 0;
 
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_init(&events[map_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
@@ -152,7 +140,11 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[map_init_event_index], NULL, "INIT_1", "Time for init map, data dist, buffer allocation, and data marshalling");
 #endif
-		omp_loop_iteration_dist(off);
+		if (off_info->type == OMP_OFFLOADING_CODE || off_info->type == OMP_OFFLOADING_DATA_CODE) {
+			omp_loop_iteration_dist(off);
+		} else { /* OMP_OFFLOADING_DATA */
+			off->loop_dist_done = 1;
+		}
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
@@ -162,12 +154,23 @@ void omp_offloading_run(omp_device_t * dev) {
 			if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
 				map = &map_info->maps[seqid];
 				omp_data_map_init_map(map, map_info, dev);
-				omp_data_map_dist(map, seqid);
-				omp_map_buffer(map, off);
+				omp_data_map_dist(map, seqid); /* handle all unmapped variable */
 				inherited = 0;
 			}
 			omp_offload_append_map_to_cache(off, map, inherited);
 			//omp_print_data_map(map);
+		}
+
+		/* TODO: we did not check the cache again here */
+		/* do another round of halo region allocation and buffer allocation */
+		for (i=0; i<off_info->num_mapped_vars; i++) {
+			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
+			omp_data_map_t * map = &map_info->maps[seqid];
+			if (map->info->halo_info != NULL) {
+				/* handle halo region */
+				omp_data_map_halo(map, seqid);
+			}
+			omp_map_buffer(map, off);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[map_init_event_index]);

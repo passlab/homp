@@ -199,7 +199,7 @@ typedef struct omp_event {
  * ....
  *
  */
-#define OMP_BREAKDOWN_TIMING 1
+//#define OMP_BREAKDOWN_TIMING 1
 #if defined (OMP_BREAKDOWN_TIMING)
 
 extern int total_event_index;       		/* host event */
@@ -669,6 +669,7 @@ extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int lef
 extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);
 extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
+extern void omp_data_map_halo(omp_data_map_t *map, int seqid);
 
 extern void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map, int inherited);
 extern int omp_map_is_map_inherited(omp_offloading_t *off, omp_data_map_t *map);

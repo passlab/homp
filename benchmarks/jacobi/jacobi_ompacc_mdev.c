@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <omp.h>
 // Add timing support
@@ -32,9 +33,8 @@
  *       : f(n,m) - Right hand side function
  *************************************************************/
 
-#define REAL double
 // flexible between REAL and double
-int dist = 1; /* 1, 2, or 3; 1: row major; 2: column major; 3: row-column */
+#define REAL float
 #define DEFAULT_MSIZE 256
 
 void print_array(char * title, char * name, REAL * A, long n, long m) {
@@ -120,7 +120,11 @@ void error_check(long n, long m, REAL alpha, REAL dx, REAL dy, REAL * u_p, REAL 
 	printf("Solution Error: %2.6g\n", error);
 }
 void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL * u_p, REAL * f_p, REAL tol, int mits);
-void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL * u_p, REAL * f_p, REAL tol, int mits);
+void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL relax, REAL *u_p, REAL *f_p, REAL tol,
+                     int mits);
+
+int dist_dim;
+int dist_policy;
 
 int main(int argc, char * argv[]) {
 	long n = DEFAULT_MSIZE;
@@ -130,7 +134,9 @@ int main(int argc, char * argv[]) {
 	REAL relax = 1.0;
 	int mits = 5000;
 
-    fprintf(stderr,"Usage: jacobi [<n> <m> <alpha> <tol> <relax> <mits>]\n");
+    fprintf(stderr,"Usage: jacobi [dist_dim(1|2|3)] [dist_policy(1|2|3)] [<n> <m> <alpha> <tol> <relax> <mits>]\n");
+	fprintf(stderr, "\tdist_dim: 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
+	fprintf(stderr, "\tdist_policy: 1: block_block; 2: block_align; 3: auto_align; default 1\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
     fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
     fprintf(stderr, "\talpha - Helmholtz constant (always greater than 0.0), default: %g\n", alpha);
@@ -138,12 +144,25 @@ int main(int argc, char * argv[]) {
     fprintf(stderr, "\trelax - Successice over relaxation parameter, default: %g\n", relax);
     fprintf(stderr, "\tmits  - Maximum iterations for iterative solver, default: %d\n", mits);
 
-    if (argc == 2)      { sscanf(argv[1], "%d", &n); m = n; }
-    else if (argc == 3) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); }
-    else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%g", &alpha); }
-    else if (argc == 5) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%g", &alpha); sscanf(argv[4], "%g", &tol); }
-    else if (argc == 6) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%g", &alpha); sscanf(argv[4], "%g", &tol); sscanf(argv[5], "%g", &relax); }
-    else if (argc == 7) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%g", &alpha); sscanf(argv[4], "%g", &tol); sscanf(argv[5], "%g", &relax); sscanf(argv[6], "%d", &mits); }
+	dist_dim = 1;
+	dist_policy = 1;
+	if (argc == 2) dist_dim = atoi(argv[1]);
+	if (argc == 3) dist_policy = atoi(argv[2]);
+	if (dist_dim != 1 && dist_dim != 2 && dist_dim != 3) {
+		fprintf(stderr, "Unknown dist dimensions: %d, now fall to default (1)\n", dist_dim);
+		dist_dim = 1;
+	}
+	if (dist_policy != 1 && dist_policy != 2 && dist_policy != 3) {
+		fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist_policy);
+		dist_policy = 1;
+	}
+
+    if (argc == 4)      { sscanf(argv[3], "%d", &n); m = n; }
+    else if (argc == 5) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); }
+    else if (argc == 6) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%g", &alpha); }
+    else if (argc == 7) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%g", &alpha); sscanf(argv[6], "%g", &tol); }
+    else if (argc == 8) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%g", &alpha); sscanf(argv[6], "%g", &tol); sscanf(argv[7], "%g", &relax); }
+    else if (argc == 9) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%g", &alpha); sscanf(argv[6], "%g", &tol); sscanf(argv[7], "%g", &relax); sscanf(argv[8], "%d", &mits); }
     else {
     	/* the rest of arg ignored */
     }
@@ -170,7 +189,7 @@ int main(int argc, char * argv[]) {
     memcpy(fdev, f, n*m*sizeof(REAL));
 
 	REAL elapsed = read_timer_ms();
-//	jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
+	//jacobi_seq(n, m, dx, dy, alpha, relax, u, f, tol, mits);
 	elapsed = read_timer_ms() - elapsed;
 	printf("seq elasped time(ms): %12.6g\n", elapsed);
 	double mflops = (0.001*mits*(n-2)*(m-2)*13) / elapsed;
@@ -416,9 +435,9 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 
     /* get the right length for each dimension */
 	long start;
-	if (dist == 1) {
+	if (dist_dim == 1) {
 		omp_loop_get_range(off, 0, &start, &n);
-	} else if (dist == 2) {
+	} else if (dist_dim == 2) {
 		omp_loop_get_range(off, 0, &start, &m);
 	} else /* vx == 3) */ {
 		omp_loop_get_range(off, 0, &start, &n);
@@ -503,6 +522,7 @@ struct OUT__1__10550__args {
 	REAL * u;
 	REAL * uold;
 	REAL * f;
+
 };
 
 void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
@@ -549,13 +569,13 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 #endif
 
 	long start;
-	if (dist == 1) {
-		omp_loop_get_range(NULL, 0, &start, &n);
-	} else if (dist == 2) {
-		omp_loop_get_range(NULL, 0, &start, &m);
+	if (dist_dim == 1) {
+		omp_loop_get_range(off, 0, &start, &n);
+	} else if (dist_dim == 2) {
+		omp_loop_get_range(off, 0, &start, &m);
 	} else /* vx == 3) */ {
-		omp_loop_get_range(NULL, 0, &start, &n);
-		omp_loop_get_range(NULL, 0, &start, &m);
+		omp_loop_get_range(off, 0, &start, &n);
+		omp_loop_get_range(off, 0, &start, &m);
 	}
 
 	int i_start, j_start;
@@ -634,7 +654,8 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 	}
 }
 
-void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL * u_p, REAL * f_p, REAL tol, int mits) {
+void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL *u_p, REAL *f_p, REAL tol,
+                     int mits) {
 	double start_time, compl_time;
 	start_time = read_timer_ms();
 	int i, j, k;
@@ -654,45 +675,115 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	error = (10.0 * tol);
 	k = 1;
 #if 0
-#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f{0}[0:m]>>{:}) map(tofrom:u{0:n}[0:m]>>{:}) map(alloc:uold{0:n|1}[0:m]>>{:})
-  while ((k<=mits) /* &&(error>tol) */)
-  {
+
+/* ------------------------------------------------------------------------------------------------------------------------
+ * dist_policy 1: BLOCK_BLOCK distribution, i.e. data and loop iteration all block distribution
+ */
+#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n][0:m] dist_data(BLOCK,DUPLICATE)) \
+  map(tofrom:u[0:n][0:m] dist_data(BLOCK,DUPLICATE)) map(alloc:uold[0:n][0:m] dist_data(BLOCK,DUPLICATE) halo(1,))
+  while ((k<=mits) &&(error>tol)) {
     error = 0.0;
 
     /* Copy new solution into old */
-//#pragma omp parallel
-//    {
-#pragma omp target device(*)//map(in:n, m, u[0:n][0:m]) map(out:uold[0:n][0:m])
-#pragma omp parallel for private(j,i) dist_iteration match_range u[]{}
-/* #pragma omp parallel for private(j,i) dist_iteration >>(*) */
+#pragma omp target device(*)
+#pragma omp parallel for private(i, j) dist_iteration(BLOCK)
       for(i=0;i<n;i++)
         for(j=0;j<m;j++)
           uold[i][j] = u[i][j];
-#pragma omp halo exchange uold[:]{:}
+#pragma omp halo exchange(uold)
 
-#pragma omp target device(*)//map(in:n, m, omega, ax, ay, b, f[0:n][0:m], uold[0:n][0:m]) map(out:u[0:n][0:m])
-#pragma omp parallel for private(resid,j,i) reduction(+:error) dist_iteration match_range u[]{}// nowait
-      for (i=1;i<(n-1);i++)
-        for (j=1;j<(m-1);j++)
-        {
-          resid = (ax*(uold[i-1][j] + uold[i+1][j])\
+#pragma omp target device(*)
+#pragma omp parallel for private(resid,i,j) reduction(+:error) dist_iteration(BLOCK) // nowait
+loop1:for (i=0;i<n;i++) {
+         if (i==0||i==n-1) continue;
+         for (j=1;j<(m-1);j++) {
+            resid = (ax*(uold[i-1][j] + uold[i+1][j])\
               + ay*(uold[i][j-1] + uold[i][j+1])+ b * uold[i][j] - f[i][j])/b;
 
-          u[i][j] = uold[i][j] - omega * resid;
-          error = error + resid*resid ;
-        }
-
-//    }
-    /*  omp end parallel */
+            u[i][j] = uold[i][j] - omega * resid;
+            error = error + resid*resid ;
+         }
+      }
 
     /* Error check */
-
-    if (k%500==0)
-      printf("Finished %d iteration with error =%g\n",k, error);
+    if (k%500==0) printf("Finished %d iteration with error =%g\n",k, error);
     error = sqrt(error)/(n*m);
 
     k = k + 1;
-  }          /*  End iteration loop */
+  } /*  End iteration loop */
+
+/* ------------------------------------------------------------------------------------------------------------------------
+ * dist_policy 2: BLOCK_ALIGN distribution, i.e. Array f, u, uold are BLOCK dist along row, and distribution of the two loops
+ * align with the array.
+ */
+#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n][0:m] dist_data(BLOCK,DUPLICATE)) \
+  map(tofrom:u[0:n][0:m] dist_data(BLOCK,DUPLICATE)) map(alloc:uold[0:n][0:m] dist_data(BLOCK,DUPLICATE) halo(1,))
+  while ((k<=mits) &&(error>tol)) {
+    error = 0.0;
+
+    /* Copy new solution into old */
+#pragma omp target device(*)
+#pragma omp parallel for private(i, j) dist_iteration(ALIGN(u[*]))
+      for(i=0;i<n;i++)
+        for(j=0;j<m;j++)
+          uold[i][j] = u[i][j];
+#pragma omp halo exchange(uold)
+
+#pragma omp target device(*)
+#pragma omp parallel for private(resid,i,j) reduction(+:error) dist_iteration(ALIGN(u[*])) // nowait
+loop1:for (i=0;i<n;i++) {
+         if (i==0||i==n-1) continue;
+         for (j=1;j<(m-1);j++) {
+            resid = (ax*(uold[i-1][j] + uold[i+1][j])\
+              + ay*(uold[i][j-1] + uold[i][j+1])+ b * uold[i][j] - f[i][j])/b;
+
+            u[i][j] = uold[i][j] - omega * resid;
+            error = error + resid*resid ;
+         }
+      }
+
+    /* Error check */
+    if (k%500==0) printf("Finished %d iteration with error =%g\n",k, error);
+    error = sqrt(error)/(n*m);
+
+    k = k + 1;
+  } /*  End iteration loop */
+
+/* ------------------------------------------------------------------------------------------------------------------------
+ * dist_policy 3: AUTO_BLOCK distribution, i.e. loop iteration is AUTO-balancing dist, and array f, u, uold all align with loop
+ */
+#pragma omp target data device(*) map(to:n, m, omega, ax, ay, b, f[0:n][0:m] dist_data(ALIGN(loop1),DUPLICATE)) \
+  map(tofrom:u[0:n][0:m] dist_data(ALIGN(loop1),DUPLICATE)) map(alloc:uold[0:n][0:m] dist_data(ALIGN(loop1),DUPLICATE) halo(1,))
+  while ((k<=mits) &&(error>tol)) {
+    error = 0.0;
+
+    /* Copy new solution into old */
+#pragma omp target device(*)
+#pragma omp parallel for private(i, j) dist_iteration(ALIGN(loop1))
+      for(i=0;i<n;i++)
+        for(j=0;j<m;j++)
+          uold[i][j] = u[i][j];
+#pragma omp halo exchange(uold)
+
+#pragma omp target device(*)
+#pragma omp parallel for private(resid,i,j) reduction(+:error) dist_iteration(AUTO) // nowait
+loop1:for (i=0;i<n;i++) {
+         if (i==0||i==n-1) continue;
+         for (j=1;j<(m-1);j++) {
+            resid = (ax*(uold[i-1][j] + uold[i+1][j])\
+              + ay*(uold[i][j-1] + uold[i][j+1])+ b * uold[i][j] - f[i][j])/b;
+
+            u[i][j] = uold[i][j] - omega * resid;
+            error = error + resid*resid ;
+         }
+      }
+
+    /* Error check */
+    if (k%500==0) printf("Finished %d iteration with error =%g\n",k, error);
+    error = sqrt(error)/(n*m);
+
+    k = k + 1;
+  } /*  End iteration loop */
 
 #endif
 //  double ompacc_time = read_timer_ms();
@@ -710,7 +801,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_grid_topology_t __top__;
   	int __top_ndims__;
   	/**************************************** dist-specific *****************************************/
-  	if (dist == 1 || dist == 2) __top_ndims__ = 1;
+  	if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
   	else /* dist == 3 */__top_ndims__ = 2;
   	/************************************************************************************************/
 
@@ -722,17 +813,42 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	int __num_mapped_array__ = 3; /* XXX: need compiler output */
   	omp_data_map_info_t __data_map_infos__[__num_mapped_array__ ];
 
-	omp_offloading_info_t __offloading_info__;
-	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
+	omp_offloading_info_t __copy_data_off_info__;
+	__copy_data_off_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info("data copy", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, 0);
+	omp_offloading_init_info("data copy", &__copy_data_off_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, 0);
+
+	omp_offloading_info_t __uuold_exchange_off_info__;
+	omp_offloading_t __offs_1__[__num_target_devices__];
+	__uuold_exchange_off_info__.offloadings = __offs_1__;
+	/* we use universal args and launcher because axpy can do it */
+	struct OUT__2__10550__args args_1;
+	args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
+	__uuold_exchange_off_info__.per_iteration_profile.num_fp_operations = 0;
+	__uuold_exchange_off_info__.per_iteration_profile.num_load = 1;
+	__uuold_exchange_off_info__.per_iteration_profile.num_store = 1;
+	omp_dist_info_t __uuold_exchange_loop_dist__[1];
+	omp_offloading_init_info("u<->uold exchange kernel", &__uuold_exchange_off_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1, __uuold_exchange_loop_dist__, 1);
+
+	omp_offloading_info_t __jacobi_off_info__;
+	omp_offloading_t __offs_2__[__num_target_devices__];
+	__jacobi_off_info__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
+	struct OUT__1__10550__args args_2;
+	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
+	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
+
+	__jacobi_off_info__.per_iteration_profile.num_fp_operations = 13*m;
+	__jacobi_off_info__.per_iteration_profile.num_load = 7;
+	__jacobi_off_info__.per_iteration_profile.num_store = 1;
+	omp_dist_info_t __jacobi_off_loop_dist__[1];
+	omp_offloading_init_info("jacobi kernel", &__jacobi_off_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2, __jacobi_off_loop_dist__, 1);
 
   	/* f map info */
   	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
   	long f_dims[2];f_dims[0] = n;f_dims[1] = m;
   	omp_data_map_t f_maps[__num_target_devices__];
   	omp_dist_info_t f_dist[2];
-  	omp_data_map_init_info("f", __info__, &__offloading_info__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, f_dist);
+  	omp_data_map_init_info("f", __info__, &__copy_data_off_info__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, f_dist);
 
   	/* u map info */
   	__info__ = &__data_map_infos__[1];
@@ -740,7 +856,7 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_t u_maps[__num_target_devices__];
   	omp_dist_info_t u_dist[2];
   	//omp_data_map_halo_region_info_t u_halo[2];
-  	omp_data_map_init_info("u", __info__, &__offloading_info__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, u_dist);
+  	omp_data_map_init_info("u", __info__, &__copy_data_off_info__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, u_dist);
 
   	/* uold map info */
   	__info__ = &__data_map_infos__[2];
@@ -748,21 +864,88 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
   	omp_data_map_t uold_maps[__num_target_devices__];
   	omp_dist_info_t uold_dist[2];
   	omp_data_map_halo_region_info_t uold_halo[2];
-  	omp_data_map_init_info_with_halo("uold", __info__, &__offloading_info__, uold, 2, uold_dims, sizeof(REAL),uold_maps,OMP_DATA_MAP_ALLOC, OMP_DATA_MAP_AUTO, uold_dist, uold_halo);
+  	omp_data_map_init_info_with_halo("uold", __info__, &__copy_data_off_info__, uold, 2, uold_dims, sizeof(REAL),uold_maps,OMP_DATA_MAP_ALLOC, OMP_DATA_MAP_AUTO, uold_dist, uold_halo);
+
+	/* halo exchange offloading */
+	omp_data_map_halo_exchange_info_t x_halos[1];
+	x_halos[0].map_info = __info__; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
+	if (dist_dim == 1) {
+		x_halos[0].x_dim = 0;
+	} else if (dist_dim == 2) {
+		x_halos[0].x_dim = 1;
+	} else {
+		x_halos[0].x_dim = -1; /* means all the dimension */
+	}
+//#define STANDALONE_DATA_X 1
+#if !defined (STANDALONE_DATA_X)
+	/* there are two approaches we handle halo exchange, appended data exchange or standalone one */
+	/* option 1: appended data exchange */
+	omp_offloading_append_data_exchange_info(&__uuold_exchange_off_info__, x_halos, 1);
+#else
+  	/* option 2: standalone offloading */
+  	omp_offloading_info_t uuold_halo_x_off_info;
+	omp_offloading_t uuold_halo_x_offs[__num_target_devices__];
+	uuold_halo_x_off_info.offloadings = uuold_halo_x_offs;
+  	omp_offloading_standalone_data_exchange_init_info("u-uold halo exchange", &uuold_halo_x_off_info, &__top__, __target_devices__, 1, 0, NULL, x_halos, 1);
+#endif
 
   	/**************************************** dist-specific *****************************************/
-  	if (dist == 1) {
-		omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+  	if (dist_dim == 1) {
+		if (dist_policy == 1) { /* BLOCK_BLOCK */
+			omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 
-		omp_dist_init_info(&u_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&u_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
-  		//omp_map_add_halo_region(&__data_map_infos__[1], 0, 1, 1, 0);
+			omp_dist_init_info(&u_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_dist_init_info(&u_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 
-		omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
-  		omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
-  	} else if (dist == 2) {
+			omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
+
+			omp_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_dist_init_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			printf("BLOCK dist policy for arrays and loop dist\n");
+		} else if (dist_policy == 2) { /* BLOCK_ALIGN */
+			omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+
+			omp_align_dist_init_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+									 OMP_DIST_TARGET_DATA_MAP, 0);
+			omp_align_dist_init_info(&u_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+									 OMP_DIST_TARGET_DATA_MAP, 1);
+
+			omp_align_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+									 OMP_DIST_TARGET_DATA_MAP, 0);
+			omp_align_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+									 OMP_DIST_TARGET_DATA_MAP, 1);
+			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
+
+			omp_align_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+									 OMP_DIST_TARGET_DATA_MAP, 0);
+			omp_align_dist_init_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+									 OMP_DIST_TARGET_DATA_MAP, 0);
+			printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
+		} else if (dist_policy == 3) { /* AUTO_ALIGN */
+			omp_dist_init_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_AUTO, 0, n, 0);
+
+			omp_align_dist_init_info(&f_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+
+			omp_align_dist_init_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			omp_dist_init_info(&u_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+
+			omp_align_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
+
+			omp_align_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			printf("AUTO dist policy for loop dist and array align with loops\n");
+		}
+  	} else if (dist_dim == 2) {
 		omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 		omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 0);
 
@@ -794,63 +977,22 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 	printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
 	/* here we do not need sync start */
-	omp_offloading_start(&__offloading_info__);
-	//printf("----- data copyin .... \n");
-
-	omp_offloading_info_t __off_info_1__;
-	omp_offloading_t __offs_1__[__num_target_devices__];
-	__off_info_1__.offloadings = __offs_1__;
-		  	/* we use universal args and launcher because axpy can do it */
-	struct OUT__2__10550__args args_1;
-	args_1.n = n; args_1.m = m;args_1.u = (REAL*)u_p; args_1.uold = (REAL*)uold;
-
-	omp_offloading_init_info("u<->uold exchange kernel", &__off_info_1__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1, NULL, 0);
-
-  	omp_offloading_info_t __off_info_2__;
-  	omp_offloading_t __offs_2__[__num_target_devices__];
-  	__off_info_2__.offloadings = __offs_2__;	  	/* we use universal args and launcher because axpy can do it */
-  	struct OUT__1__10550__args args_2;
-  	args_2.n = n; args_2.m = m; args_2.ax = ax; args_2.ay = ay; args_2.b = b; args_2.omega = omega;args_2.u = (REAL*)u_p; args_2.uold = (REAL*)uold; args_2.f = (REAL*) f_p;
-  	REAL __reduction_error__[__num_target_devices__]; args_2.error = __reduction_error__;
-	omp_offloading_init_info("jacobi kernel", &__off_info_2__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2, NULL, 0);
-
-  	/* halo exchange offloading */
-  	omp_data_map_halo_exchange_info_t x_halos[1];
-  	x_halos[0].map_info = &__data_map_infos__[2]; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* uold */
-  	if (dist == 1) {
-  		x_halos[0].x_dim = 0;
-  	} else if (dist == 2) {
-  		x_halos[0].x_dim = 1;
-  	} else {
-  		x_halos[0].x_dim = -1; /* means all the dimension */
-  	}
-//#define STANDALONE_DATA_X 1
-
-#if !defined (STANDALONE_DATA_X)
-  	/* there are two approaches we handle halo exchange, appended data exchange or standalone one */
-  	/* option 1: appended data exchange */
-  	omp_offloading_append_data_exchange_info(&__off_info_1__, x_halos, 1);
-#else
-  	/* option 2: standalone offloading */
-  	omp_offloading_info_t uuold_halo_x_off_info;
-	omp_offloading_t uuold_halo_x_offs[__num_target_devices__];
-	uuold_halo_x_off_info.offloadings = uuold_halo_x_offs;
-  	omp_offloading_standalone_data_exchange_init_info("u-uold halo exchange", &uuold_halo_x_off_info, &__top__, __target_devices__, 1, 0, NULL, x_halos, 1);
-#endif
+	omp_offloading_start(&__copy_data_off_info__);
+	printf("----- data copyin .... \n");
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
-	  	omp_offloading_start(&__off_info_1__);
+	  	omp_offloading_start(&__uuold_exchange_off_info__);
 
 #if defined (STANDALONE_DATA_X)
 		/** option 2 halo exchange */
-		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__off_info_1__);
+		//printf("----- u <-> uold halo exchange, k: %d, off_info: %X\n", k, &__uuold_exchange_off_info__);
 	  	omp_offloading_start(&uuold_halo_x_off_info);
 #endif
-
+		//printf("u->uold exchanged: %d\n", k);
 		/* jacobi */
-	  	omp_offloading_start(&__off_info_2__);
+	  	omp_offloading_start(&__jacobi_off_info__);
 		int __i__;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			error += __reduction_error__[__i__];
@@ -866,35 +1008,35 @@ void jacobi_omp_mdev(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, R
 		/*  End iteration loop */
 	}
 	/* copy back u from each device and free others */
-	omp_offloading_start(&__offloading_info__);
+	omp_offloading_start(&__copy_data_off_info__);
 	compl_time = read_timer_ms();
 
-	omp_offloading_fini_info(&__offloading_info__);
-	omp_offloading_fini_info(&__off_info_1__);
-	omp_offloading_fini_info(&__off_info_2__);
+	omp_offloading_fini_info(&__copy_data_off_info__);
+	omp_offloading_fini_info(&__uuold_exchange_off_info__);
+	omp_offloading_fini_info(&__jacobi_off_info__);
 #if defined (STANDALONE_DATA_X)
 	omp_offloading_fini_info(&uuold_halo_x_off_info);
 #endif
 
 #if defined (OMP_BREAKDOWN_TIMING)
 	int num_infos = 3;
-	omp_offloading_info_report_profile(&__offloading_info__);
-	omp_offloading_info_report_profile(&__off_info_1__);
-	omp_offloading_info_report_profile(&__off_info_2__);
+	omp_offloading_info_report_profile(&__copy_data_off_info__);
+	omp_offloading_info_report_profile(&__uuold_exchange_off_info__);
+	omp_offloading_info_report_profile(&__jacobi_off_info__);
 #if defined (STANDALONE_DATA_X)
 	num_infos = 4;
 	omp_offloading_info_report_profile(&uuold_halo_x_off_info);
 #endif
 
 	omp_offloading_info_t *infos[num_infos];
-	infos[0] = &__offloading_info__;
-	infos[1] = &__off_info_1__;
-	infos[2] = &__off_info_2__;
+	infos[0] = &__copy_data_off_info__;
+	infos[1] = &__uuold_exchange_off_info__;
+	infos[2] = &__jacobi_off_info__;
 #if defined (STANDALONE_DATA_X)
 	infos[3] = &uuold_halo_x_off_inf;
 #endif
 	omp_offloading_info_sum_profile(infos, num_infos, start_time, compl_time);
-	omp_offloading_info_report_profile(&__offloading_info__);
+	omp_offloading_info_report_profile(&__copy_data_off_info__);
 #endif
 
 	printf("Total Number of Iterations:%d\n", k);

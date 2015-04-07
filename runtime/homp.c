@@ -135,7 +135,25 @@ void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp
 	info->start_time = 0;
 	info->loop_dist_info = loop_nest_dist;
 	info->loop_depth = loop_nest_depth;
+
 	memset(info->offloadings, NULL, sizeof(omp_offloading_t)*top->nnodes);
+	int i;
+	/* we move the off initialization from each device thread here, i.e. we serialized this */
+	for (i=0; i<top->nnodes; i++) {
+		omp_offloading_t * off = &info->offloadings[i];
+		omp_device_t * dev = targets[i];
+		off->devseqid = i;
+		off->dev = dev;
+#if defined USING_PER_OFFLOAD_STREAM
+		omp_stream_create(dev, &off->mystream, 0);
+		off->stream = &off->mystream;
+#else
+		off->stream = &dev->devstream;
+#endif
+		off->off_info = info;
+		off->num_maps = 0;
+		off->stage = OMP_OFFLOADING_INIT;
+	}
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 	pthread_barrier_init(&info->inter_dev_barrier, NULL, top->nnodes);
@@ -192,7 +210,6 @@ void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, 
 		}
 	}
 }
-#endif
 
 void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * filename) {
 	char *original_name = info->name;
@@ -218,8 +235,6 @@ void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * fi
 	sprintf(filename +name_len+1+guid_len+1+recu_len, "%s", ".plot");
 	filename[filename_length] = '\0';
 }
-
-#define PROFILE_PLOT 1
 
 #if defined(PROFILE_PLOT)
 char *colors[] = {
@@ -368,6 +383,7 @@ void omp_event_print_elapsed(omp_event_t * ev, double * start_time, double * ela
 		*elapsed = ev->elapsed_host;
     }
 }
+#endif
 
 void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x) {
 	info->halo_x_info = halo_x_info;
@@ -948,6 +964,7 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n",
 				dist_info->policy);
+		abort();
 		exit(1);
 	}
 }
@@ -994,30 +1011,53 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 		map->map_dist[i].info = dist_info;
 
 		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, map, OMP_DIST_TARGET_DATA_MAP);
-
-		/* handle halo region */
-		if (map_info->halo_info != NULL) { /** here we also need to deal with boundary, the first one that has no left halo and the last one that has no right halo for non-cyclic case */
-			omp_data_map_halo_region_info_t *halo = &map_info->halo_info[i];
-
-			if (halo->left != 0 || halo->right != 0) { /* we have halo in this dimension */
-				omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[i];
-				int *left = &halo_mem->left_dev_seqid;
-				int *right = &halo_mem->right_dev_seqid;
-				omp_topology_get_neighbors(top, seqid, halo->topdim, halo->cyclic, left, right);
-				//printf("dev: %d, map_info: %X, %d neighbors in dim %d: left: %d, right: %d\n", map->dev->id, map->dist_info, seqid, dim_index, left, right);
-				if (*left >= 0) {
-					map->map_dist[i].offset = map->map_dist[i].offset - halo->left;
-					map->map_dist[i].length += halo->left;
-				}
-				if (*right >= 0) {
-					map->map_dist[i].length += halo->right;
-				}
-			}
-		}
 	}
 
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_2;
 }
+
+/**
+ * Apply map to device seqid, seqid is the sequence id of the device in the grid topology
+ *
+ * do the distribution of array onto the grid topology of devices
+ */
+void omp_data_map_halo(omp_data_map_t *map, int seqid) {
+	if (map->access_level >= OMP_DATA_MAP_ACCESS_LEVEL_3) return; /* a simple way of mutual exclusion */
+	omp_data_map_info_t *map_info = map->info;
+	omp_offloading_info_t * off_info = map_info->off_info;
+
+	omp_grid_topology_t * top = off_info->top;
+
+	int i;
+
+	//printf("omp_dist_call: %d\n", __LINE__);
+	for (i = 0; i < map_info->num_dims; i++) { /* process each dimension */
+		omp_dist_info_t *dist_info = &map_info->dist[i];
+		map->map_dist[i].info = dist_info;
+
+		/* handle halo region */
+		/** here we also need to deal with boundary, the first one that has no left halo and the last one that has no right halo for non-cyclic case */
+		omp_data_map_halo_region_info_t *halo = &map_info->halo_info[i];
+
+		if (halo->left != 0 || halo->right != 0) { /* we have halo in this dimension */
+			omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[i];
+			int *left = &halo_mem->left_dev_seqid;
+			int *right = &halo_mem->right_dev_seqid;
+			omp_topology_get_neighbors(top, seqid, halo->topdim, halo->cyclic, left, right);
+			//printf("dev: %d, map_info: %X, %d neighbors in dim %d: left: %d, right: %d\n", map->dev->id, map->dist_info, seqid, dim_index, left, right);
+			if (*left >= 0) {
+				map->map_dist[i].offset = map->map_dist[i].offset - halo->left;
+				map->map_dist[i].length += halo->left;
+			}
+			if (*right >= 0) {
+				map->map_dist[i].length += halo->right;
+			}
+		}
+	}
+
+	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_3;
+}
+
 
 long omp_loop_get_range(omp_offloading_t *off, int loop_level, long *start, long *length) {
 	if (off->loop_dist[loop_level].info == NULL) {
