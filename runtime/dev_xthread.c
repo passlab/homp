@@ -362,7 +362,7 @@ void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 	omp_set_current_device_dev(dev);
 	omp_stream_create(dev, &dev->devstream, 1);
-
+	omp_set_num_threads(dev->num_cores);
 	/*************** loop *******************/
 	while (omp_device_complete == 0) {
 		//	printf("helper threading (devid: %d) waiting ....\n", devid);
