@@ -95,6 +95,14 @@ void * omp_init_dev_specific(omp_device_t * dev) {
 		dev->bandwidth = (2*(1+dev->id))*omp_host_dev->bandwidth / 100;
 		dev->latency = (1+dev->id)*omp_host_dev->latency * 1000;
 		*/
+		/* warm up the OpenMP environment */
+		int i;
+		int dummy_size = dev->num_cores*100;
+		float dummy_array[dummy_size];
+#pragma omp parallel for shared(dummy_size, dummy_array) private (i)
+		for (i=0; i<dummy_size; i++) {
+			dummy_array[i] *= i*dummy_array[(i+dev->num_cores)%dummy_size];
+		}
 	} else {
 		printf("Unknown device type\n");
 	}

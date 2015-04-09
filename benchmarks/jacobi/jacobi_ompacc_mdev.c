@@ -35,7 +35,7 @@
 
 // flexible between REAL and double
 #define REAL float
-#define DEFAULT_MSIZE 256
+#define DEFAULT_DIMSIZE 256
 
 void print_array(char * title, char * name, REAL * A, long n, long m) {
 	printf("%s:\n", title);
@@ -127,8 +127,8 @@ int dist_dim;
 int dist_policy;
 
 int main(int argc, char * argv[]) {
-	long n = DEFAULT_MSIZE;
-	long m = DEFAULT_MSIZE;
+	long n = DEFAULT_DIMSIZE;
+	long m = DEFAULT_DIMSIZE;
 	REAL alpha = 0.0543;
 	REAL tol = 0.0000000001;
 	REAL relax = 1.0;
