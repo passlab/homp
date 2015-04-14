@@ -224,7 +224,7 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
     /* here we do not need sync start */
-    omp_offloading_start(&__offloading_info__);
+    omp_offloading_start(&__offloading_info__, 0);
     omp_offloading_fini_info(&__offloading_info__);
     ompacc_time = read_timer_ms() - ompacc_time;
 #if defined (OMP_BREAKDOWN_TIMING)

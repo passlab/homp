@@ -10,8 +10,9 @@
  * It always start with copyto and may stops after copyto for target data
  * master is just the thread that will store
  */
-void omp_offloading_start(omp_offloading_info_t * off_info) {
+void omp_offloading_start(omp_offloading_info_t *off_info, int cleanup_after_completion) {
 	omp_device_t ** targets = off_info->targets;
+	off_info->cleanup_after_completion = cleanup_after_completion;
 	int num_targets = off_info->top->nnodes;
     /* generate master trace file */
 
@@ -40,7 +41,6 @@ void omp_offloading_start(omp_offloading_info_t * off_info) {
 	pthread_barrier_wait(&off_info->barrier); /* this one make sure the profiling is collected */
 	off_info->compl_time = read_timer_ms();
 #endif
-
 }
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -297,6 +297,8 @@ omp_offloading_sync_cleanup: ;
 			}
 
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
+		}
+		if (off_info->cleanup_after_completion) {
 			omp_cleanup(off);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)

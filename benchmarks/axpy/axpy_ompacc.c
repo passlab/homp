@@ -189,7 +189,9 @@ double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a)
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
 	/* here we do not need sync start */
-	omp_offloading_start(&__offloading_info__);
+	int it; int total_its = 20;
+	for (it=0; it<total_its; it++) omp_offloading_start(&__offloading_info__, it==total_its-1);
+
 	omp_offloading_fini_info(&__offloading_info__);
 	ompacc_time = read_timer_ms() - ompacc_time;
 #if defined (OMP_BREAKDOWN_TIMING)

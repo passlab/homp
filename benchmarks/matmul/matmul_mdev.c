@@ -537,7 +537,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dis
 	printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
 	/* here we do not need sync start */
-    omp_offloading_start(&__offloading_info__);
+    omp_offloading_start(&__offloading_info__, 1);
     omp_offloading_fini_info(&__offloading_info__);
     ompacc_time = read_timer_ms() - ompacc_time;
 #if defined (OMP_BREAKDOWN_TIMING)

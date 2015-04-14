@@ -976,12 +976,12 @@ loop1:for (i=0;i<n;i++) {
 	printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
 	/* here we do not need sync start */
-	omp_offloading_start(&__copy_data_off_info__);
+	omp_offloading_start(&__copy_data_off_info__, 0);
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
 		/* Copy new solution into old */
-	  	omp_offloading_start(&__uuold_exchange_off_info__);
+		omp_offloading_start(&__uuold_exchange_off_info__, 0);
 
 #if defined (STANDALONE_DATA_X)
 		/** option 2 halo exchange */
@@ -990,7 +990,7 @@ loop1:for (i=0;i<n;i++) {
 #endif
 		//printf("u->uold exchanged: %d\n", k);
 		/* jacobi */
-	  	omp_offloading_start(&__jacobi_off_info__);
+		omp_offloading_start(&__jacobi_off_info__, 0);
 		int __i__;
 		for (__i__ = 0; __i__ < __num_target_devices__;__i__++) {
 			error += __reduction_error__[__i__];
@@ -1006,10 +1006,9 @@ loop1:for (i=0;i<n;i++) {
 		/*  End iteration loop */
 	}
 	/* copy back u from each device and free others */
-	omp_offloading_start(&__copy_data_off_info__);
+	omp_offloading_start(&__copy_data_off_info__, 1);
 	compl_time = read_timer_ms();
 
-	omp_offloading_fini_info(&__copy_data_off_info__);
 	omp_offloading_fini_info(&__uuold_exchange_off_info__);
 	omp_offloading_fini_info(&__jacobi_off_info__);
 #if defined (STANDALONE_DATA_X)
