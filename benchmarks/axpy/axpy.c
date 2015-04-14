@@ -63,7 +63,7 @@ int main(int argc,char *argv[])
   memcpy(y_ompacc,y,(n * sizeof(REAL )));
   REAL omp_time = read_timer_ms();
 // reference serial execution for error checking  
-  //axpy(x,y,n,a);
+  axpy(x,y,n,a);
   omp_time = (read_timer_ms() - omp_time);
   double ompacc_time = axpy_ompacc_mdev(x,y_ompacc,n,a);
   omp_fini_devices();
