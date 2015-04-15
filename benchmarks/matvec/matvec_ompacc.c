@@ -13,7 +13,7 @@ long i, j;
 #pragma omp parallel for shared(x, y, n, a) dist_iteration(BLOCK)
   for (i = 0; i < n; ++i)
     for (j = 0; j < n; ++j)
-    y[i] += a[i*n+j] * x[i];
+    y[i] += a[i*n+j] * x[j];
 }
 
 /* v3: block distribute array x and y and let the loop distribution aligh with a*/
@@ -24,7 +24,7 @@ long i, j;
 #pragma omp parallel for shared(x, y, n, a) dist_iteration(ALIGN(lp1))
 lp1: for (i = 0; i < n; ++i)
     for (j = 0; j < n; ++j)
-   y[i] += a[i*n+j] * x[i];
+   y[i] += a[i*n+j] * x[j];
 }
 
 
@@ -36,7 +36,7 @@ long i, j;
 #pragma omp parallel for shared(x, y, n, a) dist_iteration(AUTO)
   for (i = 0; i < n; ++i)
     for (j = 0; j < n; ++j)
-    y[i] += a[i*n+j] * x[i];
+    y[i] += a[i*n+j] * x[j];
 }
 
 
@@ -52,9 +52,9 @@ long i, j;
 
 #if defined (DEVICE_NVGPU_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu" 
-__global__ void OUT__3__5904__( long start_n,  long length_n,REAL *_dev_a,REAL *_dev_x,REAL *_dev_y)
+__global__ void OUT__3__5904__(long n, long start_n, long length_n,REAL *_dev_a,REAL *_dev_x,REAL *_dev_y)
 {
-  int _p_i, _q_i;
+  int i,j;
   long _dev_lower;
   long  _dev_upper;
   long _dev_loop_chunk_size;
@@ -64,9 +64,9 @@ __global__ void OUT__3__5904__( long start_n,  long length_n,REAL *_dev_a,REAL *
   int _dev_thread_id = getLoopIndexFromCUDAVariables(1);
   XOMP_static_sched_init(start_n,start_n + length_n - 1,1,1,_dev_thread_num,_dev_thread_id,&_dev_loop_chunk_size,&_dev_loop_sched_index,&_dev_loop_stride);
   while(XOMP_static_sched_next(&_dev_loop_sched_index,start_n + length_n - 1,1,_dev_loop_stride,_dev_loop_chunk_size,_dev_thread_num,_dev_thread_id,&_dev_lower,&_dev_upper))
-    for (_p_i = _dev_lower; _p_i <= _dev_upper; _p_i += 1) {
-        for (_q_i = _dev_lower; _q_i <= _dev_upper; _q_i += 1)
-         _dev_y[_p_i] += _dev_a[_p_i*_dev_upper+_q_i] * _dev_x[_p_i];
+    for (i = _dev_lower; i <= _dev_upper; i += 1) {
+        for (j = 0; j<n; j++)
+         _dev_y[i] += _dev_a[i*n+j] * _dev_x[j];
 //		printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
     }
 }
@@ -83,7 +83,7 @@ struct OUT__3__5904__other_args {
 void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
     struct OUT__3__5904__other_args *iargs = (struct OUT__3__5904__other_args *) args;
     long start_n, length_n;
-    REAL n = iargs->n;
+    long n = iargs->n;
     omp_data_map_t *map_x = omp_map_get_map(off, iargs->x, 0);
     omp_data_map_t *map_y = omp_map_get_map(off, iargs->y, 1);
     omp_data_map_t *map_a = omp_map_get_map(off, iargs->a, 2);
@@ -95,22 +95,22 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
     omp_loop_get_range(off, 0, &start_n, &length_n);
 
     //long omp_loop_get_range(omp_offloading_t * off, int loop_depth, long * start, long* length) {
-//    printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
+    //printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
 
     omp_device_type_t devtype = off->dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);
-        OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
+        OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
 	} else
 #endif
     if (devtype == OMP_DEVICE_THSIM) {
         int i, j;
 #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
         for (i = start_n; i < start_n + length_n; i++) {
-            for (j = start_n; j < start_n + length_n; j++)
-                y[i] += a[i * start_n + j] * x[i];
+            for (j = 0; j < n; j++)
+                y[i] += a[i*n + j] * x[j];
             //printf ("error part!!");
         }
     } else {
@@ -154,12 +154,12 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
     args.n = n;
     args.x = x;
     args.y = y;
-    __offloading_info__.per_iteration_profile.num_fp_operations = 1;
+    __offloading_info__.per_iteration_profile.num_fp_operations = n*n;
     __offloading_info__.per_iteration_profile.num_load = 2;
     __offloading_info__.per_iteration_profile.num_store = 1;
     omp_dist_info_t loop_nest_dist[1];
     /* we use universal args and launcher because matvec can do it */
-    omp_offloading_init_info("matvec kernel", &__offloading_info__, &__top__, __target_devices__, 0,
+    omp_offloading_init_info("matvec kernel", &__offloading_info__, &__top__, __target_devices__, 1,
                              OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher,
                              &args, loop_nest_dist, 1);
 
@@ -191,17 +191,16 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
 
 
     if (matvec_mdev_v == 3) { /* version 3 */
-        omp_dist_init_info(&x_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+        omp_dist_init_info(&x_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_dist_init_info(&y_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_dist_init_info(&a_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_dist_init_info(&a_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
-        omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+        omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[1],
                                  OMP_DIST_TARGET_DATA_MAP, 0);
         printf("version 3: BLOCK dist policy for x and y, and loop dist aligns with x\n");
     } else if (matvec_mdev_v == 4) {/* version 4 */
         omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_AUTO, 0, n, 0);
-        omp_align_dist_init_info(&x_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
-                                 OMP_DIST_TARGET_LOOP_ITERATION, 0);
+        omp_dist_init_info(&x_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_align_dist_init_info(&y_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
                                  OMP_DIST_TARGET_LOOP_ITERATION, 0);
         omp_align_dist_init_info(&a_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
@@ -210,7 +209,7 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
         printf("version 4: AUTO dist policy for loop, and x and y align with loop dist\n");
     }
     else { /* default, version 2, block */
-        omp_dist_init_info(&x_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+        omp_dist_init_info(&x_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_dist_init_info(&y_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_dist_init_info(&a_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_dist_init_info(&a_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
@@ -224,9 +223,10 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
     /* here we do not need sync start */
-    omp_offloading_start(&__offloading_info__, 0);
+    int it; int total_its = 20;
+    for (it=0; it<total_its; it++) omp_offloading_start(&__offloading_info__, it==total_its-1);
     omp_offloading_fini_info(&__offloading_info__);
-    ompacc_time = read_timer_ms() - ompacc_time;
+    ompacc_time = (read_timer_ms() - ompacc_time)/total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_offloading_info_report_profile(&__offloading_info__);
 #endif
@@ -234,93 +234,3 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
     double cpu_total = ompacc_time;
     return cpu_total;
 }
-
-#if 0
-double matvec_ompacc_mdev_v2(REAL *a, REAL *x, REAL *y, long n)
-{
-	double ompacc_time = read_timer_ms(); //read_timer_ms();
-
-    /* get number of target devices specified by the programmers */
-    int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
-
-	omp_device_t *__target_devices__[__num_target_devices__];
-	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
-	int __i__;
-	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-		__target_devices__[__i__] = &omp_devices[__i__]; /* currently this is simple a copy of the pointer */
-	}
-
-	/**TODO: compiler generated code or runtime call to init the topology, topology(top1[4][4])  4x4 topology named top1 */
-	omp_grid_topology_t __top__;
-	int __top_ndims__ = 1;
-	int __top_dims__[__top_ndims__];
-	int __top_periodic__[__top_ndims__];
-	int __id_map__[__num_target_devices__];
-	omp_grid_topology_init_simple (&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__, __id_map__);
-
-	int __num_mapped_array__ = 3; /* XXX: need compiler output */
-
-	omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
-
-	struct OUT__3__5904__other_args args;
-	args.a = a;
-	args.n = n;
-	args.x = x;
-	args.y = y;
-	omp_offloading_info_t __offloading_info__;
-	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
-	omp_dist_info_t loop_nest_dist[1];
-	omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-	__offloading_info__.per_iteration_profile.num_fp_operations = 1;
-	__offloading_info__.per_iteration_profile.num_load = 2;
-	__offloading_info__.per_iteration_profile.num_store = 1;
-
-	/* we use universal args and launcher because matvec can do it */
-	omp_offloading_init_info("matvec kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args, loop_nest_dist, 1);
-
-    //TODO a for loop here for multiple arrays
-	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	long x_dims[1]; x_dims[0] = n;
-	omp_data_map_t x_maps[__num_target_devices__];
-	omp_dist_info_t x_dist[1];
-	omp_data_map_init_info_straight_dist("x", __info__, &__top__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist, OMP_DIST_POLICY_BLOCK);
-
-	__info__ = &__data_map_infos__[1];
-	long y_dims[1]; y_dims[0] = n;
-	omp_data_map_t y_maps[__num_target_devices__];
-	omp_dist_info_t y_dist[1];
-	omp_data_map_init_info_straight_dist("y", __info__, &__top__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist, OMP_DIST_POLICY_BLOCK);
-
-  __info__ = &__data_map_infos__[1];
-	long a_dims[1] = n; y_dims[0] = n;
-	omp_data_map_t a_maps[__num_target_devices__];
-	omp_dist_info_t a_dist[1];
-	omp_data_map_init_info_straight_dist("a", __info__, &__top__, a, 1, a_dims, sizeof(REAL * 2), a_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, a_dist, OMP_DIST_POLICY_BLOCK);
-
-#if 0
-	/* we could specify dev-specific args and kernel_launcher */
-	struct OUT__3__5904__other_args args[__num_target_devices__];
-	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-		//args[i].a = a;
-		args[i].n = n;
-		__offloading_info__.offloadings[i].args = &args[i];
-		__offloading_info__.offloadings[i].kernel_launcher = OUT__3__5904__launcher;
-	}
-#endif
-
-	/*********** NOW notifying helper thread to work on this offload ******************/
-#if DEBUG_MSG
-	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
-#endif
-	/* here we do not need sync start */
-	omp_offloading_start(&__offloading_info__);
-	omp_offloading_fini_info(&__offloading_info__);
-	ompacc_time = read_timer_ms() - ompacc_time;
-#if defined (OMP_BREAKDOWN_TIMING)
-	omp_offloading_info_report_profile(&__offloading_info__);
-#endif
-
-	double cpu_total = ompacc_time;
-	return cpu_total;
-}
-#endif

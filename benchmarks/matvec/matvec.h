@@ -14,10 +14,7 @@ extern "C" {
 #endif
 
 /* both the omp version and ompacc version */
-extern void matvec(REAL *x, REAL *y, long n, REAL *a);
-
-extern double matvec_ompacc_mdev_v2(REAL *a, REAL *x, REAL *y, long n);
-
+extern void matvec(REAL *a, REAL *x, REAL *y, long n);
 extern double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n);
 
 #ifdef __cplusplus

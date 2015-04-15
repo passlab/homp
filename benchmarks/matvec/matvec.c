@@ -4,11 +4,11 @@
 #define VEC_LEN 1024000 //use a fixed number for now
 
 /* zero out the entire vector */
-void matvec(REAL *x, REAL *y, long n, REAL *a) {
+void matvec(REAL *a, REAL *x, REAL *y, long n) {
     long i, j;
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n; ++j)
-            y[i] += a[i * n + j] * x[i];
+            y[i] += a[i * n + j] * x[j];
         //printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
     }
 }
@@ -57,25 +57,26 @@ int main(int argc, char *argv[]) {
     if (argc >= 3)
         matvec_mdev_v = atoi(argv[2]);
 
-    y = ((REAL *) (malloc((n * sizeof(REAL)))));
     a = ((REAL *) (malloc(n * n * sizeof(REAL))));
-    y_ompacc = ((REAL *) (malloc((n * sizeof(REAL)))));
     x = ((REAL *) (malloc((n * sizeof(REAL)))));
+    y = ((REAL *) (malloc((n * sizeof(REAL)))));
+    y_ompacc = ((REAL *) (malloc((n * sizeof(REAL)))));
 
     srand48(1 << 12);
     init(x, n);
+    init(y, n);
     init(a, n * n);
 
     //init(y,n);
     memcpy(y_ompacc, y, (n * sizeof(REAL)));
     REAL omp_time = read_timer_ms();
     // reference serial execution for error checking
-    //matvec(x,y,n,a);
+    matvec(a, x,y,n);
     omp_time = (read_timer_ms() - omp_time);
     double ompacc_time = matvec_ompacc_mdev(a, x, y_ompacc, n);
     omp_fini_devices();
     REAL cksm;
-    //cksm = check(y,y_ompacc,n) ;
+    cksm = check(y,y_ompacc,n) ;
     printf("matvec(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n", n, cksm,
            omp_get_num_active_devices());
     printf("\t\t\t\t\t%4f\t%4f\n", omp_time, ompacc_time);
@@ -83,7 +84,5 @@ int main(int argc, char *argv[]) {
     free(y_ompacc);
     free(x);
     free(a);
-    // I got 1.093e-09
-    //assert (cksm< 1.0e-07);
     return 0;
 }
