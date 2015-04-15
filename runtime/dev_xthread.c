@@ -104,7 +104,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	int misc_event_index = misc_event_index_start;
 
 	/* set up stream and event */
-	if (off_info->count <= 1) omp_event_init(&events[total_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+	if (off_info->count <= 1) omp_event_init(&events[total_event_index], dev, OMP_EVENT_HOST_RECORD);
 	omp_event_record_start(&events[total_event_index], NULL, "OFF_TOTAL", "Total offloading time (everything) on dev: %d", devid);
 #endif
 
@@ -112,19 +112,19 @@ void omp_offloading_run(omp_device_t * dev) {
 	if (off_info->count <= 1) /* the first time of recurring offloading or a non-recurring offloading */
 	{
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_init(&events[timing_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[timing_init_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_record_start(&events[timing_init_event_index], NULL, "INIT_0", "Time for initialization of stream and event", devid);
 #endif
 
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_init(&events[map_init_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
-		omp_event_init(&events[sync_cleanup_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
-		omp_event_init(&events[barrier_wait_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[map_init_event_index], dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[sync_cleanup_event_index], dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD);
 		omp_event_init(&events[kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD);
 		omp_event_init(&events[acc_mapfrom_event_index], dev, OMP_EVENT_DEV_RECORD);
-		omp_event_init(&events[acc_ex_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
-		omp_event_init(&events[acc_ex_barrier_event_index], omp_host_dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[acc_ex_event_index], dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[acc_ex_barrier_event_index], dev, OMP_EVENT_HOST_RECORD);
 
 		for (i=misc_event_index_start; i<num_events; i++) {
 			omp_event_init(&events[i], dev, OMP_EVENT_DEV_RECORD);
@@ -362,12 +362,14 @@ data_exchange:;
 /* helper thread main */
 void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
+
 	omp_set_current_device_dev(dev);
 	omp_stream_create(dev, &dev->devstream, 1);
 	omp_set_num_threads(dev->num_cores);
+	omp_warmup_device(dev);
 	/*************** loop *******************/
 	while (omp_device_complete == 0) {
-		//	printf("helper threading (devid: %d) waiting ....\n", devid);
+	//	printf("helper threading (devid: %X) waiting ....\n", dev);
 		while (dev->offload_request == NULL) {
 			if (omp_device_complete) return;
 		}

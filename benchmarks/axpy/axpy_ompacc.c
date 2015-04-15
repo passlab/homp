@@ -102,7 +102,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
         OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,a,x,y);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
 		int i;
 #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i)
 		for (i=start_n; i<start_n + length_n; i++) {
@@ -190,7 +190,9 @@ double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a)
 #endif
 	/* here we do not need sync start */
 	int it; int total_its = 20;
-	for (it=0; it<total_its; it++) omp_offloading_start(&__offloading_info__, it==total_its-1);
+	for (it=0; it<total_its; it++) {
+		omp_offloading_start(&__offloading_info__, it==total_its-1);
+	}
 
 	omp_offloading_fini_info(&__offloading_info__);
 	ompacc_time = (read_timer_ms() - ompacc_time)/total_its;

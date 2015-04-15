@@ -373,10 +373,10 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 		OUT__1__11058__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM) {
+    if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
 		long ii, jj, kk;
 		omp_set_num_threads(off->dev->num_cores);
-		printf("%d cores on host\n", off->dev->num_cores);
+		//printf("%d cores on host\n", off->dev->num_cores);
 #pragma omp parallel for shared(A, B, C, i,j,k) private(ii, jj, kk)
 		for (ii=0; ii<i; ii++) {
 			for (jj=0; jj<j; jj++) {
@@ -438,7 +438,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dis
     __offloading_info__.per_iteration_profile.num_store = n;
     omp_dist_info_t loop_nest_dist[1];
     /* we use universal args and launcher because axpy can do it */
-    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, loop_nest_dist, 1);
+    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, loop_nest_dist, 1);
 
 	/* A map info */
 	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
@@ -537,7 +537,9 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dis
 	printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
 	/* here we do not need sync start */
-    omp_offloading_start(&__offloading_info__, 1);
+    int it; int total_its = 20;
+    for (it=0;it<total_its;it++)
+        omp_offloading_start(&__offloading_info__, it==total_its-1);
     omp_offloading_fini_info(&__offloading_info__);
     ompacc_time = read_timer_ms() - ompacc_time;
 #if defined (OMP_BREAKDOWN_TIMING)

@@ -26,11 +26,10 @@ int omp_get_num_devices() {
 	return omp_num_devices;
 }
 
+int omp_num_devices;
 omp_device_t * omp_devices;
-omp_device_t * omp_host_dev;
 volatile int omp_device_complete = 0;
 
-int omp_num_devices;
 volatile int omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scramble together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
 	{OMP_DEVICE_HOST, "OMP_DEVICE_HOST", "HOST", 1},
