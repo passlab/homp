@@ -141,6 +141,7 @@ void omp_read_device_spec(char * dev_spec_file) {
 		devtype = iniparser_getstring(ini, keyname, "NULL");
 		if (strcasecmp(devtype, "cpu") == 0 || strcasecmp(devtype, "host") == 0 ) {
 			omp_init_host_device(dev, i, devsysid, num_cores);
+			num_host_dev++;
 		} else if (strcasecmp(devtype, "gpu") == 0) {
 			omp_init_nvgpu_device(dev, i, devsysid);
 			num_nvgpu_dev++;
