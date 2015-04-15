@@ -606,6 +606,8 @@ extern char * omp_get_device_typename(omp_device_t * dev);
 extern int omp_get_num_active_devices();
 extern int omp_set_current_device_dev(omp_device_t * d); /* return the current device id */
 extern int omp_set_current_device(int id); /* return the current device id */
+extern void helper_thread_main(void * arg);
+extern void omp_warmup_device(omp_device_t * dev);
 
 extern void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp_grid_topology_t *top, omp_device_t **targets, int recurring, omp_offloading_type_t off_type, int num_mapped_vars, omp_data_map_info_t *data_map_info, void (*kernel_launcher)(omp_offloading_t *, void *), void *args, omp_dist_info_t *loop_nest_dist, int loop_nest_depth);
 extern void omp_offloading_fini_info(omp_offloading_info_t * info);
@@ -615,7 +617,6 @@ extern void omp_offloading_append_data_exchange_info (omp_offloading_info_t * in
 extern void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_offloading_info_t * info,
 		omp_grid_topology_t * top, omp_device_t **targets, int recurring, int num_mapped_vars, omp_data_map_info_t * data_map_info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x );
 extern void omp_offloading_start(omp_offloading_info_t *off_info, int cleanup_after_completion);
-extern void helper_thread_main(void * arg);
 
 extern void omp_stream_create(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default);
 extern void omp_stream_destroy(omp_dev_stream_t * st);

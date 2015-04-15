@@ -254,7 +254,6 @@ void omp_probe_devices() {
 					break;
 				}
 			}
-			dev->sysid = gpu_dev_sysid++;
 			omp_init_nvgpu_device(dev, i, gpu_dev_sysid++);
 		} else {
 			/* TODO: unknown device type error */
