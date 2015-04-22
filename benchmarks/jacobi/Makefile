@@ -1,4 +1,4 @@
-TEST_INCLUDES = -I../../runtime -I.
+TEST_INCLUDES = -I../../runtime -I. -w
 TEST_LINK = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.6 -lm -lrt -lgomp -lpthread
 TEST_LINK = -L/usr/lib64/gcc/x86_64-suse-linux/4.8 -lm -lrt -lgomp -lpthread
 
@@ -18,4 +18,4 @@ jacobi-nvgpu:
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 clean:
-	rm -rf *.o jacobi-* *.plot
+	rm -rf *.o jacobi-* *.plot core

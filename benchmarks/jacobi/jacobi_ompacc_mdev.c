@@ -455,6 +455,8 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
     REAL * uold_p = (REAL *)map_uold->map_dev_ptr;
     int uold_0_offset;
     int uold_1_offset;
+//	printf("dev %d: src ptr: %X, src_wextra_ptr: %X, dev_ptr: %X, dev_wextra_ptr: %X\n", off->dev->id,
+//		   map_uold->map_source_ptr, map_uold->map_source_wextra_ptr, map_uold->map_dev_ptr, map_uold->map_dev_wextra_ptr);
 
     if (omp_data_map_get_halo_left_devseqid(map_uold, 0) >= 0) {
     	uold_0_offset = map_uold->info->halo_info[0].left;
@@ -546,6 +548,8 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 
     /* we need to adjust index offset for those who has halo region because of we use attached halo region memory management */
     REAL * uold_p = (REAL *)map_uold->map_dev_ptr;
+//	printf("dev %d: src ptr: %X, src_wextra_ptr: %X, dev_ptr: %X, dev_wextra_ptr: %X\n", off->dev->id,
+//		   map_uold->map_source_ptr, map_uold->map_source_wextra_ptr, map_uold->map_dev_ptr, map_uold->map_dev_wextra_ptr);
     int uold_0_offset;
     int uold_1_offset;
 
@@ -977,6 +981,7 @@ loop1:for (i=0;i<n;i++) {
 #endif
 	/* here we do not need sync start */
 	omp_offloading_start(&__copy_data_off_info__, 0);
+	//printf("data copied\n");
 
 	while ((k <= mits) && (error > tol)) {
 		error = 0.0;
@@ -1008,9 +1013,10 @@ loop1:for (i=0;i<n;i++) {
 	/* copy back u from each device and free others */
 	omp_offloading_start(&__copy_data_off_info__, 1);
 	compl_time = read_timer_ms();
+	omp_print_map_info(&__data_map_infos__[0]);
+	omp_print_map_info(&__data_map_infos__[1]);
+	omp_print_map_info(&__data_map_infos__[2]);
 
-	omp_offloading_fini_info(&__uuold_exchange_off_info__);
-	omp_offloading_fini_info(&__jacobi_off_info__);
 #if defined (STANDALONE_DATA_X)
 	omp_offloading_fini_info(&uuold_halo_x_off_info);
 #endif
@@ -1035,6 +1041,9 @@ loop1:for (i=0;i<n;i++) {
 	omp_offloading_info_sum_profile(infos, num_infos, start_time, compl_time);
 	omp_offloading_info_report_profile(&__copy_data_off_info__);
 #endif
+	omp_offloading_fini_info(&__uuold_exchange_off_info__);
+	omp_offloading_fini_info(&__jacobi_off_info__);
+	omp_offloading_fini_info(&__copy_data_off_info__);
 
 	printf("Total Number of Iterations:%d\n", k);
 	printf("Residual:%E\n", error);

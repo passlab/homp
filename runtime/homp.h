@@ -665,6 +665,7 @@ extern void omp_data_map_init_info_with_halo(const char *symbol, omp_data_map_in
 
 extern void omp_data_map_init_info_straight_dist(const char *symbol, omp_data_map_info_t *info, omp_grid_topology_t *top, void *source_ptr, int num_dims, long *dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t *dist, omp_dist_policy_t dist_policy) ;
+extern void omp_print_map_info(omp_data_map_info_t * info);
 
 extern void omp_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, long start, long length, int topdim);
 extern void omp_align_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, void * alignee, omp_dist_target_type_t alignee_type, int alignee_dim);
