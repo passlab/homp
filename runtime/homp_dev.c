@@ -87,7 +87,7 @@ void * omp_init_thsim_device(omp_device_t * dev, int id, int sysid, int num_core
 	dev->sysid = sysid;
 	dev->devstream.dev = dev;
 	dev->devstream.systream.myStream = NULL;
-	dev->mem_type = OMP_DEVICE_MEM_SHARED_CC_NUMA;
+	dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
 	dev->dev_properties = &dev->helperth; /* make it point to the thread id */
 	dev->num_cores = num_cores;
 	/*
@@ -423,6 +423,8 @@ void * omp_map_malloc_dev(omp_device_t * dev, long size) {
 		fprintf(stderr, "device type is not supported for this call\n");
 		abort();
 	}
+
+	//printf("dev memory allocated on %d, %X\n", dev->id, ptr);
 	return ptr;
 }
 
@@ -460,6 +462,7 @@ void omp_map_memcpy_to(void * dst, omp_device_t * dstdev, const void * src, long
 }
 
 void omp_map_memcpy_to_async(void * dst, omp_device_t * dstdev, const void * src, long size, omp_dev_stream_t * stream) {
+//	printf("memcpytoasync: dev: %d, %X->%X\n", dstdev->id, src, dst);
 	omp_device_type_t devtype = dstdev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {

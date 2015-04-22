@@ -339,7 +339,9 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #if defined(PROFILE_PLOT)
 		fprintf(plotscript_file, "set arrow from  0,%d to %f,%d nohead\n", i * yoffset_per_entry, xrange, i * yoffset_per_entry);
 #endif
-		//free(off->events);
+#if defined (OMP_BREAKDOWN_TIMING)
+		free(off->events);
+#endif
 	}
 #if defined(PROFILE_PLOT)
 	fprintf(plotscript_file, "plot 0\n");
@@ -648,10 +650,10 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_d
 	if (map->map_type == OMP_DATA_MAP_AUTO) {
 		if (omp_device_mem_discrete(dev->mem_type)) {
 			map->map_type = OMP_DATA_MAP_COPY;
-			//printf("COPY data map: %X\n", map);
+			//printf("COPY data map: %X, dev: %d\n", map, dev->id);
 		} else { /* we can make it shared and we will do it */
 			map->map_type = OMP_DATA_MAP_SHARED;
-			//printf("SHARED data map: %X\n", map);
+			//printf("SHARED data map: %X, dev: %d\n", map, dev->id);
 		}
 	} else if (map->map_type == OMP_DATA_MAP_SHARED && omp_device_mem_discrete(dev->mem_type)) {
 		fprintf(stderr, "direct sharing data between host and the dev: %d is not possible with discrete mem space, we use COPY approach now\n", dev->id);
@@ -985,23 +987,25 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 			map->mem_noncontiguous = 1;
 		}
 
-		if (map_info->halo_info == NULL) continue;
-		omp_data_map_halo_region_info_t *halo = &map_info->halo_info[i];
+		if (map_info->halo_info != NULL) {
+			omp_data_map_halo_region_info_t *halo = &map_info->halo_info[i];
 
-		/* handle halo region  */
-		/** here we also need to deal with boundary, the first one that has no left halo and the last one that has no right halo for non-cyclic case */
-		if (halo->left != 0 || halo->right != 0) { /* we have halo in this dimension */
-			omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[i];
-			int *left = &halo_mem->left_dev_seqid;
-			int *right = &halo_mem->right_dev_seqid;
-			omp_topology_get_neighbors(top, seqid, halo->topdim, halo->edging == OMP_DIST_HALO_EDGING_PERIODIC, left, right);
-			//printf("dev: %d, map_info: %X, %d neighbors in dim %d: left: %d, right: %d\n", map->dev->id, map->dist_info, seqid, dim_index, left, right);
-			if (*left >= 0) {
-				length += halo->left;
-				offset = offset - halo->left;
-			}
-			if (*right >= 0) {
-				length += halo->right;
+			/* handle halo region  */
+			/** here we also need to deal with boundary, the first one that has no left halo and the last one that has no right halo for non-cyclic case */
+			if (halo->left != 0 || halo->right != 0) { /* we have halo in this dimension */
+				omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[i];
+				int *left = &halo_mem->left_dev_seqid;
+				int *right = &halo_mem->right_dev_seqid;
+				omp_topology_get_neighbors(top, seqid, halo->topdim, halo->edging == OMP_DIST_HALO_EDGING_PERIODIC,
+										   left, right);
+				//printf("dev: %d, map_info: %X, %d neighbors in dim %d: left: %d, right: %d\n", map->dev->id, map->dist_info, seqid, dim_index, left, right);
+				if (*left >= 0) {
+					length += halo->left;
+					offset = offset - halo->left;
+				}
+				if (*right >= 0) {
+					length += halo->right;
+				}
 			}
 		}
 		map_wextra_size *= length;
@@ -1163,7 +1167,7 @@ void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
 		map->map_dev_ptr = map->map_source_ptr;
 		map->map_dev_wextra_ptr = map->map_source_wextra_ptr;
 	} else if (map->map_type == OMP_DATA_MAP_COPY) {
-		map->map_dev_wextra_ptr = omp_map_malloc_dev(map->dev, map->map_dev_wextra_ptr);
+		map->map_dev_wextra_ptr = omp_map_malloc_dev(map->dev, map->map_wextra_size);
 		/*
 		* The halo memory management use an attached approach, i.e. the halo region is part of the main computation subregion, and those
 		* left/right in/out are buffers for gathering and scattering halo region elements to its correct location.
