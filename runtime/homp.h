@@ -305,60 +305,22 @@ typedef struct omp_dist_info {
 #endif
 } omp_dist_info_t;
 
-/**
- * dist object, a subregion of the whole region defined in info object
- */
-typedef struct omp_dist {
-	omp_dist_info_t * info; /* not yet used so far */
-	long offset;
-	long length;
-} omp_dist_t;
+typedef enum omp_dist_halo_edging_type {
+	OMP_DIST_HALO_EDGING_NOHALO = 1,
+	OMP_DIST_HALO_EDGING_REFLECTING,
+	OMP_DIST_HALO_EDGING_PERIODIC,
+} omp_dist_halo_edging_type_t;
 
 /**
  * in each dimension, halo region have left and right halo region and also a flag for cyclic halo or not,
  */
 typedef struct omp_data_map_halo_region {
 	/* the info */
-	int left; /* element size */
+	int left; /* element size, it is the elements needed from left (not to provide) */
 	int right; /* element size */
-	short cyclic;
+	omp_dist_halo_edging_type_t edging;
 	int topdim; /* which dimension of the device topology this halo region is related to, it is the same as the dim_index of dist object of the same dimension */
 } omp_data_map_halo_region_info_t;
-
-typedef struct omp_data_map_halo_region_mem {
-	/* the mem for halo management */
-	/* the in/out pointer is the buffer for the halo regions.
-	 * The in ptr is the buffer for halo region that will be copied in,
-	 * and the out is for those that will be copied out.
-	 * In implementation, we put the in and out buffer into one mem space for each left and right halo region
-	 */
-	int left_dev_seqid; /* left devseqid, can be used to access left_map and left_dev */
-	int right_dev_seqid;
-
-	char * left_in_ptr;
-	long left_in_size; /* for pull update, == right_out_size if push protocol is used */
-	char * left_out_ptr;
-	long left_out_size;
-
-	char * right_in_ptr;
-	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
-	char * right_out_ptr;
-	long right_out_size;
-
-	/* if p2p communication is not available, we will need buffer at host to relay the halo exchange.
-	 * Each data map only maintains the relay pointers for halo that they need, i.e. a pull
-	 * protocol should be applied for halo exchange.
-	 */
-	char * left_in_host_relay_ptr;
-	volatile int left_in_data_in_relay_pushed;
-	volatile int left_in_data_in_relay_pulled;
-	/* the push flag is set when the data is pushed by the source to the host relay so the receiver side can pull,
-	 * a simple busy-wait is used to wait for the data to arrive
-	 */
-	char * right_in_host_relay_ptr;
-	volatile int right_in_data_in_relay_pushed;
-	volatile int right_in_data_in_relay_pulled;
-} omp_data_map_halo_region_mem_t;
 
 #define OMP_NUM_ARRAY_DIMENSIONS 3
 
@@ -401,23 +363,74 @@ typedef enum omp_data_map_access_level {
 
 } omp_data_map_access_level_t;
 
+typedef struct omp_data_map_halo_region_mem {
+	/* the mem for halo management */
+	/* the in/out pointer is the buffer for the halo regions.
+	 * The in ptr is the buffer for halo region that will be copied in,
+	 * and the out is for those that will be copied out.
+	 * In implementation, we put the in and out buffer into one mem space for each left and right halo region
+	 */
+	int left_dev_seqid; /* left devseqid, can be used to access left_map and left_dev */
+	int right_dev_seqid;
+
+	char * left_in_ptr; /* the halo region this needs */
+	long left_in_size; /* for pull update, == right_out_size if push protocol is used */
+	char * left_out_ptr; /* the halo region this will privide to the left */
+	long left_out_size;
+
+	char * right_in_ptr;
+	long right_in_size; /* for pull update, == left_out_size if push protocol is used */
+	char * right_out_ptr;
+	long right_out_size;
+
+	/* if p2p communication is not available, we will need buffer at host to relay the halo exchange.
+	 * Each data map only maintains the relay pointers for halo that they need, i.e. a pull
+	 * protocol should be applied for halo exchange.
+	 */
+	char * left_in_host_relay_ptr;
+	volatile int left_in_data_in_relay_pushed;
+	volatile int left_in_data_in_relay_pulled;
+	/* the push flag is set when the data is pushed by the source to the host relay so the receiver side can pull,
+	 * a simple busy-wait is used to wait for the data to arrive
+	 */
+	char * right_in_host_relay_ptr;
+	volatile int right_in_data_in_relay_pushed;
+	volatile int right_in_data_in_relay_pulled;
+} omp_data_map_halo_region_mem_t;
+
+/**
+ * dist object, a subregion of the whole region defined in info object
+ */
+typedef struct omp_dist {
+	omp_dist_info_t * info; /* not yet used so far */
+	long offset;
+	long length;
+} omp_dist_t;
+
 /* for each device, we maintain a list such objects, each for one mapped array */
 struct omp_data_map {
 	omp_data_map_access_level_t access_level;
 	omp_data_map_info_t * info;
     omp_device_t * dev;
+	omp_data_map_type_t map_type;
 
 	/* the subarray for the mapped region, including the offset and length */
 	omp_dist_t map_dist[OMP_NUM_ARRAY_DIMENSIONS];
-
-	char * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
+	/* the sizes in bytes */
 	long map_size; // = map_dim[0] * map_dim[1] * map_dim[2] * sizeof_element;
-    char * map_buffer; /* the mapped buffer on host. This pointer is either the	offset pointer from the source_ptr, or the pointer to the marshalled array subregions */
+	long map_wextra_size; /* include extras, e.g. halo */
+
+	/* source side */
+	char * map_source_ptr; /* the mapped buffer on host. This pointer is either the	offset pointer from the source_ptr */
+	char * map_source_wextra_ptr;
+
+	/* dev side */
+	char * map_dev_ptr; /* the mapped buffer on device, only for the mapped array region (not including halo region) */
+	char * map_dev_wextra_ptr; /* the mapped buffer on device, include extras, such as halo region */
 
 	omp_data_map_halo_region_mem_t halo_mem [OMP_NUM_ARRAY_DIMENSIONS];
 
 	int mem_noncontiguous;
-	omp_data_map_type_t map_type;
 	//omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
 };
 
@@ -653,24 +666,16 @@ extern void omp_data_map_init_info_with_halo(const char *symbol, omp_data_map_in
 extern void omp_data_map_init_info_straight_dist(const char *symbol, omp_data_map_info_t *info, omp_grid_topology_t *top, void *source_ptr, int num_dims, long *dims, int sizeof_element,
 		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t *dist, omp_dist_policy_t dist_policy) ;
 
-extern void omp_data_map_init_info_straight_dist_and_halo(const char *symbol, omp_data_map_info_t *info,
-														  omp_offloading_info_t *off_info, void *source_ptr,
-														  int num_dims, long *dims, int sizeof_element,
-														  omp_data_map_t *maps, omp_data_map_direction_t map_direction,
-														  omp_data_map_type_t map_type, omp_dist_info_t *dist,
-														  omp_dist_policy_t dist_policy,
-														  omp_data_map_halo_region_info_t *halo_info, int halo_left,
-														  int halo_right, int halo_cyclic);
 extern void omp_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, long start, long length, int topdim);
 extern void omp_align_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, void * alignee, omp_dist_target_type_t alignee_type, int alignee_dim);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid);
 extern void omp_loop_iteration_dist(omp_offloading_t * off);
-extern void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic);
+extern void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left, int right,
+									omp_dist_halo_edging_type_t edging);
 extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);
 extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
-extern void omp_data_map_halo(omp_data_map_t *map, int seqid);
 
 extern void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map, int inherited);
 extern int omp_map_is_map_inherited(omp_offloading_t *off, omp_data_map_t *map);
@@ -678,7 +683,7 @@ extern omp_data_map_t * omp_map_get_map_inheritance (omp_device_t * dev, void * 
 extern omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index);
 extern void omp_print_data_map(omp_data_map_t * map);
 extern void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off);
-extern void omp_map_marshal(omp_data_map_t * map);
+extern void * omp_map_marshal(omp_data_map_t *map);
 
 extern void omp_map_unmarshal(omp_data_map_t * map);
 extern void omp_map_free_dev(omp_device_t * dev, void * ptr);

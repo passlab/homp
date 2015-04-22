@@ -235,21 +235,17 @@ int main(int argc,char *argv[])
   init(A, n);
   init(B, n);
 
-#if CORRECTNESS_CHECK
-  print_array("Array A", "A", A, n, n);
-  print_array("Array B", "B", B, n, n);
-#endif
+//  print_array("Array A", "A", A, n, n);
+//  print_array("Array B", "B", B, n, n);
 
   zero(C_seq, n);
   zero(C_ompacc, n);
 
 /* sequential run */
   seq_elapsed = read_timer();
-  //iter_matmul(A, B, C_seq, n);
+  iter_matmul(A, B, C_seq, n);
   seq_elapsed = (read_timer() - seq_elapsed);
-#if CORRECTNESS_CHECK
-  print_array("Array C_seq", "C", C_seq, n, n);
-#endif
+ // print_array("Array C_seq", "C", C_seq, n, n);
 
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 /* openmp acc version */
@@ -257,9 +253,7 @@ int main(int argc,char *argv[])
   ompacc_elapsed = read_timer();
   matmul_ompacc_mdev(A,B,C_ompacc,n, dist_dim, dist_policy);
   ompacc_elapsed = (read_timer() - ompacc_elapsed);
-#if CORRECTNESS_CHECK
-  print_array("Array C_ompacc", "C", C_ompacc, n, n);
-#endif
+  //print_array("Array C_ompacc", "C", C_ompacc, n, n);
 
   omp_fini_devices();
 

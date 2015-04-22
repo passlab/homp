@@ -162,14 +162,10 @@ void omp_offloading_run(omp_device_t * dev) {
 		}
 
 		/* TODO: we did not check the cache again here */
-		/* do another round of halo region allocation and buffer allocation */
+		/* buffer allocation */
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
 			omp_data_map_t * map = &map_info->maps[seqid];
-			if (map->info->halo_info != NULL) {
-				/* handle halo region */
-				omp_data_map_halo(map, seqid);
-			}
 			omp_map_buffer(map, off);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)

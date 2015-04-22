@@ -44,18 +44,15 @@ extern int matvec_mdev_v;
 int main(int argc, char *argv[]) {
     int status = 0;
     omp_init_devices();
-    long n;
+    long n = 256;
     REAL *y;
     REAL *y_ompacc;
     REAL *x;
     REAL *a;
     //n = 500000;
-    printf("usage: matvec [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n",
-           n);
-    if (argc >= 2)
-        n = atoi(argv[1]);
-    if (argc >= 3)
-        matvec_mdev_v = atoi(argv[2]);
+    printf("usage: matvec [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n", n);
+    if (argc >= 2) n = atoi(argv[1]);
+    if (argc >= 3) matvec_mdev_v = atoi(argv[2]);
 
     a = ((REAL *) (malloc(n * n * sizeof(REAL))));
     x = ((REAL *) (malloc((n * sizeof(REAL)))));

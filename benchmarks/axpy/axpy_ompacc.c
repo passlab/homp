@@ -107,7 +107,7 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i)
 		for (i=start_n; i<start_n + length_n; i++) {
 			y[i] += a*x[i];
-	//		printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
+//			printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
 		}
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");

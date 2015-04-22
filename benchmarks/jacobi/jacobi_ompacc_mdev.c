@@ -899,7 +899,7 @@ loop1:for (i=0;i<n;i++) {
 
 			omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
 			omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
-			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
+			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
 			omp_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
 			omp_dist_init_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
@@ -917,7 +917,7 @@ loop1:for (i=0;i<n;i++) {
 									 OMP_DIST_TARGET_DATA_MAP, 0);
 			omp_align_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
 									 OMP_DIST_TARGET_DATA_MAP, 1);
-			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
+			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
 			omp_align_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
 									 OMP_DIST_TARGET_DATA_MAP, 0);
@@ -938,7 +938,7 @@ loop1:for (i=0;i<n;i++) {
 			omp_align_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
 									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
 			omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
-			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
+			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
 			omp_align_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
 									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
@@ -954,7 +954,7 @@ loop1:for (i=0;i<n;i++) {
 
 		omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 		omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 0);
-  		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, 0);
+  		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
   	} else /* dist == 3 */{
 		omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
 		omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 1);
@@ -966,8 +966,8 @@ loop1:for (i=0;i<n;i++) {
 
 		omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
 		omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 1);
-  		omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, 0);
-  		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, 0);
+  		omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
+  		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
   	}
   	/************************************************************************************************/
 

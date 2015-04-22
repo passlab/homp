@@ -60,15 +60,14 @@ int main(int argc,char *argv[])
   srand48(1 << 12);
   init(x,n);
   init(y,n);
-  memcpy(y_ompacc,y,(n * sizeof(REAL )));
+  memcpy(y_ompacc,y,n * sizeof(REAL));
   REAL omp_time = read_timer_ms();
 // reference serial execution for error checking  
   axpy(x,y,n,a);
   omp_time = (read_timer_ms() - omp_time);
   double ompacc_time = axpy_ompacc_mdev(x,y_ompacc,n,a);
   omp_fini_devices();
-  REAL cksm;
-  //cksm = check(y,y_ompacc,n) ;
+  REAL cksm = check(y,y_ompacc,n) ;
   printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n",n,cksm,omp_get_num_active_devices());
   printf("\t\t\t\t\t%4f\t%4f\n",omp_time,ompacc_time);
   free(y);

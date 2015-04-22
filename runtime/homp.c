@@ -103,14 +103,7 @@ void omp_cleanup(omp_offloading_t * off) {
 	for (i = 0; i < off_info->num_mapped_vars; i++) {
 		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
 		if (map->map_type == OMP_DATA_MAP_COPY) {
-			if (map->mem_noncontiguous) {
-				omp_map_unmarshal(map);
-				free(map->map_buffer);
-			}
-
-			if (omp_device_mem_discrete(map->dev->mem_type)) {
-				omp_map_free_dev(map->dev, map->map_dev_ptr);
-			}
+			omp_map_free_dev(map->dev, map->map_dev_wextra_ptr);
 		}
 	}
 }
@@ -455,7 +448,7 @@ void omp_data_map_init_info_with_halo(const char *symbol, omp_data_map_info_t *i
 	for (i=0; i<num_dims; i++) {
 		halo_info[i].left = 0;
 		halo_info[i].right = 0;
-		halo_info[i].cyclic = 0;
+		halo_info[i].edging = OMP_DIST_HALO_EDGING_NOHALO;
 		halo_info[i].topdim = -1;
 	}
 	info->symbol = symbol;
@@ -521,47 +514,6 @@ void omp_data_map_init_info_straight_dist(const char *symbol, omp_data_map_info_
 	}
 
 	omp_data_map_init_info(symbol, info, top, source_ptr, num_dims, dims, sizeof_element, maps, map_direction, map_type, dist);
-}
-
-/**
- * caller must meet the requirements of omp_data_map_init_info_dist_straight, plus:
- *
- * The halo region setup is the same in each dimension
- *
- */
-void omp_data_map_init_info_straight_dist_and_halo(const char *symbol, omp_data_map_info_t *info,
-												   omp_offloading_info_t *off_info, void *source_ptr, int num_dims,
-												   long *dims, int sizeof_element,
-												   omp_data_map_t *maps, omp_data_map_direction_t map_direction,
-												   omp_data_map_type_t map_type, omp_dist_info_t *dist,
-												   omp_dist_policy_t dist_policy,
-												   omp_data_map_halo_region_info_t *halo_info, int halo_left,
-												   int halo_right, int halo_cyclic) {
-	if (dist_policy != OMP_DIST_POLICY_BLOCK) {
-		fprintf(stderr, "%s: we currently only handle halo region for even distribution of arrays\n", __func__);
-	}
-	int i;
-	for (i=0; i<num_dims; i++) {
-		dist[i].start = 0;
-		dist[i].length = dims[i];
-		dist[i].policy = dist_policy;
-		dist[i].dim_index = i;
-		halo_info[i].left = halo_left;
-		halo_info[i].right = halo_right;
-		halo_info[i].cyclic = halo_cyclic;
-		halo_info[i].topdim = i;
-	}
-	info->symbol = symbol;
-	info->off_info = off_info;
-	info->source_ptr = source_ptr;
-	info->num_dims = num_dims;
-	info->dims = dims;
-	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * off_info->top->nnodes);
-	info->map_direction = map_direction;
-	info->map_type = map_type;
-	info->dist = dist;
-	info->sizeof_element = sizeof_element;
-	info->halo_info = halo_info;
 }
 
 int omp_data_map_has_halo(omp_data_map_info_t * info, int dim) {
@@ -675,10 +627,11 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 	return map;
 }
 
-void omp_map_add_halo_region(omp_data_map_info_t * info, int dim, int left, int right, int cyclic) {
+void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left, int right,
+							 omp_dist_halo_edging_type_t edging) {
 	info->halo_info[dim].left = left;
 	info->halo_info[dim].right = right;
-	info->halo_info[dim].cyclic = cyclic;
+	info->halo_info[dim].edging = edging;
 	info->halo_info[dim].topdim = info->dist[dim].dim_index;
 }
 
@@ -1005,58 +958,63 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 	int i;
 
 	//printf("omp_dist_call: %d\n", __LINE__);
-	for (i = 0; i < map_info->num_dims; i++) { /* process each dimension */
+	int sizeof_element = map_info->sizeof_element;
+	long map_size = sizeof_element;
+	long map_wextra_size = sizeof_element;
+
+	long offset_from0 = 0;
+	long mt_from0 = 1;
+	long offset_wextra_from0 = 0;
+	long mt_wextra_from0 = 1;
+
+	for (i = map_info->num_dims-1; i>=0; i--) { /* process each dimension */
 		omp_dist_info_t *dist_info = &map_info->dist[i];
 		map->map_dist[i].info = dist_info;
 
 		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, map, OMP_DIST_TARGET_DATA_MAP);
-	}
 
-	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_2;
-}
+		long length = map->map_dist[i].length;
+		long offset = map->map_dist[i].offset;
+		map_size *= length;
+		offset_from0 += mt_from0 * offset;
+		mt_from0 *= map_info->dims[i];
+		if (i>0 && (length != map_info->dims[i])) {
+			/* check the dimension from 1 to the highest, if any one is not the full range of the dimension in the original array,
+			 * we have non-contiguous memory space and we need to marshall data
+			 */
+			map->mem_noncontiguous = 1;
+		}
 
-/**
- * Apply map to device seqid, seqid is the sequence id of the device in the grid topology
- *
- * do the distribution of array onto the grid topology of devices
- */
-void omp_data_map_halo(omp_data_map_t *map, int seqid) {
-	if (map->access_level >= OMP_DATA_MAP_ACCESS_LEVEL_3) return; /* a simple way of mutual exclusion */
-	omp_data_map_info_t *map_info = map->info;
-	omp_offloading_info_t * off_info = map_info->off_info;
-
-	omp_grid_topology_t * top = off_info->top;
-
-	int i;
-
-	//printf("omp_dist_call: %d\n", __LINE__);
-	for (i = 0; i < map_info->num_dims; i++) { /* process each dimension */
-		omp_dist_info_t *dist_info = &map_info->dist[i];
-		map->map_dist[i].info = dist_info;
-
-		/* handle halo region */
-		/** here we also need to deal with boundary, the first one that has no left halo and the last one that has no right halo for non-cyclic case */
+		if (map_info->halo_info == NULL) continue;
 		omp_data_map_halo_region_info_t *halo = &map_info->halo_info[i];
 
+		/* handle halo region  */
+		/** here we also need to deal with boundary, the first one that has no left halo and the last one that has no right halo for non-cyclic case */
 		if (halo->left != 0 || halo->right != 0) { /* we have halo in this dimension */
 			omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[i];
 			int *left = &halo_mem->left_dev_seqid;
 			int *right = &halo_mem->right_dev_seqid;
-			omp_topology_get_neighbors(top, seqid, halo->topdim, halo->cyclic, left, right);
+			omp_topology_get_neighbors(top, seqid, halo->topdim, halo->edging == OMP_DIST_HALO_EDGING_PERIODIC, left, right);
 			//printf("dev: %d, map_info: %X, %d neighbors in dim %d: left: %d, right: %d\n", map->dev->id, map->dist_info, seqid, dim_index, left, right);
 			if (*left >= 0) {
-				map->map_dist[i].offset = map->map_dist[i].offset - halo->left;
-				map->map_dist[i].length += halo->left;
+				length += halo->left;
+				offset = offset - halo->left;
 			}
 			if (*right >= 0) {
-				map->map_dist[i].length += halo->right;
+				length += halo->right;
 			}
 		}
+		map_wextra_size *= length;
+		offset_wextra_from0 += mt_wextra_from0 * offset;
+		mt_wextra_from0 *= map_info->dims[i];
 	}
+	map->map_size = map_size;
+	map->map_wextra_size = map_wextra_size;
+	map->map_source_ptr = map_info->source_ptr + sizeof_element * offset_from0;
+	map->map_source_wextra_ptr = map_info->source_ptr + sizeof_element * offset_wextra_from0;
 
-	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_3;
+	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_2;
 }
-
 
 long omp_loop_get_range(omp_offloading_t *off, int loop_level, long *start, long *length) {
 	if (off->loop_dist[loop_level].info == NULL) {
@@ -1084,7 +1042,7 @@ void omp_map_unmarshal(omp_data_map_t * map) {
 		long full_off = 0;
 		char * src_ptr = &info->source_ptr[sizeof_element*info->dims[1]*map->map_dist[0].offset + sizeof_element*map->map_dist[1].offset];
 		for (i=0; i<map->map_dist[0].length; i++) {
-			memcpy((void*)&src_ptr[full_off], (void*)&map->map_buffer[region_off], region_line_size);
+			memcpy((void*)&src_ptr[full_off], (void*)&map->map_source_ptr[region_off], region_line_size);
 			region_off += region_line_size;
 			full_off += full_line_size;
 		}
@@ -1104,11 +1062,10 @@ void omp_map_unmarshal(omp_data_map_t * map) {
 /**
  *  so far works for at most 2D
  */
-void omp_map_marshal(omp_data_map_t * map) {
+void * omp_map_marshal(omp_data_map_t *map) {
 	omp_data_map_info_t * info = map->info;
 	int sizeof_element = info->sizeof_element;
 	int i;
-	map->map_buffer = (void*) malloc(map->map_size);
 	switch (info->num_dims) {
 	case 1: {
 		fprintf(stderr,
@@ -1116,6 +1073,7 @@ void omp_map_marshal(omp_data_map_t * map) {
 		break;
 	}
 	case 2: {
+		void *map_buffer = (void*) malloc(map->map_size);
 		long region_line_size = map->map_dist[1].length * sizeof_element;
 		long full_line_size = info->dims[1] * sizeof_element;
 		long region_off = 0;
@@ -1123,10 +1081,11 @@ void omp_map_marshal(omp_data_map_t * map) {
 		char * src_ptr = &info->source_ptr[sizeof_element * info->dims[1] * map->map_dist[0].offset
 				+ sizeof_element * map->map_dist[1].offset];
 		for (i = 0; i < map->map_dist[0].length; i++) {
-			memcpy((void*)&map->map_buffer[region_off], (void*)&src_ptr[full_off], region_line_size);
+			memcpy((void*)&map_buffer[region_off], (void*)&src_ptr[full_off], region_line_size);
 			region_off += region_line_size;
 			full_off += full_line_size;
 		}
+		return map_buffer;
 		break;
 	}
 	case 3: {
@@ -1138,6 +1097,7 @@ void omp_map_marshal(omp_data_map_t * map) {
 	}
 	}
 
+	return NULL;
 //	printf("total %ld bytes of data marshalled\n", region_off);
 }
 
@@ -1193,93 +1153,58 @@ long omp_map_element_offset(omp_data_map_t * map) {
  * it will also create device memory region (both the array region memory and halo region memory
  */
 void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
-    int error;
     int i;
-	omp_data_map_info_t * info = map->info;
-	int sizeof_element = info->sizeof_element;
-	long buffer_offset = 0;
+	omp_data_map_info_t *map_info = map->info;
+	omp_offloading_info_t * off_info = map_info->off_info;
+	omp_grid_topology_t * top = off_info->top;
+	int sizeof_element = map_info->sizeof_element;
 
-	long map_size = map->map_dist[0].length * sizeof_element;
-	/* TODO: we have not yet handle halo region yet */
-	for (i=1; i<info->num_dims; i++) {
-		if (map->map_dist[i].length != info->dims[i]) {
-			/* check the dimension from 1 to the highest, if any one is not the full range of the dimension in the original array,
-			 * we have non-contiguous memory space and we need to marshall data
-			 */
-			map->mem_noncontiguous = 1;
-		}
-		map_size *= map->map_dist[i].length;
-
-	}
-	map->map_size = map_size;
-	map->map_buffer = &info->source_ptr[sizeof_element * omp_map_element_offset(map)];
-
-	/* so far, for noncontiguous mem space, we will do copy */
 	if (map->map_type == OMP_DATA_MAP_SHARED) {
-		if (map->mem_noncontiguous) {
-			map->map_type = OMP_DATA_MAP_COPY;
-		}
-	}
+		map->map_dev_ptr = map->map_source_ptr;
+		map->map_dev_wextra_ptr = map->map_source_wextra_ptr;
+	} else if (map->map_type == OMP_DATA_MAP_COPY) {
+		map->map_dev_wextra_ptr = omp_map_malloc_dev(map->dev, map->map_dev_wextra_ptr);
+		/*
+		* The halo memory management use an attached approach, i.e. the halo region is part of the main computation subregion, and those
+		* left/right in/out are buffers for gathering and scattering halo region elements to its correct location.
+		*
+		* We may use a detached approach, i.e. just use the halo buffer for computation, however, that will involve more complicated
+		* array index calculation.
+		*/
 
-	if (map->map_type == OMP_DATA_MAP_COPY) {
-		if (map->mem_noncontiguous) {
-			omp_map_marshal(map);
-			if (omp_device_mem_discrete(map->dev->mem_type)) {
-				map->map_dev_ptr = omp_map_malloc_dev(map->dev, map->map_size);
-			} else map->map_dev_ptr = map->map_buffer;
+		/*********************************************************************************************************************************************************/
+		/************************* Barrier may be needed among all participating devs since we are now using neighborhood devs **********************************/
+		/*********************************************************************************************************************************************************/
+
+		if (map_info->halo_info == NULL) {
+			/* TODO: assert map->map_size == map->map_wextra_size; */
+			map->map_dev_ptr = map->map_dev_wextra_ptr;
 		} else {
-			map->map_dev_ptr = omp_map_malloc_dev(map->dev, map->map_size);
-		}
-	} else map->map_dev_ptr = map->map_buffer;
-
-	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_2;
-
-	if (info->halo_info == NULL) return;
-
-	/** memory management for halo region */
-
-	/** TODO:  this is only for 2-d array
-	 * For 3-D array, it becomes more complicated
-	 * For 1-D array, we will not need allocate buffer for the halo region. but we still need to update the left/right in/out ptr to the
-	 * correct location.
-	 *
-	 * There may be a uniformed way of dealing with this (for at least 1/2/3-d array
-	 *
-	 * The halo memory management is use a attached approach, i.e. the halo region is part of the main computation subregion, and those
-	 * left/right in/out are buffers for gathering and scattering halo region elements to its correct location.
-	 *
-	 * We may use a detached approach, i.e. just use the halo buffer for computation, however, that will involve more complicated
-	 * array index calculation.
-	 */
-
-	/*********************************************************************************************************************************************************/
-	/************************* Barrier will be needed among all participating devs since we are now using neighborhood devs **********************************/
-	/*********************************************************************************************************************************************************/
-
-	/** FIXME: so far, we only have 2-d row distribution working, i.e. no need to allocate halo region buffer */
-//        BEGIN_SERIALIZED_PRINTF(off->devseqid);
-	for (i=0; i<info->num_dims; i++) {
-		omp_data_map_halo_region_info_t * halo_info = &info->halo_info[i];
-		if (halo_info->left != 0 || halo_info->right != 0) { /* there is halo region in this dimension */
-			omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[i];
+			/* TODO: so far, we only handle row-wise halo region in the first dimension of an array, i.e. contiginous memory space */
+			if (map->mem_noncontiguous) {
+				printf("So far, we only handle row-wise halo region in the first dimension of an array\n");
+				abort();
+			}
+			//BEGIN_SERIALIZED_PRINTF(off->devseqid);
+			/* mem size of a row */
+			long row_size = sizeof_element;
+			for (i = 1; i < map_info->num_dims; i++) {
+				row_size *= map_info->dims[i];
+			}
+			omp_data_map_halo_region_info_t *halo_info = &map_info->halo_info[0];
+			omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[0];
 			if (halo_mem->left_dev_seqid >= 0) {
-				if (i==0 && !map->mem_noncontiguous && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
-					halo_mem->left_in_size = halo_info->left*map->map_dist[1].length*sizeof_element;
-					halo_mem->left_in_ptr = map->map_dev_ptr;
-					halo_mem->left_out_size = halo_info->right*map->map_dist[1].length*sizeof_element;
-					halo_mem->left_out_ptr = &((char*)map->map_dev_ptr)[halo_mem->left_in_size];
-#if CORRECTNESS_CHECK
-
-					printf("dev: %d, halo left in size: %d, left in ptr: %X, left out size: %d, left out ptr: %X\n", off->devseqid,
-							halo_mem->left_in_size,halo_mem->left_in_ptr,halo_mem->left_out_size,halo_mem->left_out_ptr);
-#endif
-				} else {
-					fprintf(stderr, "current dist/map setting does not support halo region\n");
-				}
-
-				omp_device_t * leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
+				halo_mem->left_in_size = halo_info->left * row_size;
+				map->map_dev_ptr = map->map_dev_wextra_ptr + halo_mem->left_in_size;
+				halo_mem->left_in_ptr = map->map_dev_wextra_ptr;
+				halo_mem->left_out_size = halo_info->right * row_size;
+				halo_mem->left_out_ptr = map->map_dev_ptr;
+				//printf("dev: %d, halo left in size: %d, left in ptr: %X, left out size: %d, left out ptr: %X\n", off->devseqid,
+				//		halo_mem->left_in_size,halo_mem->left_in_ptr,halo_mem->left_out_size,halo_mem->left_out_ptr);
+				omp_device_t *leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
-					halo_mem->left_in_host_relay_ptr = (char*)malloc(halo_mem->left_in_size); /** FIXME, mem leak here and we have not thought where to free */
+					/** FIXME, mem leak here and we have not thought where to free */
+					halo_mem->left_in_host_relay_ptr = (char *) malloc(halo_mem->left_in_size);
 					halo_mem->left_in_data_in_relay_pushed = 0;
 					halo_mem->left_in_data_in_relay_pulled = 0;
 
@@ -1288,23 +1213,19 @@ void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
 					//printf("dev: %d, map: %X, left: %d, left dev: p2p enabled\n", off->devseqid, map, halo_mem->left_dev_seqid);
 					halo_mem->left_in_host_relay_ptr = NULL;
 				}
-			}
+			} else map->map_dev_ptr = map->map_dev_wextra_ptr;
+
 			if (halo_mem->right_dev_seqid >= 0) {
-				if (i==0 && !map->mem_noncontiguous && info->num_dims == 2) { /* this is only for row-dist, 2-d array, i.e. no marshalling */
-					halo_mem->right_in_size = halo_info->right*map->map_dist[1].length*sizeof_element;
-					halo_mem->right_in_ptr = &((char *)map->map_dev_ptr)[map->map_size - halo_mem->right_in_size];
-					halo_mem->right_out_size = halo_info->left*map->map_dist[1].length*sizeof_element;
-					halo_mem->right_out_ptr = &((char *)halo_mem->right_in_ptr)[0 - halo_mem->right_out_size];
-#if CORRECTNESS_CHECK
-					printf("dev: %d, halo right in size: %d, right in ptr: %X, right out size: %d, right out ptr: %X\n", off->devseqid,
-												halo_mem->right_in_size,halo_mem->right_in_ptr,halo_mem->right_out_size,halo_mem->right_out_ptr);
-#endif
-				} else {
-					fprintf(stderr, "current dist/map setting does not support halo region\n");
-				}
-				omp_device_t * rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
+				halo_mem->right_in_size = halo_info->right * row_size;
+				halo_mem->right_in_ptr = &((char *) map->map_dev_ptr)[map->map_size];
+				halo_mem->right_out_size = halo_info->left * row_size;
+				halo_mem->right_out_ptr = &((char *) halo_mem->right_in_ptr)[0 - halo_mem->right_out_size];
+				//printf("dev: %d, halo right in size: %d, right in ptr: %X, right out size: %d, right out ptr: %X\n", off->devseqid,
+				//			halo_mem->right_in_size,halo_mem->right_in_ptr,halo_mem->right_out_size,halo_mem->right_out_ptr);
+				omp_device_t *rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
 				if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
-					halo_mem->right_in_host_relay_ptr = (char*)malloc(halo_mem->right_in_size); /** FIXME, mem leak here and we have not thought where to free */
+					/** FIXME, mem leak here and we have not thought where to free */
+					halo_mem->right_in_host_relay_ptr = (char *) malloc(halo_mem->right_in_size);
 					halo_mem->right_in_data_in_relay_pushed = 0;
 					halo_mem->right_in_data_in_relay_pulled = 0;
 
@@ -1314,66 +1235,13 @@ void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
 					halo_mem->right_in_host_relay_ptr = NULL;
 				}
 			}
-		}
-	}
 //	END_SERIALIZED_PRINTF();
-
+		}
+	} else {
+		printf("unknown map type at this stage: map: %X, %d\n", map, map->map_type);
+		abort();
+	}
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_4;
-#if 0
-	halo_mem = map->halo_mem;
-	/* TODO: so far only for two dimension array */
-	if (info->has_halo_region[0]) { /* there is halo region */
-		halo_mem = &halo_mem[0];
-		halo_mem->left_in_size = (&halo_info[0])->left*map->map_dim[1]*sizeof_element;
-printf("tid %d allocating dim %d halo:%d * %d\n",omp_get_thread_num(),0, (&halo_info[0])->left, map->map_dim[1]);
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_in_ptr, halo_mem->left_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_out_ptr, halo_mem->left_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-		/* we calculate from the end of the address */
-		halo_mem->right_in_size = (&halo_info[0])->right*map->map_dim[1]*sizeof_element;
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_in_ptr, halo_mem->right_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_out_ptr, halo_mem->right_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-
-//		map->map_dev_ptr = map->mem_dev_ptr;
-//		if (halo_mem->left_map)
-//			map->map_dev_ptr = map->map_dev_ptr + (halo_info->left*map->mem_dim[1]*sizeof_element);
-	}
-	halo_mem = map->halo_mem;
-	if (info->has_halo_region[1]) { /* there is halo region */
-		halo_mem = &halo_mem[1];
-printf("allocating dim %d halo:%d * %d\n",1, (map->map_dim[0]+(&halo_info[1])->right+(&halo_info[1])->left), (&halo_info[1])->left);
-		halo_mem->left_in_size = (&halo_info[1])->left*(map->map_dim[0]+(&halo_info[1])->right+(&halo_info[1])->left)*sizeof_element;
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_in_ptr, halo_mem->left_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->left_out_ptr, halo_mem->left_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-
-		halo_mem->right_in_size = (&halo_info[1])->right*(map->map_dim[0]+(&halo_info[1])->right+(&halo_info[1])->left)*sizeof_element;
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_in_ptr, halo_mem->right_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-                if (cudaErrorMemoryAllocation == cudaMalloc(&halo_mem->right_out_ptr, halo_mem->right_in_size)) {
-                        gpuErrchk(cudaErrorMemoryAllocation);
-                	fprintf(stderr, "cudaMalloc error to allocate mem on device for map %X\n", map);
-                }
-	}
-#endif
 }
 
 void omp_print_data_map(omp_data_map_t * map) {
@@ -1382,7 +1250,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 				"map_offset[0]: %ld, map_offset[1]: %ld, map_offset[2]: %ld, sizeof_element: %d, map_buffer: %X, marshall_or_not: %d,"
 				"map_dev_ptr: %X, map_size: %ld\n\n", map->dev->id, map, info->source_ptr, info->dims[0], info->dims[1], info->dims[2],
 				map->map_dist[0].length, map->map_dist[1].length, map->map_dist[2].length, map->map_dist[0].offset, map->map_dist[1].offset, map->map_dist[2].offset,
-				info->sizeof_element, map->map_buffer, map->mem_noncontiguous, map->map_dev_ptr, map->map_size);
+				info->sizeof_element, map->map_source_ptr, map->mem_noncontiguous, map->map_dev_ptr, map->map_size);
 }
 
 void omp_print_off_maps(omp_offloading_t * off) {
@@ -1481,76 +1349,6 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 #endif
 	return;
 }
-
-#if 0
-void omp_halo_region_pull_async(omp_data_map_t * map, int dim, int from_left_right) {
-        cudaError_t result;
-	omp_data_map_info_t * info = map->info;
-	/*FIXME: let us only handle 2-D array now */
-	if (info->dim[2] != 1) {
-		fprintf(stderr, "we only handle 2-d array so far!\n");
-		return;
-	}
-
-	if (dim != 0) {
-		fprintf(stderr, "we only handle 0-dim halo region so far \n");
-		return;
-	}
-
-	omp_data_map_halo_region_mem_t * halo_mem = &map->halo_mem[0];
-	omp_data_map_t * left_map = halo_mem->left_map;
-	omp_data_map_t * right_map = halo_mem->right_map;
-	if (left_map != NULL && (from_left_right == 0 || from_left_right == 1)) {
-		int can_access = 0;
-	        result = cudaDeviceCanAccessPeer(&can_access, map->devsid,  left_map->devsid);
-                gpuErrchk(result);
-                if(can_access)
-                {
-#ifdef DEBUG_MSG
-printf("P2P from %d to %d\n",map->devsid,  left_map->devsid);
-#endif
-		  result = cudaMemcpyPeerAsync(halo_mem->left_in_ptr, map->dev->sysid, left_map->halo_mem[0].right_out_ptr, left_map->dev->sysid, halo_mem->left_in_size, map->stream->systream.cudaStream);
-                  gpuErrchk(result); 
-                }else
-                {
-#ifdef DEBUG_MSG
-printf("CPUSync from %d to %d\n",map->dev->sysid,  left_map->dev->sysid);
-#endif
-                  char* CPUbuffer = (char*)malloc(halo_mem->left_in_size);
-                  result = cudaMemcpy(CPUbuffer,left_map->halo_mem[0].right_out_ptr,halo_mem->left_in_size,cudaMemcpyDeviceToHost); 
-                  gpuErrchk(result); 
-                  result = cudaMemcpy(halo_mem->left_in_ptr,CPUbuffer,halo_mem->left_in_size,cudaMemcpyHostToDevice); 
-                  gpuErrchk(result);
-                  free(CPUbuffer); 
-                }
-	}
-	if (right_map != NULL && (from_left_right == 0 || from_left_right == 2)) {
-		int can_access = 0;
-	        result = cudaDeviceCanAccessPeer(&can_access, map->devsid, right_map->devsid);
-                gpuErrchk(result);
-                if(can_access)
-                {
-#ifdef DEBUG_MSG
-printf("P2P from %d to %d\n",map->devsid,  right_map->devsid);
-#endif
-		  result = cudaMemcpyPeerAsync(halo_mem->right_in_ptr, map->dev->sysid, right_map->halo_mem[0].left_out_ptr, right_map->dev->sysid, halo_mem->right_in_size, map->stream->systream.cudaStream);
-                  gpuErrchk(result); 
-                }else
-                {
-#ifdef DEBUG_MSG
-printf("CPUSync from %d to %d\n",map->devsid,  right_map->devsid);
-#endif
-                  char* CPUbuffer = (char*)malloc(halo_mem->right_in_size);
-                  result = cudaMemcpy(CPUbuffer,right_map->halo_mem[0].left_out_ptr,halo_mem->right_in_size,cudaMemcpyDeviceToHost); 
-                  gpuErrchk(result); 
-                  result = cudaMemcpy(halo_mem->right_in_ptr,CPUbuffer,halo_mem->right_in_size,cudaMemcpyHostToDevice); 
-                  gpuErrchk(result); 
-                  free(CPUbuffer); 
-                }
-	}
-}
-
-#endif
 
 /**
  * utilities
