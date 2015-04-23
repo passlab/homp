@@ -160,6 +160,16 @@ void omp_read_device_spec(char * dev_spec_file) {
 
 		sprintf(keyname, "%s:%s", devname, "Latency");
 		dev->latency = iniparser_getdouble(ini, keyname, 0.00000000001);
+
+		sprintf(keyname, "%s:%s", devname, "Memory");
+		char * mem = iniparser_getstring(ini, keyname, "default"); /* or shared */
+		if (strcasecmp(mem, "shared") == 0) {
+			dev->mem_type = OMP_DEVICE_MEM_SHARED;
+		} else if (strcasecmp(mem, "discrete") == 0) {
+			dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
+		} else {
+			/* using default, already done in init_*_device call */
+		}
 	}
 
 	iniparser_freedict(ini);
