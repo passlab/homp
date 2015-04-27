@@ -107,7 +107,7 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
 #endif
     if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
         int i, j;
-#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
+//#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
         for (i = start_n; i < start_n + length_n; i++) {
             for (j = 0; j < n; j++)
                 y[i] += a[i*n + j] * x[j];
@@ -123,7 +123,7 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
 int matvec_mdev_v = 2;
 
 double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
-    double ompacc_time = read_timer_ms(); //read_timer_ms();
+    double ompacc_init_time = read_timer_ms();
 
     /* get number of target devices specified by the programmers */
     int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
@@ -222,15 +222,20 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
 #if DEBUG_MSG
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
+
+    ompacc_init_time = read_timer_ms() - ompacc_init_time;
+  //  printf("init time: %fs\n", ompacc_init_time);
+    /* here we do not need sync start */
+    double off_total = read_timer_ms();
     /* here we do not need sync start */
     int it; int total_its = 20;
     for (it=0; it<total_its; it++) omp_offloading_start(&__offloading_info__, it==total_its-1);
-    omp_offloading_fini_info(&__offloading_info__);
-    ompacc_time = (read_timer_ms() - ompacc_time)/total_its;
+    off_total = (read_timer_ms() - off_total)/total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_offloading_info_report_profile(&__offloading_info__);
 #endif
+    omp_offloading_fini_info(&__offloading_info__);
 
-    double cpu_total = ompacc_time;
-    return cpu_total;
+    off_total += ompacc_init_time;
+    return off_total;
 }

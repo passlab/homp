@@ -8,12 +8,12 @@
 #include <string.h>
 
 #define REAL float
+
 #include "homp.h"
 #include "omp.h"
 
-void zero(REAL *A, long n)
-{
-	long i, j;
+void zero(REAL *A, long n) {
+    long i, j;
 #pragma omp for private (i, j)
     for (i = 0; i < n; i++) {
         for (j = 0; j < n; j++) {
@@ -22,21 +22,20 @@ void zero(REAL *A, long n)
     }
 }
 
-void init(REAL *A, long n)
-{
-	long i, j;
+void init(REAL *A, long n) {
+    long i, j;
 
 #pragma omp for private (i, j)
     for (i = 0; i < n; i++) {
         for (j = 0; j < n; j++) {
-            A[i * n + j] = (double)drand48();
+            A[i * n + j] = (double) drand48();
         }
     }
 }
 
-void print_array(char * title, char * name, REAL * A, long m, long n) {
-	printf("%s:\n", title);
-	long i, j;
+void print_array(char *title, char *name, REAL *A, long m, long n) {
+    printf("%s:\n", title);
+    long i, j;
     for (i = 0; i < m; i++) {
         for (j = 0; j < n; j++) {
             printf("%s[%d][%d]:%f\n", name, i, j, A[i * n + j]);
@@ -45,15 +44,14 @@ void print_array(char * title, char * name, REAL * A, long m, long n) {
     printf("\n");
 }
 
-double maxerror(REAL *A, REAL *B, long n)
-{
-	long i, j;
+double maxerror(REAL *A, REAL *B, long n) {
+    long i, j;
     double error = 0.0;
 
     for (i = 0; i < n; i++) {
         for (j = 0; j < n; j++) {
             double diff = (A[i * n + j] - B[i * n + j]) / A[i * n + j];
-    //        printf("%4f -- %4f\n", A[i*n+j], B[i*n+j]);
+            //        printf("%4f -- %4f\n", A[i*n+j], B[i*n+j]);
             if (diff < 0)
                 diff = -diff;
             if (diff > error)
@@ -64,45 +62,42 @@ double maxerror(REAL *A, REAL *B, long n)
 }
 
 
-void iter_matmul(float *A,float *B,float *C,long n)
-{
-  long i, j, k;
-  for (i = 0; i < n; i++) 
-    for (j = 0; j < n; j++) {
-      float c = 0.0;
-      for (k = 0; k < n; k++)
-        c += (A[(i * n) + k] * B[(k * n) + j]);
-      C[(i * n) + j] = c;
-    }
+void iter_matmul(float *A, float *B, float *C, long n) {
+    long i, j, k;
+    for (i = 0; i < n; i++)
+        for (j = 0; j < n; j++) {
+            float c = 0.0;
+            for (k = 0; k < n; k++)
+                c += (A[(i * n) + k] * B[(k * n) + j]);
+            C[(i * n) + j] = c;
+        }
 }
 
-void omp_matmul(REAL *A, REAL *B, REAL *C, long n)
-{
+void omp_matmul(REAL *A, REAL *B, REAL *C, long n) {
     long i, j, k;
 #pragma omp parallel for shared(A, B, C, n) private(i,j,k)
     for (i = 0; i < n; i++)
-      for (j = 0; j < n; j++) {
-        float c = 0.0;
-        for (k = 0; k < n; k++)
-          c += (A[(i * n) + k] * B[(k * n) + j]);
-        C[(i * n) + j] = c;
-      }
+        for (j = 0; j < n; j++) {
+            float c = 0.0;
+            for (k = 0; k < n; k++)
+                c += (A[(i * n) + k] * B[(k * n) + j]);
+            C[(i * n) + j] = c;
+        }
 }
 
-void openacc_matmul(float *A,float *B,float *C,long n)
-{
-  long i,j,k;
+void openacc_matmul(float *A, float *B, float *C, long n) {
+    long i, j, k;
 /* #pragma acc kernels copyin(A[0:n][0:n],B[0:n][0:n]) copyout(C[0:n][0:n]) */
 //#pragma acc kernels loop copyin(A[0:n*n],B[0:n*n]) copyout(C[0:n*n])
-  
+
 #pragma acc parallel loop copyin ( A [ 0 : n * n ], B [ 0 : n * n ] ) copyout ( C [ 0 : n * n ] ) collapse ( 2 )
-  for (i = 0; i < n; i++) 
-    for (k = 0; k < n; k++) {
-      float c = 0.0;
-      for (j = 0; j < n; j++) 
-        c += (A[(i * n) + j] * B[(j * n) + k]);
-      C[(i * n) + k] = c;
-    }
+    for (i = 0; i < n; i++)
+        for (k = 0; k < n; k++) {
+            float c = 0.0;
+            for (j = 0; j < n; j++)
+                c += (A[(i * n) + j] * B[(j * n) + k]);
+            C[(i * n) + k] = c;
+        }
 }
 
 
@@ -195,82 +190,81 @@ void ompacc_matmul_mdev_v3(REAL *A, REAL *B, REAL *C, long n)
  * dist = 2: B/C column dist,
  * dist = 3: A-row, B-column dist
  */
-void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy);
+double matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy);
 
-int main(int argc,char *argv[])
-{
-  long n;
-  float *A;
-  float *B;
-  float *C_seq;
-  float *C_ompacc;
-  double seq_elapsed;
-  double ompacc_elapsed;
-  if (argc < 2) {
-    fprintf(stderr,"Usage: matmul <n> [dist_dim(1|2|3)] [dist_policy(1|2|3)]\\n");
-    fprintf(stderr,"\tn: matrix size (nxn)\n");
-    fprintf(stderr,"\tdist_dim: 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
-    fprintf(stderr,"\tdist_policy: 1: block_block; 2: block_align; 3: auto_align; default 1\n");
-    exit(1);
-  }
-  n = atoi(argv[1]);
-  int dist_dim = 1;
-  int dist_policy = 1;
-  if (argc == 3) dist_dim = atoi(argv[2]);
-  if (argc == 4) dist_policy = atoi(argv[3]);
-  if (dist_dim != 1 && dist_dim != 2 && dist_dim != 3) {
-	  fprintf(stderr, "Unknown dist dimensions: %d, now fall to default (1)\n", dist_dim);
-	  dist_dim = 1;
-  }
-  if (dist_policy != 1 && dist_policy != 2 && dist_policy != 3) {
-      fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist_policy);
-      dist_policy = 1;
-  }
+int main(int argc, char *argv[]) {
+    long n;
+    float *A;
+    float *B;
+    float *C_seq;
+    float *C_ompacc;
+    double seq_elapsed;
+    double ompacc_elapsed;
+    if (argc < 2) {
+        fprintf(stderr, "Usage: matmul <n> [dist_dim(1|2|3)] [dist_policy(1|2|3)]\\n");
+        fprintf(stderr, "\tn: matrix size (nxn)\n");
+        fprintf(stderr, "\tdist_dim: 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
+        fprintf(stderr, "\tdist_policy: 1: block_block; 2: block_align; 3: auto_align; default 1\n");
+        exit(1);
+    }
+    n = atoi(argv[1]);
+    int dist_dim = 1;
+    int dist_policy = 1;
+    if (argc == 3) dist_dim = atoi(argv[2]);
+    if (argc == 4) dist_policy = atoi(argv[3]);
+    if (dist_dim != 1 && dist_dim != 2 && dist_dim != 3) {
+        fprintf(stderr, "Unknown dist dimensions: %d, now fall to default (1)\n", dist_dim);
+        dist_dim = 1;
+    }
+    if (dist_policy != 1 && dist_policy != 2 && dist_policy != 3) {
+        fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist_policy);
+        dist_policy = 1;
+    }
 
-  A = ((float *)(malloc(((n * n) * sizeof(float )))));
-  B = ((float *)(malloc(((n * n) * sizeof(float )))));
-  C_seq = ((float *)(malloc(((n * n) * sizeof(float )))));
-  C_ompacc = ((float *)(malloc(((n * n) * sizeof(float )))));
-  srand48((1 << 12));
-  init(A, n);
-  init(B, n);
+    A = ((float *) (malloc(((n * n) * sizeof(float)))));
+    B = ((float *) (malloc(((n * n) * sizeof(float)))));
+    C_seq = ((float *) (malloc(((n * n) * sizeof(float)))));
+    C_ompacc = ((float *) (malloc(((n * n) * sizeof(float)))));
+    srand48((1 << 12));
+    init(A, n);
+    init(B, n);
 
 //  print_array("Array A", "A", A, n, n);
 //  print_array("Array B", "B", B, n, n);
 
-  zero(C_seq, n);
-  zero(C_ompacc, n);
+    zero(C_seq, n);
+    zero(C_ompacc, n);
 
 /* sequential run */
-  seq_elapsed = read_timer();
-  iter_matmul(A, B, C_seq, n);
-  seq_elapsed = (read_timer() - seq_elapsed);
- // print_array("Array C_seq", "C", C_seq, n, n);
+    seq_elapsed = read_timer_ms();
+    int i;
+    int num_its = 10;
+    for (i=0; i<num_its;i++) iter_matmul(A, B, C_seq, n);
+    seq_elapsed = (read_timer_ms() - seq_elapsed)/num_its;
+    // print_array("Array C_seq", "C", C_seq, n, n);
 
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 /* openmp acc version */
-  omp_init_devices();
-  ompacc_elapsed = read_timer();
-  matmul_ompacc_mdev(A,B,C_ompacc,n, dist_dim, dist_policy);
-  ompacc_elapsed = (read_timer() - ompacc_elapsed);
-  //print_array("Array C_ompacc", "C", C_ompacc, n, n);
+    omp_init_devices();
+    ompacc_elapsed = matmul_ompacc_mdev(A, B, C_ompacc, n, dist_dim, dist_policy);
+    //print_array("Array C_ompacc", "C", C_ompacc, n, n);
 
-  omp_fini_devices();
+    omp_fini_devices();
 
-  printf("======================================================================================================\n");
-  printf("\tmatmul(%dx%d) example on %d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n",
-		  n,n,omp_get_num_active_devices(), dist_dim);
-  printf("------------------------------------------------------------------------------------------------------\n");
-  printf("Error: %g\n", maxerror(C_seq,C_ompacc,n));
-  printf("------------------------------------------------------------------------------------------------------\n");
-  printf("Performance:\t\tRuntime (ms)\t MFLOPS\n");
-  printf("Sequential:\t\t%4f\t%4f\n",seq_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * seq_elapsed)));
-  printf("OMP ACC:\t\t%4f\t%4f\n",ompacc_elapsed*1.0e3,((((2.0 * n) * n) * n) / (1.0e6 * ompacc_elapsed)));
-  free(C_ompacc);
-  free(C_seq);
-  free(B);
-  free(A);
-  return 0;
+    printf("======================================================================================================\n");
+    printf("\tmatmul(%dx%d) example on %d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n",
+           n, n, omp_get_num_active_devices(), dist_dim);
+    printf("------------------------------------------------------------------------------------------------------\n");
+    printf("Error: %g\n", maxerror(C_seq, C_ompacc, n));
+    printf("------------------------------------------------------------------------------------------------------\n");
+    printf("Performance:\t\tRuntime (ms)\t MFLOPS\n");
+    printf("Sequential:\t\t%4f\t%4f\n", seq_elapsed, ((((2.0 * n) * n) * n) / (1.0e3 * seq_elapsed)));
+    printf("OMPACC mdev:\t\t%4f\t%4f\n", ompacc_elapsed, ((((2.0 * n) * n) * n) / (1.0e3 * ompacc_elapsed)));
+    free(C_ompacc);
+    free(C_seq);
+    free(B);
+    free(A);
+    return 0;
 }
 
 #if defined (DEVICE_NVGPU_SUPPORT)
@@ -321,44 +315,46 @@ __global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_
  * this is for v1, v2 or v3 version of the code
  */
 struct OUT__1__11058__args {
-	long i; long j; long k;
-    REAL * A;
-    REAL * B;
-    REAL * C;
-	int dist;
+    long i;
+    long j;
+    long k;
+    REAL *A;
+    REAL *B;
+    REAL *C;
+    int dist;
 };
 
-void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
-    struct OUT__1__11058__args * iargs = (struct OUT__1__11058__args*) args;
+void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
+    struct OUT__1__11058__args *iargs = (struct OUT__1__11058__args *) args;
     long i = iargs->i;
     long j = iargs->j;
     long k = iargs->k;
-	int dist = iargs->dist;
+    int dist = iargs->dist;
 
-    omp_data_map_t * map_A = omp_map_get_map(off, iargs->A, 0); /* 0 means the map A */
-    omp_data_map_t * map_B = omp_map_get_map(off, iargs->B, 1);  /* 1 means the map B */
-    omp_data_map_t * map_C = omp_map_get_map(off, iargs->C, 2); /* 2 means the map C */
+    omp_data_map_t *map_A = omp_map_get_map(off, iargs->A, 0); /* 0 means the map A */
+    omp_data_map_t *map_B = omp_map_get_map(off, iargs->B, 1);  /* 1 means the map B */
+    omp_data_map_t *map_C = omp_map_get_map(off, iargs->C, 2); /* 2 means the map C */
 
-    REAL * A = (REAL *)map_A->map_dev_ptr; /* A is ixk array */
-    REAL * B = (REAL *)map_B->map_dev_ptr; /* B is kxj array */
-    REAL * C = (REAL *)map_C->map_dev_ptr;
+    REAL *A = (REAL *) map_A->map_dev_ptr; /* A is ixk array */
+    REAL *B = (REAL *) map_B->map_dev_ptr; /* B is kxj array */
+    REAL *C = (REAL *) map_C->map_dev_ptr;
 #if CORRECTNESS_CHECK
     printf("kernel launcher: A: %X, B: %X, C: %X\n", A, B, C);
     print_array("A in device: ", "Adev", A, i, k);
     print_array("B in device: ", "Bdev", B, i, k);
 #endif
 
-	long start;
-	if (dist == 1) {
+    long start;
+    if (dist == 1) {
         omp_loop_get_range(off, 0, &start, &i);
-	} else if (dist == 2) {
+    } else if (dist == 2) {
         omp_loop_get_range(off, 0, &start, &j);
-	} else /* vx == 3) */ {
+    } else /* vx == 3) */ {
         omp_loop_get_range(off, 0, &start, &i);
         omp_loop_get_range(off, 0, &start, &j);
-	}
-	//printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
-	omp_device_type_t devtype = off->dev->type;
+    }
+    //printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
+    omp_device_type_t devtype = off->dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
@@ -368,54 +364,55 @@ void OUT__1__11058__launcher (omp_offloading_t * off, void *args) {
 	} else
 #endif
     if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
-		long ii, jj, kk;
-		omp_set_num_threads(off->dev->num_cores);
-		//printf("%d cores on host\n", off->dev->num_cores);
-#pragma omp parallel for shared(A, B, C, i,j,k) private(ii, jj, kk)
-		for (ii=0; ii<i; ii++) {
-			for (jj=0; jj<j; jj++) {
-				REAL sum = 0.0;
-				for (kk=0; kk<k; kk++) {
-					sum += A[ii*k+kk] * B[kk*j+jj];
-				}
-				C[ii*j+jj] = sum;
-			}
-		}
-	} else {
-		fprintf(stderr, "device type is not supported for this call\n");
-	}
+        long ii, jj, kk;
+        //	omp_set_num_threads(off->dev->num_cores);
+        //printf("%d cores on host\n", off->dev->num_cores);
+//#pragma omp parallel for shared(A, B, C, i,j,k) private(ii, jj, kk)
+        for (ii = 0; ii < i; ii++) {
+            for (jj = 0; jj < j; jj++) {
+                REAL sum = 0.0;
+                for (kk = 0; kk < k; kk++) {
+                    sum += A[ii * k + kk] * B[kk * j + jj];
+                }
+                C[ii * j + jj] = sum;
+            }
+        }
+    } else {
+        fprintf(stderr, "device type is not supported for this call\n");
+    }
 #if CORRECTNESS_CHECK
 	print_array("C in device: ", "Cdev", C, i, j);
 #endif
 }
 
-void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy) {
-	double ompacc_time = read_timer_ms();
-	/* get number of target devices specified by the programmers */
-	int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
+double matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy) {
+    double ompacc_init_time = read_timer_ms();
+    /* get number of target devices specified by the programmers */
+    int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
 
-	omp_device_t *__target_devices__[__num_target_devices__ ];
-	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
-	int __i__;
-	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-		__target_devices__[__i__] = &omp_devices[__i__]; /* currently this is simple a copy of the pointer */
-	}
+    omp_device_t *__target_devices__[__num_target_devices__];
+    /**TODO: compiler generated code or runtime call to init the __target_devices__ array */
+    int __i__;
+    for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
+        __target_devices__[__i__] = &omp_devices[__i__]; /* currently this is simple a copy of the pointer */
+    }
 
-	/**TODO: compiler generated code or runtime call to init the topology */
-	omp_grid_topology_t __top__;
-	int __top_ndims__;
-	/**************************************** dist-specific *****************************************/
-	if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
-	else /* dist == 3 */__top_ndims__ = 2;
-	/************************************************************************************************/
+    /**TODO: compiler generated code or runtime call to init the topology */
+    omp_grid_topology_t __top__;
+    int __top_ndims__;
+    /**************************************** dist-specific *****************************************/
+    if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
+    else /* dist == 3 */__top_ndims__ = 2;
+    /************************************************************************************************/
 
-	int __top_dims__[__top_ndims__ ];
-	int __top_periodic__[__top_ndims__ ];
-	int __id_map__[__num_target_devices__ ];
-	omp_grid_topology_init_simple(&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__,__top_periodic__, __id_map__);
+    int __top_dims__[__top_ndims__];
+    int __top_periodic__[__top_ndims__];
+    int __id_map__[__num_target_devices__];
+    omp_grid_topology_init_simple(&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__,
+                                  __top_periodic__, __id_map__);
 
-	int __num_mapped_array__ = 3; /* XXX: need compiler output */
-	omp_data_map_info_t __data_map_infos__[__num_mapped_array__ ];
+    int __num_mapped_array__ = 3; /* XXX: need compiler output */
+    omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
 
     omp_offloading_info_t __offloading_info__;
     __offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
@@ -427,36 +424,47 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dis
     args.B = B;
     args.C = C;
     args.dist = dist_dim;
-    __offloading_info__.per_iteration_profile.num_fp_operations = 2*n*n;
-    __offloading_info__.per_iteration_profile.num_load = n*n;
+    __offloading_info__.per_iteration_profile.num_fp_operations = 2 * n * n;
+    __offloading_info__.per_iteration_profile.num_load = n * n;
     __offloading_info__.per_iteration_profile.num_store = n;
     omp_dist_info_t loop_nest_dist[1];
     /* we use universal args and launcher because axpy can do it */
-    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__1__11058__launcher, &args, loop_nest_dist, 1);
+    omp_offloading_init_info("matmul kernel", &__offloading_info__, &__top__, __target_devices__, 1,
+                             OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__,
+                             OUT__1__11058__launcher, &args, loop_nest_dist, 1);
 
-	/* A map info */
-	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	long A_dims[2];A_dims[0] = n;A_dims[1] = n;
-	omp_data_map_t A_maps[__num_target_devices__];
-	omp_dist_info_t A_dist[2];
-	omp_data_map_init_info("A", __info__, &__offloading_info__, A, 2, A_dims, sizeof(REAL), A_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO,  A_dist);
+    /* A map info */
+    omp_data_map_info_t *__info__ = &__data_map_infos__[0];
+    long A_dims[2];
+    A_dims[0] = n;
+    A_dims[1] = n;
+    omp_data_map_t A_maps[__num_target_devices__];
+    omp_dist_info_t A_dist[2];
+    omp_data_map_init_info("A", __info__, &__offloading_info__, A, 2, A_dims, sizeof(REAL), A_maps, OMP_DATA_MAP_TO,
+                           OMP_DATA_MAP_AUTO, A_dist);
 
-	/* B map info */
-	__info__ = &__data_map_infos__[1];
-	long B_dims[2];B_dims[0] = n;B_dims[1] = n;
-	omp_data_map_t B_maps[__num_target_devices__];
-	omp_dist_info_t B_dist[2];
-	omp_data_map_init_info("B", __info__, &__offloading_info__, B, 2, B_dims, sizeof(REAL),B_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, B_dist);
+    /* B map info */
+    __info__ = &__data_map_infos__[1];
+    long B_dims[2];
+    B_dims[0] = n;
+    B_dims[1] = n;
+    omp_data_map_t B_maps[__num_target_devices__];
+    omp_dist_info_t B_dist[2];
+    omp_data_map_init_info("B", __info__, &__offloading_info__, B, 2, B_dims, sizeof(REAL), B_maps, OMP_DATA_MAP_TO,
+                           OMP_DATA_MAP_AUTO, B_dist);
 
-	__info__ = &__data_map_infos__[2];
-	long C_dims[2];C_dims[0] = n; C_dims[1] = n;
-	omp_data_map_t C_maps[__num_target_devices__];
-	omp_dist_info_t C_dist[2];
-	omp_data_map_init_info("C", __info__, &__offloading_info__, C, 2, C_dims, sizeof(REAL),C_maps, OMP_DATA_MAP_FROM, OMP_DATA_MAP_AUTO, C_dist);
+    __info__ = &__data_map_infos__[2];
+    long C_dims[2];
+    C_dims[0] = n;
+    C_dims[1] = n;
+    omp_data_map_t C_maps[__num_target_devices__];
+    omp_dist_info_t C_dist[2];
+    omp_data_map_init_info("C", __info__, &__offloading_info__, C, 2, C_dims, sizeof(REAL), C_maps, OMP_DATA_MAP_FROM,
+                           OMP_DATA_MAP_AUTO, C_dist);
 
-	/**************************************** dist-specific *****************************************/
+    /**************************************** dist-specific *****************************************/
     /* dist_policy: block_block: 1, block_align: 2, align_auto: 3 */
-	if (dist_dim == 1) {
+    if (dist_dim == 1) {
         if (dist_policy == 1) {
             /* block_block */
             omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
@@ -505,7 +513,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dis
         } else {
 
         }
-	} else if (dist_dim == 2) {
+    } else if (dist_dim == 2) {
         omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
@@ -514,7 +522,7 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dis
 
         omp_dist_init_info(&C_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-	} else /* dist == 3 */{
+    } else /* dist == 3 */{
         omp_dist_init_info(&A_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_dist_init_info(&A_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, n, 1);
 
@@ -523,23 +531,26 @@ void matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dis
 
         omp_dist_init_info(&C_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_dist_init_info(&C_dist[1], OMP_DIST_POLICY_BLOCK, 0, n, 1);
-	}
-	/************************************************************************************************/
+    }
+    /************************************************************************************************/
 
-	/*********** NOW notifying helper thread to work on this offload ******************/
+    /*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
 	printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
-	/* here we do not need sync start */
-    int it; int total_its = 20;
-    for (it=0;it<total_its;it++)
-        omp_offloading_start(&__offloading_info__, it==total_its-1);
+    ompacc_init_time = read_timer_ms() - ompacc_init_time;
+    /* here we do not need sync start */
+    double off_total = read_timer_ms();
+    int it;
+    int total_its = 20;
+    for (it = 0; it < total_its; it++)
+        omp_offloading_start(&__offloading_info__, it == total_its - 1);
     omp_offloading_fini_info(&__offloading_info__);
-    ompacc_time = read_timer_ms() - ompacc_time;
+    off_total = (read_timer_ms() - off_total) / total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_offloading_info_report_profile(&__offloading_info__);
 #endif
 
-	double cpu_total = ompacc_time;
-
+    off_total += ompacc_init_time;
+    return off_total;
 }

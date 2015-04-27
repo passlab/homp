@@ -68,15 +68,15 @@ int main(int argc, char *argv[]) {
     memcpy(y_ompacc, y, (n * sizeof(REAL)));
     REAL omp_time = read_timer_ms();
     // reference serial execution for error checking
-    matvec(a, x,y,n);
-    omp_time = (read_timer_ms() - omp_time);
+    int i; int num_its = 20; for (i=0;i<num_its;i++)matvec(a, x,y,n);
+    omp_time = (read_timer_ms() - omp_time)/num_its;
     double ompacc_time = matvec_ompacc_mdev(a, x, y_ompacc, n);
     omp_fini_devices();
     REAL cksm;
     cksm = check(y,y_ompacc,n) ;
     printf("matvec(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n", n, cksm,
            omp_get_num_active_devices());
-    printf("\t\t\t\t\t%4f\t%4f\n", omp_time, ompacc_time);
+    printf("\t\t\t\t\t\t%4f\t%4f\n", omp_time, ompacc_time);
     free(y);
     free(y_ompacc);
     free(x);

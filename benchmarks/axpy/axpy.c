@@ -69,7 +69,7 @@ int main(int argc,char *argv[])
   omp_fini_devices();
   REAL cksm = check(y,y_ompacc,n) ;
   printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n",n,cksm,omp_get_num_active_devices());
-  printf("\t\t\t\t\t%4f\t%4f\n",omp_time,ompacc_time);
+  printf("\t\t\t\t\t\t%4f\t%4f\n",omp_time,ompacc_time);
   free(y);
   free(y_ompacc);
   free(x);

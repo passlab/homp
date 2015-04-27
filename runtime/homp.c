@@ -94,7 +94,7 @@ int omp_get_num_active_devices() {
  * seqid is the sequence id of the device in the top, it is also used as index to access maps
  *
  */
-void omp_cleanup(omp_offloading_t * off) {
+void omp_map_free(omp_offloading_t *off) {
 	int i;
 	omp_offloading_info_t * off_info = off->off_info;
 	omp_stream_sync(off->stream);
@@ -967,6 +967,7 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 
 		long length = map->map_dist[i].length;
 		long offset = map->map_dist[i].offset;
+
 		map_size *= length;
 		offset_from0 += mt_from0 * offset;
 		mt_from0 *= map_info->dims[i];
@@ -986,15 +987,14 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 				omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[i];
 				int *left = &halo_mem->left_dev_seqid;
 				int *right = &halo_mem->right_dev_seqid;
-				omp_topology_get_neighbors(top, seqid, halo->topdim, halo->edging == OMP_DIST_HALO_EDGING_PERIODIC,
-										   left, right);
-				if (*left >= 0) {
+				omp_topology_get_neighbors(top, seqid, halo->topdim, halo->edging == OMP_DIST_HALO_EDGING_PERIODIC, left, right);
+//				if (*left >= 0) {
 					length += halo->left;
 					offset = offset - halo->left;
-				}
-				if (*right >= 0) {
+//				}
+//				if (*right >= 0) {
 					length += halo->right;
-				}
+//				}
 			}
 		}
 		map_wextra_size *= length;
@@ -1145,7 +1145,7 @@ long omp_map_element_offset(omp_data_map_t * map) {
  *
  * it will also create device memory region (both the array region memory and halo region memory
  */
-void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
+void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
     int i;
 	omp_data_map_info_t *map_info = map->info;
 	omp_offloading_info_t * off_info = map_info->off_info;
@@ -1190,14 +1190,14 @@ void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
 		}
 		omp_data_map_halo_region_info_t *halo_info = &map_info->halo_info[0];
 		omp_data_map_halo_region_mem_t *halo_mem = &map->halo_mem[0];
+		halo_mem->left_in_size = halo_info->left * row_size;
+		map->map_dev_ptr = map->map_dev_wextra_ptr + halo_mem->left_in_size;
+		halo_mem->left_in_ptr = map->map_dev_wextra_ptr;
+		halo_mem->left_out_size = halo_info->right * row_size;
+		halo_mem->left_out_ptr = map->map_dev_ptr;
+		//printf("dev: %d, halo left in size: %d, left in ptr: %X, left out size: %d, left out ptr: %X\n", off->devseqid,
+		//	   halo_mem->left_in_size,halo_mem->left_in_ptr,halo_mem->left_out_size,halo_mem->left_out_ptr);
 		if (halo_mem->left_dev_seqid >= 0) {
-			halo_mem->left_in_size = halo_info->left * row_size;
-			map->map_dev_ptr = map->map_dev_wextra_ptr + halo_mem->left_in_size;
-			halo_mem->left_in_ptr = map->map_dev_wextra_ptr;
-			halo_mem->left_out_size = halo_info->right * row_size;
-			halo_mem->left_out_ptr = map->map_dev_ptr;
-			//printf("dev: %d, halo left in size: %d, left in ptr: %X, left out size: %d, left out ptr: %X\n", off->devseqid,
-			//	   halo_mem->left_in_size,halo_mem->left_in_ptr,halo_mem->left_out_size,halo_mem->left_out_ptr);
 			omp_device_t *leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
 			if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
 				/** FIXME, mem leak here and we have not thought where to free */
@@ -1210,15 +1210,15 @@ void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
 			//	printf("dev: %d, map: %X, left: %d, left dev: p2p enabled\n", off->devseqid, map, halo_mem->left_dev_seqid);
 				halo_mem->left_in_host_relay_ptr = NULL;
 			}
-		} else map->map_dev_ptr = map->map_dev_wextra_ptr;
+		} //else map->map_dev_ptr = map->map_dev_wextra_ptr;
 
+		halo_mem->right_in_size = halo_info->right * row_size;
+		halo_mem->right_in_ptr = &((char *) map->map_dev_ptr)[map->map_size];
+		halo_mem->right_out_size = halo_info->left * row_size;
+		halo_mem->right_out_ptr = &((char *) halo_mem->right_in_ptr)[0 - halo_mem->right_out_size];
+		//printf("dev: %d, halo right in size: %d, right in ptr: %X, right out size: %d, right out ptr: %X\n", off->devseqid,
+		//	   halo_mem->right_in_size,halo_mem->right_in_ptr,halo_mem->right_out_size,halo_mem->right_out_ptr);
 		if (halo_mem->right_dev_seqid >= 0) {
-			halo_mem->right_in_size = halo_info->right * row_size;
-			halo_mem->right_in_ptr = &((char *) map->map_dev_ptr)[map->map_size];
-			halo_mem->right_out_size = halo_info->left * row_size;
-			halo_mem->right_out_ptr = &((char *) halo_mem->right_in_ptr)[0 - halo_mem->right_out_size];
-			//printf("dev: %d, halo right in size: %d, right in ptr: %X, right out size: %d, right out ptr: %X\n", off->devseqid,
-			//	   halo_mem->right_in_size,halo_mem->right_in_ptr,halo_mem->right_out_size,halo_mem->right_out_ptr);
 			omp_device_t *rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
 			if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
 				/** FIXME, mem leak here and we have not thought where to free */
@@ -1234,6 +1234,7 @@ void omp_map_buffer(omp_data_map_t * map, omp_offloading_t * off) {
 		}
 		//		END_SERIALIZED_PRINTF();
 	}
+
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_4;
 }
 
@@ -1248,7 +1249,7 @@ void omp_print_map_info(omp_data_map_info_t * info) {
 		for (i=0; i<info->num_dims;i++) printf("[%d|%d]", halo_info[i].left, halo_info[i].right);
 		printf(", ");
 	}
-	printf("direction: %d, map_type: %d\n", info->map_direction, info->map_type);
+	printf("direction: %d, map_type: %d, ptr: %X\n", info->map_direction, info->map_type, info->source_ptr);
 	for (i=0; i<info->off_info->top->nnodes; i++) {
 		printf("\t%d, ", i);
 		omp_print_data_map(&info->maps[i]);
@@ -1257,9 +1258,9 @@ void omp_print_map_info(omp_data_map_info_t * info) {
 
 void omp_print_data_map(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
-	printf("dev: %d, ", map->dev->id);
+	printf("dev %d(%s), ", map->dev->id, omp_get_device_typename(map->dev));
 	int i;
-	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].length);
+	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
 
 	printf(", size: %d, size wextra: %d\n",map->map_size, map->map_wextra_size);
 	printf("\t\tsrc ptr: %X, src wextra ptr: %X, dev ptr: %X, dev wextra ptr: %X\n", map->map_source_ptr, map->map_source_wextra_ptr, map->map_dev_ptr, map->map_dev_wextra_ptr);
@@ -1280,12 +1281,14 @@ void omp_print_off_maps(omp_offloading_t * off) {
 
  *
  */
+#define CORRECTNESS_CHECK 1
+#undef CORRECTNESS_CHECK
 void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_direction_t from_left_right) {
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
 	if (dim != 0 || map->mem_noncontiguous) {
 		fprintf(stderr, "we only handle noncontiguous distribution and halo at dimension 0 so far!\n");
-		omp_print_data_map(map);
+		omp_print_map_info(map->info);
 		return;
 	}
 
@@ -1361,6 +1364,8 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 #endif
 	return;
 }
+
+#undef CORRECTNESS_CHECK
 
 /**
  * utilities

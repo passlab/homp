@@ -10,9 +10,9 @@
  * It always start with copyto and may stops after copyto for target data
  * master is just the thread that will store
  */
-void omp_offloading_start(omp_offloading_info_t *off_info, int cleanup_after_completion) {
+void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_completion) {
 	omp_device_t ** targets = off_info->targets;
-	off_info->cleanup_after_completion = cleanup_after_completion;
+	off_info->free_after_completion = free_after_completion;
 	int num_targets = off_info->top->nnodes;
     /* generate master trace file */
 
@@ -26,10 +26,12 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int cleanup_after_com
 			fprintf(stderr, "device %d is not ready for answering your request, offloading_start: %X. It is a bug so far\n", targets[i]->id, off_info);
 		}
 		targets[i]->offload_request = off_info;
+		//printf("offloading to device: %d, %X\n", i, off_info);
 		/* TODO: this is data race if multiple host threads try to offload to the same devices,
 		 * FIX is to use cas operation to update this field
 		 */
 	}
+
 	pthread_barrier_wait(&off_info->barrier);
 
 	if (off_info->type != OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE && off_info->halo_x_info != NULL) { /* appended halo exchange */
@@ -166,7 +168,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
 			omp_data_map_t * map = &map_info->maps[seqid];
-			omp_map_buffer(map, off);
+			omp_map_malloc(map, off);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[map_init_event_index]);
@@ -294,8 +296,8 @@ omp_offloading_sync_cleanup: ;
 
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		}
-		if (off_info->cleanup_after_completion) {
-			omp_cleanup(off);
+		if (off_info->free_after_completion) {
+			omp_map_free(off);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[sync_cleanup_event_index]);
@@ -363,12 +365,14 @@ void helper_thread_main(void * arg) {
 	omp_stream_create(dev, &dev->devstream, 1);
 	omp_set_num_threads(dev->num_cores);
 	omp_warmup_device(dev);
+//	printf("helper threading (devid: %X) loop ....\n", dev);
 	/*************** loop *******************/
 	while (omp_device_complete == 0) {
-	//	printf("helper threading (devid: %X) waiting ....\n", dev);
+//		printf("helper threading (devid: %X) waiting ....\n", dev);
 		while (dev->offload_request == NULL) {
 			if (omp_device_complete) return;
 		}
+//		printf("helper threading (devid: %X) offloading  ....\n", dev);
 		omp_offloading_run(dev);
 	}
 }

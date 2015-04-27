@@ -116,9 +116,8 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 }
 
 int axpy_mdev_v = 2;
-double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a)
-{
-	double ompacc_time = read_timer_ms(); //read_timer_ms();
+double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a) {
+	double ompacc_init_time = read_timer_ms();
 
 	/* get number of target devices specified by the programmers */
 	int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
@@ -188,6 +187,64 @@ double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a)
 #if DEBUG_MSG
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
+	ompacc_init_time = read_timer_ms() - ompacc_init_time;
+	//  printf("init time: %fs\n", ompacc_init_time);
+	/* here we do not need sync start */
+	double off_total = read_timer_ms();
+	int it; int total_its = 20;
+	for (it=0; it<total_its; it++) {
+		omp_offloading_start(&__offloading_info__, it==total_its-1);
+	}
+
+	off_total = (read_timer_ms() - off_total)/total_its;
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_offloading_info_report_profile(&__offloading_info__);
+#endif
+
+	omp_offloading_fini_info(&__offloading_info__);
+	off_total += ompacc_init_time;
+	return off_total;
+}
+
+#if 0
+/* meant to simply the one-device offloading interface, may come back to this later */
+double axpy_ompacc_1dev(REAL *x, REAL *y,  long n,REAL a)
+{
+	double ompacc_time = read_timer_ms(); //read_timer_ms();
+
+	int __num_mapped_array__ = 2; /* XXX: need compiler output */
+	omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
+
+	omp_offloading_info_t __offloading_info__;
+	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t));
+	struct OUT__3__5904__other_args args;
+	args.a = a;
+	args.n = n;
+	args.x = x;
+	args.y = y;
+	__offloading_info__.per_iteration_profile.num_fp_operations = 1;
+	__offloading_info__.per_iteration_profile.num_load = 2;
+	__offloading_info__.per_iteration_profile.num_store = 1;
+	omp_dist_info_t loop_nest_dist[1];
+	/* we use universal args and launcher because axpy can do it */
+	//omp_offloading_init_info("axpy kernel", &__offloading_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args, loop_nest_dist, 1);
+
+	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
+	long x_dims[1]; x_dims[0] = n;
+	omp_data_map_t x_maps;
+	omp_dist_info_t x_dist[1];
+	omp_data_map_init_info("x", __info__, &__offloading_info__, x, 1, x_dims, sizeof(REAL), &x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist);
+
+	__info__ = &__data_map_infos__[1];
+	long y_dims[1]; y_dims[0] = n;
+	omp_data_map_t y_maps;
+	omp_dist_info_t y_dist[1];
+	omp_data_map_init_info("y", __info__, &__offloading_info__, y, 1, y_dims, sizeof(REAL), &y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist);
+
+	/*********** NOW notifying helper thread to work on this offload ******************/
+#if DEBUG_MSG
+	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
+#endif
 	/* here we do not need sync start */
 	int it; int total_its = 20;
 	for (it=0; it<total_its; it++) {
@@ -203,4 +260,7 @@ double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a)
 	double cpu_total = ompacc_time;
 	return cpu_total;
 }
+
+#endif
+
 

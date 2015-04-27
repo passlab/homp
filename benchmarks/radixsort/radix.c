@@ -206,13 +206,13 @@ void sort_launcher(omp_offloading_t *off, void *args) {
             int bucket[NUMBERS] = {0};
 
             for (i = 0; i < NUMBERS; i++)
-                bucket[bufferInt[i] / exp % 10]++;
+                bucket[bufferInt[i] / exp % 10]++; /* count the # elements in each bucket */
             for (i = 1; i < NUMBERS; i++)
-                bucket[i] += bucket[i - 1];
+                bucket[i] += bucket[i - 1]; /* find their starting position */
             for (i = NUMBERS - 1; i >= 0; i--)
-                b[--bucket[bufferInt[i] / exp % 10]] = bufferInt[i];
+                b[--bucket[bufferInt[i] / exp % 10]] = bufferInt[i]; /* sorting */
             for (i = 0; i < NUMBERS; i++)
-                bufferInt[i] = b[i];
+                bufferInt[i] = b[i]; /* swap */
             exp *= 10;
         }
         for (i = 0; i < NUMBERS; i++) {
@@ -267,7 +267,8 @@ REAL sort_ompacc_mdev(int *bufferInt) {
     int __top_dims__[__top_ndims__];
     int __top_periodic__[__top_ndims__];
     int __id_map__[__num_target_devices__];
-    omp_grid_topology_init_simple(&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__, __id_map__);
+    omp_grid_topology_init_simple(&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__,
+                                  __top_periodic__, __id_map__);
 
 
     printf("Before mapping array \n");
@@ -287,7 +288,8 @@ REAL sort_ompacc_mdev(int *bufferInt) {
 
     printf("Befor calling the launcher function \n");
 
-    omp_offloading_init_info("Sorting Kernel", &__offloading_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_DATA_CODE,
+    omp_offloading_init_info("Sorting Kernel", &__offloading_info__, &__top__, __target_devices__, 1,
+                             OMP_OFFLOADING_DATA_CODE,
                              __num_mapped_array__, __data_map_infos__, sort_launcher, &args, loop_nest_dist, 1);
 
     //a for loop for multiple arrays
@@ -300,7 +302,8 @@ REAL sort_ompacc_mdev(int *bufferInt) {
     omp_dist_info_t bufferInt_dist[1];
 
     __info__ = &__data_map_infos__[1];
-    omp_data_map_init_info("bufferInt", __info__, &__offloading_info__, bufferInt, 1, bufferInt_dims, sizeof(int *), bufferInt_maps,
+    omp_data_map_init_info("bufferInt", __info__, &__offloading_info__, bufferInt, 1, bufferInt_dims, sizeof(int *),
+                           bufferInt_maps,
                            OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, bufferInt_dist);
 
 
@@ -308,12 +311,14 @@ REAL sort_ompacc_mdev(int *bufferInt) {
     if (sort_mdev_v == 3) {
         printf("Entering sort_mdev_v \n");
         omp_dist_init_info(&bufferInt_dist[0], OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
-        omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0], OMP_DIST_TARGET_DATA_MAP, 0);
+        omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+                                 OMP_DIST_TARGET_DATA_MAP, 0);
         printf("VERSION 3: BLOCK dist policy for distances and location\n");
         printf("Exited sort_mdev_v version 3 \n");
     } else if (sort_mdev_v == 4) {
         omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_AUTO, 0, NUMBERS, 0);
-        omp_align_dist_init_info(&bufferInt_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__, OMP_DIST_TARGET_LOOP_ITERATION, 0);
+        omp_align_dist_init_info(&bufferInt_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
+                                 OMP_DIST_TARGET_LOOP_ITERATION, 0);
         printf("Version 4: Auto policy for loop and distances and location with loop dist \n");
     } else {
         omp_dist_init_info(&bufferInt_dist[0], OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
@@ -342,9 +347,73 @@ REAL sort_ompacc_mdev(int *bufferInt) {
 
 }
 
+void radix_serial(int *bufferInt) {
+    int buffer[NUMBERS];
+    int *b = &buffer[0];
+    int m = 0, exp = 1;
+    int i;
+    for (i = 0; i < NUMBERS; i++) {
+        if (bufferInt[i] > m)
+            m = bufferInt[i];
+    }
+    int count = 0;
+    while (m / exp > 0) {
+        int bucket[NUMBERS] = {0};
 
-int
-main() {
+        for (i = 0; i < NUMBERS; i++)
+            bucket[bufferInt[i] / exp % 10]++; /* count the # elements in each bucket */
+        for (i = 1; i < NUMBERS; i++)
+            bucket[i] += bucket[i - 1]; /* find their starting position */
+        for (i = NUMBERS - 1; i >= 0; i--)
+            b[--bucket[bufferInt[i] / exp % 10]] = bufferInt[i]; /* sorting */
+        /* a pointer swap */
+        int *tmp = b;
+        b = bufferInt;
+        bufferInt = tmp;
+        count++;
+        exp *= 10;
+    }
+
+    if (count % 2) {/* swap back */
+        memcpy(b, bufferInt, sizeof(int) * NUMBERS);
+    }
+}
+
+void radix_omp(int *bufferInt) {
+    int buffer[NUMBERS];
+    int *b = &buffer[0];
+    int m = 0, exp = 1;
+    int i;
+#pragma omp parallel for shared(bufferInt) reduction(max : m)
+    for (i = 0; i < NUMBERS; i++) {
+        if (bufferInt[i] > m)
+            m = bufferInt[i];
+    }
+    int count = 0;
+#pragma omp parallel shared()
+    while (m / exp > 0) {
+        int bucket[NUMBERS] = {0};
+
+        for (i = 0; i < NUMBERS; i++)
+            bucket[bufferInt[i] / exp % 10]++; /* count the # elements in each bucket */
+        for (i = 1; i < NUMBERS; i++)
+            bucket[i] += bucket[i - 1]; /* find their starting position */
+        for (i = NUMBERS - 1; i >= 0; i--)
+            b[--bucket[bufferInt[i] / exp % 10]] = bufferInt[i]; /* sorting */
+        /* a pointer swap */
+        int *tmp = b;
+        b = bufferInt;
+        bufferInt = tmp;
+        count++;
+        exp *= 10;
+    }
+
+    if (count % 2) {/* swap back */
+        memcpy(b, bufferInt, sizeof(int) * NUMBERS);
+    }
+}
+
+int main(int argc, char *argv[]) {
 
     printf("Inside main function \n");
     int *bufferInt = NULL;
@@ -357,69 +426,25 @@ main() {
         exit(-1);
     }
     bufferInt = (int *) malloc(sizeof(int) * (NUMBERS));
+    int *bufferInt_omp = (int *) malloc(sizeof(int) * (NUMBERS));
 
     for (i = 0; i < NUMBERS; i++) {
         fgets(tmpLine, 20, handler);
         bufferInt[i] = atoi(tmpLine);
     }
+    memcpy(bufferInt_omp, bufferInt, sizeof(int) * NUMBERS);
+
+    radix_serial(bufferInt);
+    for (i = 0; i < NUMBERS; i++) {
+        printf("%d\n", bufferInt[i]);
+    }
 
     omp_init_devices();
     REAL omp_time = read_timer_ms();
-    REAL sort_kernel_time = sort_ompacc_mdev(bufferInt);
+    //REAL sort_kernel_time = sort_ompacc_mdev(bufferInt_omp);
     omp_time = (read_timer_ms() - omp_time);
     omp_fini_devices();
 
-/*
-
-#if DEBUG == 1
-#endif
-   float time_data, time_kernel, time_total;
-
-   int *d_bufferInt = NULL;
-  int *d_sortedArray = NULL;
-  //srand((unsigned) time(NULL));
-  size_t bytes = NUMBERS * sizeof (int);
-  cudaMalloc (&d_bufferInt, bytes);
-  cudaMalloc (&d_sortedArray, bytes);
-  cudaMemcpy (d_bufferInt, bufferInt, bytes, cudaMemcpyHostToDevice);
-  sort <<< 1, 16 >>> (d_bufferInt);
-
-  cudaMemcpy (bufferInt, d_bufferInt, bytes, cudaMemcpyDeviceToHost);
-  printf ("Data Transfer Time %f ms \n", time_data);
-  printf ("Kernel Execution Time %f ms \n", time_kernel);
-  printf ("Total Execution Time %f ms \n", time_total);
-  for (i = 0; i < NUMBERS; i++)
-    {
-      //printf("After sorting is %d \n", bufferInt[i]);
-      if (i == 0)
-	{
-	  printf ("Minimum value of array is %d \n", bufferInt[i]);
-	}
-      if (i == NUMBERS - 1)
-	{
-	  printf ("Maximum value of array is %d \n", bufferInt[i]);
-	}
-      //Median Value calculation
-      if (i == NUMBERS / 2)
-	{
-	  if (i % 2 == 0)
-	    {
-	      float temp = bufferInt[i] + bufferInt[i - 1];
-	      printf ("median value is %f \n", temp / 2);
-	    }
-	  else
-	    {
-	      int temp1 = bufferInt[i];
-	      printf ("Median value is %d \n", temp1);
-	    }
-	}
-    }
-
-  cudaFree (d_bufferInt);
-  cudaFree (d_sortedArray);
-
-  free (bufferInt);
-*/
     printf("ending main function \n");
     return (0);
 
