@@ -3,6 +3,9 @@
 //
 #ifndef OFFOMP_STENCIL2D_H
 #define OFFOMP_STENCIL2D_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 // flexible between REAL and double
 #define REAL float
 
@@ -22,4 +25,7 @@ extern int dist_policy;
 
 extern void stencil2d_off_launcher(omp_offloading_t * off, void *args);
 
+#ifdef __cplusplus
+ }
+#endif
 #endif //OFFOMP_STENCIL2D_H
