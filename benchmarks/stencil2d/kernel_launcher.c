@@ -52,7 +52,6 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
 
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
     for (it = 0; it < num_its; it++) {
-        int ix, iy, ir;
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
 			int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
@@ -61,7 +60,7 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
                 (start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
 		} else
 #endif
-        if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
+        if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
 #if CORRECTNESS_CHECK
 	    	BEGIN_SERIALIZED_PRINTF(off->devseqid);
 			printf("udev: dev: %d, %dX%d\n", off->devseqid, n, m);
@@ -72,6 +71,7 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
 			END_SERIALIZED_PRINTF();
 #endif
 //#pragma omp for private(ix, iy, ir)
+            int ix, iy, ir;
             for (ix = start; ix < start+len; ix++) {
                 REAL * temp_u = &u[(ix+radius)*u_dimY+radius];
                 REAL * temp_uold = &uold[(ix+radius)*u_dimY+radius];
