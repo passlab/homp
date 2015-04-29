@@ -102,9 +102,9 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
         OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,a,x,y);
 	} else
 #endif
-	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
+	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
 		int i;
-#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i)
+//#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i)
 		for (i=start_n; i<start_n + length_n; i++) {
 			y[i] += a*x[i];
 //			printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);

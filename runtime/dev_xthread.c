@@ -363,9 +363,9 @@ void helper_thread_main(void * arg) {
 
 	omp_set_current_device_dev(dev);
 	omp_stream_create(dev, &dev->devstream, 1);
-	omp_set_num_threads(dev->num_cores);
+//	omp_set_num_threads(dev->num_cores);
 	omp_warmup_device(dev);
-//	printf("helper threading (devid: %X) loop ....\n", dev);
+//	printf("helper threading (devid: %s) loop ....\n", dev->name);
 	/*************** loop *******************/
 	while (omp_device_complete == 0) {
 //		printf("helper threading (devid: %X) waiting ....\n", dev);

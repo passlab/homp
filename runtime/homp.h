@@ -40,15 +40,15 @@ typedef struct omp_offloading omp_offloading_t;
  * may have mulitple generations, thus versions.
  */
 typedef enum omp_device_type {
-   OMP_DEVICE_HOST,      /* the host */
-   OMP_DEVICE_NVGPU,      /* NVIDIA GPGPUs */
-   OMP_DEVICE_ITLMIC,     /* Intel MIC */
-   OMP_DEVICE_TIDSP,      /* TI DSP */
-   OMP_DEVICE_AMDAPU,       /* AMD APUs */
-   OMP_DEVICE_REMOTE,	  /* a remote node */
-   OMP_DEVICE_THSIM,	  /* a new thread of the same process, e.g. pthread */
-   OMP_DEVICE_LOCALPS,	  /* a new process in the same node, e.g. a new process created using fork) */
-   OMP_NUM_DEVICE_TYPES,  /* the total number of types of supported devices */
+	OMP_DEVICE_HOSTCPU, /* the host cpu */
+	OMP_DEVICE_NVGPU, /* NVIDIA GPGPUs */
+	OMP_DEVICE_ITLMIC, /* Intel MIC */
+	OMP_DEVICE_TIDSP, /* TI DSP */
+	OMP_DEVICE_AMDAPU, /* AMD APUs */
+	OMP_DEVICE_REMOTE, /* a remote node */
+	OMP_DEVICE_THSIM, /* a new thread of the same process, e.g. pthread */
+	OMP_DEVICE_LOCALPS, /* a new process in the same node, e.g. a new process created using fork) */
+	OMP_NUM_DEVICE_TYPES,  /* the total number of types of supported devices */
 } omp_device_type_t;
 
 extern char * omp_device_type_name[];
@@ -103,6 +103,7 @@ struct omp_device {
 	long sysid; /* the handle from the system view, e.g.
 			 device id for NVGPU cudaSetDevice(sysid), 
 			 or pthread_t for THSIM. Need type casting to become device-specific id */
+	char name[64]; /* a short name for the sake of things */
 	omp_device_type_t type;
 	void * dev_properties; /* a pointer to the device-specific properties object */
 	omp_device_mem_type_t mem_type; /* the mem access pattern relative to the host, e.g. shared or discrete */

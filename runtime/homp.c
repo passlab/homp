@@ -32,7 +32,7 @@ volatile int omp_device_complete = 0;
 
 volatile int omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scramble together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
-	{OMP_DEVICE_HOST, "OMP_DEVICE_HOST", "HOST", 1},
+	{OMP_DEVICE_HOSTCPU, "OMP_DEVICE_HOSTCPU", "HOSTCPU", 1},
 	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", "NVGPU", 0},
 	{OMP_DEVICE_ITLMIC, "OMP_DEVICE_ITLMIC", "ITLMIC", 0},
 	{OMP_DEVICE_TIDSP, "OMP_DEVICE_TIDSP", "TIDSP", 0},
@@ -45,7 +45,7 @@ omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
 /* APIs to support multiple devices: */
 char * omp_supported_device_types() { /* return a list of devices supported by the compiler in the format of TYPE1:TYPE2 */
 	/* FIXME */
-	return "OMP_DEVICE_HOST";
+	return "OMP_DEVICE_HOSTCPU";
 }
 omp_device_type_t omp_get_device_type(int devid) {
 	return omp_devices[devid].type;

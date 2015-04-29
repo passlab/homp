@@ -19,4 +19,4 @@ matmul-nvgpu:
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 clean:
-	rm -rf *.o matmul-*
+	rm -rf *.o matmul-* core *.plot

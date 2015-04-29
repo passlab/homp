@@ -363,7 +363,7 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
 		OUT__1__11058__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 	} else
 #endif
-    if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOST) {
+    if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         long ii, jj, kk;
         //	omp_set_num_threads(off->dev->num_cores);
         //printf("%d cores on host\n", off->dev->num_cores);

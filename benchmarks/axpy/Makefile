@@ -17,5 +17,5 @@ axpy-nvgpu:
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 clean:
-	rm -rf *.o axpy-thsim axpy-nvgpu
+	rm -rf *.o axpy-thsim axpy-nvgpu *.plot core
 
