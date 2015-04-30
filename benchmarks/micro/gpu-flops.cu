@@ -4,9 +4,6 @@
 #include <time.h>
 #include <stdio.h>
 
-
-
-
 double
 read_timer() {
     struct timespec ts;
@@ -33,15 +30,16 @@ read_timer() {
         return (double) ts.tv_sec + (double) ts.tv_nsec / 1000000000.0;
 }
 
-#define __global__
-__device__ double d_flops;
+/* this two numbers should be the same */
+__device__ int ops = 1000000;
+int ops_host = 1000000;
+__device__ float d_flops;
 
 __global__ void Add_Mul() {
     // need to initialise differently otherwise compiler might optimise away
 
     double add = M_PI;
     double mul = 1.0 + 1e-8;
-    int ops = 1000000;
 
     double sum1 = 0.1, sum2 = -0.1, sum3 = 0.2, sum4 = -0.2, sum5 = 0.0;
     double mul1 = 1.0, mul2 = 1.1, mul3 = 1.2, mul4 = 1.3, mul5 = 1.4;
@@ -74,15 +72,12 @@ main(int argc, char *argv[]) {
 
     //int n = 1000000;
     double timer = read_timer();
-    Add_Mul << < 1024, 32 >> > ();
+    Add_Mul <<< 1024, 1024*1024 >>>();
+    cudaDeviceSynchronize();
     timer = read_timer() - timer;
-    typeof(d_flops) flops;  // Indicates that kernel is returning a single value
 
-    cudaMemcpy(&flops, "d_flops", (sizeof(flops)), cudaMemcpyDeviceToHost);
-    flops = (1 * 1024 * 32) / timer /
-            1e3; // Value was over flowing, so I self-optimized it in order to make it stay within the range.
+    double flops = (ops_host * 1024 * 1024*1024) /timer /1e6; // Value was over flowing, so I self-optimized it in order to make it stay within the range.
 //1024*32 is added because this will be 1024 threads in each of the 32 blocks working in parallel to compute the result. Hence GFlops is related to how many threads are made to work.
-
 
     printf("GPU flops is %f \n", flops);
 }
