@@ -1,40 +1,12 @@
 #include<cuda.h>
 #include <unistd.h>
 #include <math.h>
-#include <time.h>
 #include <stdio.h>
 
-double
-read_timer() {
-    struct timespec ts;
-#if defined(CLOCK_MONOTONIC_PRECISE)
-  /* BSD. --------------------------------------------- */
-  const clockid_t id = CLOCK_MONOTONIC_PRECISE;
-#elif defined(CLOCK_MONOTONIC_RAW)
-  /* Linux. ------------------------------------------- */
-  const clockid_t id = CLOCK_MONOTONIC_RAW;
-#elif defined(CLOCK_HIGHRES)
-  /* Solaris. ----------------------------------------- */
-  const clockid_t id = CLOCK_HIGHRES;
-#elif defined(CLOCK_MONOTONIC)
-  /* AIX, BSD, Linux, POSIX, Solaris. ----------------- */
-  const clockid_t id = CLOCK_MONOTONIC;
-#elif defined(CLOCK_REALTIME)
-  /* AIX, BSD, HP-UX, Linux, POSIX. ------------------- */
-  const clockid_t id = CLOCK_REALTIME;
-#else
-    const clockid_t id = (clockid_t) - 1;    /* Unknown. */
-#endif
-
-    if (id != (clockid_t) - 1 && clock_gettime(id, &ts) != -1)
-        return (double) ts.tv_sec + (double) ts.tv_nsec / 1000000000.0;
-}
-
 /* this two numbers should be the same */
-__device__ int ops = 1000000;
 int ops_host = 1000000;
+__device__ int ops = 1000000;
 __device__ float d_flops;
-
 __global__ void Add_Mul() {
     // need to initialise differently otherwise compiler might optimise away
 
@@ -71,13 +43,43 @@ int
 main(int argc, char *argv[]) {
 
     //int n = 1000000;
-    double timer = read_timer();
-    Add_Mul <<< 1024, 1024*1024 >>>();
-    cudaDeviceSynchronize();
-    timer = read_timer() - timer;
+    //add 20 iterations 
+    //device control modifier
+    if (argc < 2) {
+        fprintf(stderr, "Usage: ./a.out <device_number> eg:./a.out 1 \n");
+        exit(1);
+    }
+    int N = atoi(argv[1]);
+    if (N > 3) {
+        printf("Please enter a valid device number\n");
+        return (0);
+    }
 
-    double flops = (ops_host * 1024 * 1024*1024) /timer /1e6; // Value was over flowing, so I self-optimized it in order to make it stay within the range.
+    cudaSetDevice(N);
+
+    int i;
+    cudaEvent_t start;
+    cudaEventCreate(&start);
+    cudaEvent_t stop;
+    cudaEventCreate(&stop);
+    //sample run
+//    Add_Mul << < 128 * 128, 512 >> > ();
+
+    float msecTotal = 0.0f;
+    cudaEventRecord(start, NULL);
+    int num_its = 1;
+    for (i = 0; i < num_its; i++) {
+    Add_Mul << < 128 * 128, 512 >> > ();
+    }
+    cudaEventRecord(stop, NULL);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&msecTotal, start, stop);
+
+    msecTotal = msecTotal / num_its;
+
+    double flops = (ops_host * 512 * 128*128) /msecTotal; // Value was over flowing, so I self-optimized it in order to make it stay within the range.
 //1024*32 is added because this will be 1024 threads in each of the 32 blocks working in parallel to compute the result. Hence GFlops is related to how many threads are made to work.
 
-    printf("GPU flops is %f \n", flops);
+    printf("GPU %d performance is %f MFLOPs/s\n", N, flops);
 }
+
