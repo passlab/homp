@@ -1262,7 +1262,11 @@ void omp_print_data_map(omp_data_map_t * map) {
 	int i;
 	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
 
-	printf(", size: %d, size wextra: %d\n",map->map_size, map->map_wextra_size);
+	char * mem = "SEPARATED";
+	if (map->map_type == OMP_DATA_MAP_SHARED) {
+		mem = "SHARED";
+	}
+	printf(", size: %d, size wextra: %d, mem: %s\n",map->map_size, map->map_wextra_size, mem);
 	printf("\t\tsrc ptr: %X, src wextra ptr: %X, dev ptr: %X, dev wextra ptr: %X\n", map->map_source_ptr, map->map_source_wextra_ptr, map->map_dev_ptr, map->map_dev_wextra_ptr);
 }
 

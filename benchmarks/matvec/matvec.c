@@ -54,10 +54,10 @@ int main(int argc, char *argv[]) {
     if (argc >= 2) n = atoi(argv[1]);
     if (argc >= 3) matvec_mdev_v = atoi(argv[2]);
 
-    a = ((REAL *) (malloc(n * n * sizeof(REAL))));
-    x = ((REAL *) (malloc((n * sizeof(REAL)))));
+    a = ((REAL *) (omp_unified_malloc(n * n * sizeof(REAL))));
+    x = ((REAL *) (omp_unified_malloc((n * sizeof(REAL)))));
     y = ((REAL *) (malloc((n * sizeof(REAL)))));
-    y_ompacc = ((REAL *) (malloc((n * sizeof(REAL)))));
+    y_ompacc = ((REAL *) (omp_unified_malloc((n * sizeof(REAL)))));
 
     srand48(1 << 12);
     init(x, n);

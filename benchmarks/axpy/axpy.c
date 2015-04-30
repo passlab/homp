@@ -55,8 +55,8 @@ int main(int argc,char *argv[])
   if (argc >= 3)
     axpy_mdev_v = atoi(argv[2]);
   y = ((REAL *)(malloc((n * sizeof(REAL )))));
-  y_ompacc = ((REAL *)(malloc((n * sizeof(REAL )))));
-  x = ((REAL *)(malloc((n * sizeof(REAL )))));
+  y_ompacc = ((REAL *)(omp_unified_malloc((n * sizeof(REAL )))));
+  x = ((REAL *)(omp_unified_malloc((n * sizeof(REAL )))));
   srand48(1 << 12);
   init(x,n);
   init(y,n);

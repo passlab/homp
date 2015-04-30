@@ -121,8 +121,8 @@ int main(int argc, char * argv[]) {
 //	coeff_volumn = 4*radius+1;
     REAL * u = (REAL *)malloc(sizeof(REAL)* u_volumn);
 	REAL * u_omp = (REAL *)malloc(sizeof(REAL)* u_volumn);
-	REAL * u_omp_mdev = (REAL *)malloc(sizeof(REAL)* u_volumn);
-	REAL *coeff = (REAL *) malloc(sizeof(REAL)*coeff_volumn);
+	REAL * u_omp_mdev = (REAL *)omp_unified_malloc(sizeof(REAL)* u_volumn);
+	REAL *coeff = (REAL *) omp_unified_malloc(sizeof(REAL)*coeff_volumn);
 
 	srand(0);
 	init_array(u_volumn, u);
@@ -394,7 +394,7 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	long u_dimY = m + 2 * radius;
 	int coeff_dimX = 2*radius+1;
 	REAL * coeff_center = coeff + (2*radius+1) * radius + radius; /* let coeff point to the center element */
-	REAL *uold = (REAL *) malloc(sizeof(REAL) * u_dimX * u_dimY);
+	REAL *uold = (REAL *) omp_unified_malloc(sizeof(REAL) * u_dimX * u_dimY);
 	memcpy(uold, u, sizeof(REAL)*u_dimX * u_dimY);
 	//print_array("Before offloading", "u", u, u_dimX, u_dimY);
 
@@ -540,9 +540,6 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	omp_offloading_start(&__copy_data_off_info__, 0);
 	off_copyto_time = read_timer_ms() - off_copyto_time;
 //	printf("offloading from stencil now\n");
-//	omp_print_map_info(&__data_map_infos__[0]);
-//	omp_print_map_info(&__data_map_infos__[1]);
-//	omp_print_map_info(&__data_map_infos__[2]);
 	double off_kernel_time = read_timer_ms();
 	int total_its = 2;
 	int it;
@@ -553,11 +550,13 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	omp_offloading_start(&__copy_data_off_info__, 1);
 	off_copyfrom_time = read_timer_ms() - off_copyfrom_time;
 	double off_total = off_init_time + off_copyto_time + off_copyfrom_time + off_kernel_time;
-
 #if defined (OMP_BREAKDOWN_TIMING)
+	omp_print_map_info(&__data_map_infos__[0]);
+	omp_print_map_info(&__data_map_infos__[1]);
+	omp_print_map_info(&__data_map_infos__[2]);
+
 	omp_offloading_info_report_profile(&__copy_data_off_info__);
 	omp_offloading_info_report_profile(&__off_info__);
-
 	omp_offloading_info_t *infos[2];
 	infos[0] = &__copy_data_off_info__;
 	infos[1] = &__off_info__;

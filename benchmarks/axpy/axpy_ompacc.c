@@ -195,9 +195,10 @@ double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a) {
 	for (it=0; it<total_its; it++) {
 		omp_offloading_start(&__offloading_info__, it==total_its-1);
 	}
-
 	off_total = (read_timer_ms() - off_total)/total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
+	omp_print_map_info(&__data_map_infos__[0]);
+	omp_print_map_info(&__data_map_infos__[1]);
 	omp_offloading_info_report_profile(&__offloading_info__);
 #endif
 

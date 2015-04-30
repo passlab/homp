@@ -221,10 +221,10 @@ int main(int argc, char *argv[]) {
         dist_policy = 1;
     }
 
-    A = ((float *) (malloc(((n * n) * sizeof(float)))));
-    B = ((float *) (malloc(((n * n) * sizeof(float)))));
+    A = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
+    B = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
     C_seq = ((float *) (malloc(((n * n) * sizeof(float)))));
-    C_ompacc = ((float *) (malloc(((n * n) * sizeof(float)))));
+    C_ompacc = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
     srand48((1 << 12));
     init(A, n);
     init(B, n);
@@ -545,11 +545,14 @@ double matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int d
     int total_its = 20;
     for (it = 0; it < total_its; it++)
         omp_offloading_start(&__offloading_info__, it == total_its - 1);
-    omp_offloading_fini_info(&__offloading_info__);
     off_total = (read_timer_ms() - off_total) / total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
+    omp_print_map_info(&__data_map_infos__[0]);
+    omp_print_map_info(&__data_map_infos__[1]);
+    omp_print_map_info(&__data_map_infos__[2]);
 	omp_offloading_info_report_profile(&__offloading_info__);
 #endif
+    omp_offloading_fini_info(&__offloading_info__);
 
     off_total += ompacc_init_time;
     return off_total;

@@ -176,8 +176,8 @@ int main(int argc, char * argv[]) {
     REAL * u = (REAL *)malloc(sizeof(REAL)*n*m);
     REAL * f = (REAL *)malloc(sizeof(REAL)*n*m);
 
-    REAL *udev = (REAL *)malloc(sizeof(REAL)*n*m);
-    REAL *fdev = (REAL *)malloc(sizeof(REAL)*n*m);
+    REAL *udev = (REAL *)omp_unified_malloc(sizeof(REAL)*n*m);
+    REAL *fdev = (REAL *)omp_unified_malloc(sizeof(REAL)*n*m);
 
     REAL dx; /* grid spacing in x direction */
     REAL dy; /* grid spacing in y direction */

@@ -475,6 +475,16 @@ void omp_map_mapfrom_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
 		omp_map_memcpy_from_async((void*)map->map_source_wextra_ptr, (void*)map->map_dev_wextra_ptr, map->dev, map->map_wextra_size, stream); /* memcpy from host to device */
 }
 
+void * omp_unified_malloc(long size) {
+	void * ptr = NULL;
+#if defined (DEVICE_NVGPU_SUPPORT)
+	cudaMallocManaged(&ptr, size, 0);
+#endif
+	if (ptr == NULL) ptr = malloc(size);
+
+	return ptr;
+}
+
 void * omp_map_malloc_dev(omp_device_t * dev, long size) {
 	omp_device_type_t devtype = dev->type;
 	void * ptr = NULL;
