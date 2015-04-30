@@ -54,8 +54,8 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
     for (it = 0; it < num_its; it++) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
-			int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
-			int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);
+			dim3 threads_per_team(16, 16);
+			dim3 teams_per_league(len/threads_per_team.x, m/threads_per_team.y); /* we assume dividable */
             stencil2d_nvgpu_kernel<<<teams_per_league, threads_per_team, 0, off->stream->systream.cudaStream>>>
                 (start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
 		} else

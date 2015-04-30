@@ -8,35 +8,34 @@
 
 #include "xomp_cuda_lib_inlined.cu"
 
-#define LOOP_COLLAPSE 1
+//#define LOOP_COLLAPSE 1
 #if !LOOP_COLLAPSE
-__global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
-    long ix_lower, ix_upper;
-    XOMP_accelerator_loop_default(start_n, len_n, 1, &ix_lower, &ix_upper);
+
+__global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u,
+                                       REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
     long ix, iy, ir;
-    for (ix = ix_lower; iy <= ix_upper; ix++) {
-        if (!(ix>=start_n && ix<start_n+len_n)) continue;
-        for (iy = 0; iy < m; iy++) {
-            REAL *temp_u = &u[(ix + radius) * u_dimY + radius+iy];
-            REAL *temp_uold = &uold[(ix + radius) * u_dimY + radius+iy];
-            REAL result = temp_uold[0] * coeff[0];
-            /* 2/4 way loop unrolling */
-            for (ir = 1; ir <= radius; ir++) {
-                result += coeff[ir] * temp_uold[ir];                //horizontal right
-                result += coeff[-ir] * temp_uold[-ir];                  // horizontal left
-                result += coeff[-ir * coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up
-                result += coeff[ir * coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom
+    ix = blockIdx.y * blockDim.y + threadIdx.y;
+    iy = blockIdx.x * blockDim.x + threadIdx.x;
+
+    REAL *temp_u = &u[(ix + radius) * u_dimY + radius + iy];
+    REAL *temp_uold = &uold[(ix + radius) * u_dimY + radius + iy];
+    REAL result = temp_uold[0] * coeff[0];
+    /* 2/4 way loop unrolling */
+    for (ir = 1; ir <= radius; ir++) {
+        result += coeff[ir] * temp_uold[ir];                //horizontal right
+        result += coeff[-ir] * temp_uold[-ir];                  // horizontal left
+        result += coeff[-ir * coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up
+        result += coeff[ir * coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom
 #ifdef SQUARE_SETNCIL
-				result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
-				result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
-				result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir] // left bottom corner
-				result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
+		result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
+		result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
+		result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir] // left bottom corner
+		result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
-            }
-            *temp_u = result;
-        }
     }
+    *temp_u = result;
 }
+
 #else
 /* this works only for 1-d row-wise partition */
 __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
