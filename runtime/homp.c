@@ -1262,7 +1262,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 	int i;
 	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
 
-	char * mem = "SEPARATED";
+	char * mem = "COPY";
 	if (map->map_type == OMP_DATA_MAP_SHARED) {
 		mem = "SHARED";
 	}
