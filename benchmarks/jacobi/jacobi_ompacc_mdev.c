@@ -209,7 +209,7 @@ int main(int argc, char * argv[]) {
 
 	error_check(n, m, alpha, dx, dy, u, f);
 	free(u); free(f);
-	free(udev);free(fdev);
+	omp_unified_free(udev);omp_unified_free(fdev);
 	omp_fini_devices();
 
 	return 0;

@@ -383,6 +383,11 @@ int omp_init_devices() {
 			   dev->id, dev->sysid, omp_get_device_typename(dev), dev->name, dev->num_cores, mem_type, dev->total_real_flopss, dev->bandwidth,
 			   dev->latency);
 		//printf("\t\tstream dev: %s\n", dev->devstream.dev->name);
+		if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE && dev->type == OMP_DEVICE_NVGPU) {
+#if defined(DEVICE_NVGPU_UNIFIEDMEM)
+			printf("\t\tUnified Memory is Supported in the runtime, but this device is not set to use it. To use it, enable shared mem in the dev spec\n")
+#endif
+		}
 	}
 	printf("The device specifications can be provided by a spec file, or through system probing:\n");
 	printf("\tTo provide dev spec file, use OMP_DEV_SPEC_FILE variable\n");
@@ -481,13 +486,25 @@ void omp_map_mapfrom_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
 
 void * omp_unified_malloc(long size) {
 	void * ptr = NULL;
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPU_SUPPORT) && defined (DEVICE_NVGPU_UNIFIEDMEM)
 	cudaMallocManaged(&ptr, size, 0);
+#else
+	ptr = malloc(size);
 #endif
-	if (ptr == NULL) ptr = malloc(size);
-
 	return ptr;
 }
+void omp_unified_free(long size) {
+#if defined (DEVICE_NVGPU_SUPPORT) && defined (DEVICE_NVGPU_UNIFIEDMEM)
+	cudaFree(&ptr);
+#else
+	free(size);
+#endif
+	return;
+}
+
+void * omp_map_malloc_dev(omp_device_t * dev, long size) {
+	omp_device_type_t devtype = dev->type;
+	void * ptr = NULL;
 
 void * omp_map_malloc_dev(omp_device_t * dev, long size) {
 	omp_device_type_t devtype = dev->type;
