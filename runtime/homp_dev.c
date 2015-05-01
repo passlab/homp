@@ -493,18 +493,15 @@ void * omp_unified_malloc(long size) {
 #endif
 	return ptr;
 }
-void omp_unified_free(long size) {
+
+void omp_unified_free(void * ptr) {
 #if defined (DEVICE_NVGPU_SUPPORT) && defined (DEVICE_NVGPU_UNIFIEDMEM)
-	cudaFree(&ptr);
+	cudaFree(ptr);
 #else
-	free(size);
+	free(ptr);
 #endif
 	return;
 }
-
-void * omp_map_malloc_dev(omp_device_t * dev, long size) {
-	omp_device_type_t devtype = dev->type;
-	void * ptr = NULL;
 
 void * omp_map_malloc_dev(omp_device_t * dev, long size) {
 	omp_device_type_t devtype = dev->type;
@@ -870,7 +867,6 @@ void omp_event_record_stop(omp_event_t * ev) {
 	}
 	ev->recorded = 1;
 }
-
 
 static double omp_event_elapsed_ms_dev(omp_event_t * ev) {
 	omp_device_type_t devtype = ev->dev->type;

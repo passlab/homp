@@ -691,7 +691,7 @@ extern void omp_map_unmarshal(omp_data_map_t * map);
 extern void omp_map_free_dev(omp_device_t * dev, void * ptr);
 extern void * omp_map_malloc_dev(omp_device_t * dev, long size);
 extern void * omp_unified_malloc(long size);
-extern void omp_unified_free(long size);
+extern void omp_unified_free(void *ptr);
 extern void omp_map_mapto(omp_data_map_t * map);
 extern void omp_map_mapto_async(omp_data_map_t * map, omp_dev_stream_t * stream);
 extern void omp_map_mapfrom(omp_data_map_t * map);
