@@ -260,10 +260,10 @@ int main(int argc, char *argv[]) {
     printf("Performance:\t\tRuntime (ms)\t MFLOPS\n");
     printf("Sequential:\t\t%4f\t%4f\n", seq_elapsed, ((((2.0 * n) * n) * n) / (1.0e3 * seq_elapsed)));
     printf("OMPACC mdev:\t\t%4f\t%4f\n", ompacc_elapsed, ((((2.0 * n) * n) * n) / (1.0e3 * ompacc_elapsed)));
-    free(C_ompacc);
+    omp_unified_free(C_ompacc);
     free(C_seq);
-    free(B);
-    free(A);
+    omp_unified_free(B);
+    omp_unified_free(A);
     return 0;
 }
 

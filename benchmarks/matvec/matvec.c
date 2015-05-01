@@ -78,8 +78,8 @@ int main(int argc, char *argv[]) {
            omp_get_num_active_devices());
     printf("\t\t\t\t\t\t%4f\t%4f\n", omp_time, ompacc_time);
     free(y);
-    free(y_ompacc);
-    free(x);
-    free(a);
+    omp_unified_free(y_ompacc);
+    omp_unified_free(x);
+    omp_unified_free(a);
     return 0;
 }

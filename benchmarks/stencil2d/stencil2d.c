@@ -165,8 +165,8 @@ int main(int argc, char * argv[]) {
 
 	free(u);
 	free(u_omp);
-	free(u_omp_mdev);
-	free(coeff);
+	omp_unified_free(u_omp_mdev);
+	omp_unified_free(coeff);
 	omp_fini_devices();
 
 	return 0;

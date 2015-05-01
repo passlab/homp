@@ -71,8 +71,8 @@ int main(int argc,char *argv[])
   printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n",n,cksm,omp_get_num_active_devices());
   printf("\t\t\t\t\t\t%4f\t%4f\n",omp_time,ompacc_time);
   free(y);
-  free(y_ompacc);
-  free(x);
+  omp_unified_free(y_ompacc);
+  omp_unified_free(x);
   // I got 1.093e-09 
   //assert (cksm< 1.0e-07);
   return 0;
