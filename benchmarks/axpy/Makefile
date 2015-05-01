@@ -1,9 +1,16 @@
 TEST_INCLUDES = -I../../runtime -I../../util -I.
+#crill-102
 TEST_LINK = -L/usr/lib/gcc/x86_64-linux-gnu/4.8.2 -lgomp -lm -lrt -lpthread
+#gpu.sec
+TEST_LINK = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.6 -lgomp -lm -lrt -lpthread
 
 NVGPU_CUDA_PATH=/usr/local/cuda-5.5/
-NVGPU_CUDA_PATH=/APPS/cuda/include
+
+#crill-102
 NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
+
+#gpu.secs
+NVGPU_CUDA_PATH=/APPS/cuda
 
 all: axpy-thsim axpy-nvgpu
 
