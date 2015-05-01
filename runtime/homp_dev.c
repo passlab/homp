@@ -385,7 +385,7 @@ int omp_init_devices() {
 		//printf("\t\tstream dev: %s\n", dev->devstream.dev->name);
 		if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE && dev->type == OMP_DEVICE_NVGPU) {
 #if defined(DEVICE_NVGPU_UNIFIEDMEM)
-			printf("\t\tUnified Memory is Supported in the runtime, but this device is not set to use it. To use it, enable shared mem in the dev spec\n")
+			printf("\t\tUnified Memory is Supported in the runtime, but this device is not set to use it. To use it, enable shared mem in the dev spec\n");
 #endif
 		}
 	}
