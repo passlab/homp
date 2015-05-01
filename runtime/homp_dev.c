@@ -948,7 +948,7 @@ int omp_get_max_threads_per_team(omp_device_t * dev) {
 int omp_get_optimal_threads_per_team(omp_device_t * dev) {
 	int max = omp_get_max_threads_per_team(dev);
 	if (max == 1) return 1;
-	else return max/2;
+	else return max/4;
 }
 
 /**
