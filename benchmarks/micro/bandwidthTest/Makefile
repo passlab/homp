@@ -34,7 +34,8 @@
 ################################################################################
 
 # Location of the CUDA Toolkit
-CUDA_PATH ?= "/opt/NVIDIA/cuda-6.5"
+# CUDA_PATH ?= "/opt/NVIDIA/cuda-6.5"
+CUDA_PATH ?= "/APPS/cuda"
 
 OSUPPER = $(shell uname -s 2>/dev/null | tr "[:lower:]" "[:upper:]")
 OSLOWER = $(shell uname -s 2>/dev/null | tr "[:upper:]" "[:lower:]")
