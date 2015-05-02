@@ -6,7 +6,7 @@ NVGPU_CUDA_PATH=/APPS/cuda/include
 NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 
 default: matvec-thsim
-all: matvec-thsim matvec-nvgpu matvec-nvgpu-um
+all: matvec-thsim matvec-nvgpu matvec-nvgpu-vsharedm
 
 matvec-thsim:
 	gcc $(TEST_INCLUDES) -g -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 -fopenmp ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c matvec_ompacc.c matvec.c -c -w
@@ -17,8 +17,8 @@ matvec-nvgpu:
 	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  matvec_ompacc.cu matvec.c -c -w
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK} -w
 
-matvec-nvgpu-um:
-	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DDEVICE_NVGPU_UNIFIEDMEM=1  -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  matvec_ompacc.cu matvec.c -c -w
+matvec-nvgpu-vsharedm:
+	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DDEVICE_NVGPU_VSHAREDM=1  -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  matvec_ompacc.cu matvec.c -c -w
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK} -w
 
 clean:

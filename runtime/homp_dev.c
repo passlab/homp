@@ -384,7 +384,7 @@ int omp_init_devices() {
 			   dev->latency);
 		//printf("\t\tstream dev: %s\n", dev->devstream.dev->name);
 		if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE && dev->type == OMP_DEVICE_NVGPU) {
-#if defined(DEVICE_NVGPU_UNIFIEDMEM)
+#if defined(DDEVICE_NVGPU_VSHAREDM)
 			printf("\t\tUnified Memory is Supported in the runtime, but this device is not set to use it. To use it, enable shared mem in the dev spec\n");
 #endif
 		}
@@ -486,8 +486,15 @@ void omp_map_mapfrom_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
 
 void * omp_unified_malloc(long size) {
 	void * ptr = NULL;
-#if defined (DEVICE_NVGPU_SUPPORT) && defined (DEVICE_NVGPU_UNIFIEDMEM)
+#if defined (DEVICE_NVGPU_SUPPORT) && defined (DDEVICE_NVGPU_VSHAREDM)
+#if defined (DEVICE_NVGPU_CUDA_UNIFIEDMEM)
+	/* this is only for kepler and > 4.0 cuda rt */
 	cudaMallocManaged(&ptr, size, 0);
+#else
+	/* cuda zero-copy */
+	cudaHostAlloc(&ptr, size, cudaHostAllocPortable || cudaHostAllocMapped)
+#endif
+
 #else
 	ptr = malloc(size);
 #endif
@@ -495,8 +502,14 @@ void * omp_unified_malloc(long size) {
 }
 
 void omp_unified_free(void * ptr) {
-#if defined (DEVICE_NVGPU_SUPPORT) && defined (DEVICE_NVGPU_UNIFIEDMEM)
+#if defined (DEVICE_NVGPU_SUPPORT) && defined (DDEVICE_NVGPU_VSHAREDM)
+#if defined (DEVICE_NVGPU_CUDA_UNIFIEDMEM)
+	/* match cudaMallocManaged */
 	cudaFree(ptr);
+#else
+	/* cuda zero-copy */
+	cudaFreeHost(ptr);
+#endif
 #else
 	free(ptr);
 #endif

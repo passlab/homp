@@ -13,7 +13,7 @@ NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
 NVGPU_CUDA_PATH=/APPS/cuda
 
 default: axpy-thsim
-all: axpy-thsim axpy-nvgpu axpy-nvgpu-um
+all: axpy-thsim axpy-nvgpu axpy-nvgpu-vsharedm
 
 axpy-thsim:
 	gcc $(TEST_INCLUDES) -g -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 -fopenmp ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c axpy_ompacc.c axpy.c -c
@@ -24,8 +24,8 @@ axpy-nvgpu:
 	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  axpy_ompacc.cu axpy.c -c
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
-axpy-nvgpu-um:
-	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DDEVICE_NVGPU_UNIFIEDMEM=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  axpy_ompacc.cu axpy.c -c
+axpy-nvgpu-vsharedm:
+	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DDEVICE_NVGPU_VSHAREDM=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  axpy_ompacc.cu axpy.c -c
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 clean:
