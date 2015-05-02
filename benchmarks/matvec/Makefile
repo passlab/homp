@@ -22,5 +22,5 @@ matvec-nvgpu-um:
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK} -w
 
 clean:
-	rm -rf *.o matvec-thsim matvec-nvgpu
+	rm -rf *.o matvec-* *.plot core.* core
 

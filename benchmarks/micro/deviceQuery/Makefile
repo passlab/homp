@@ -34,7 +34,7 @@
 ################################################################################
 
 # Location of the CUDA Toolkit
-# CUDA_PATH ?= "/opt/NVIDIA/cuda-6.5"
+#CUDA_PATH ?= "/opt/NVIDIA/cuda-6.5"
 CUDA_PATH ?= "/APPS/cuda"
 
 OSUPPER = $(shell uname -s 2>/dev/null | tr "[:lower:]" "[:upper:]")
@@ -184,7 +184,7 @@ endif
 # Target rules
 all: build
 
-build: bandwidthTest
+build: deviceQuery
 
 check.deps:
 ifeq ($(SAMPLE_ENABLED),0)
@@ -193,19 +193,19 @@ else
 	@echo "Sample is ready - all dependencies have been met"
 endif
 
-bandwidthTest.o:bandwidthTest.cu
+deviceQuery.o:deviceQuery.cpp
 	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
 
-bandwidthTest: bandwidthTest.o
+deviceQuery: deviceQuery.o
 	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
 #	$(EXEC) mkdir -p ../../bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))
 #	$(EXEC) cp $@ ../../bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))
 
 run: build
-	$(EXEC) ./bandwidthTest
+	$(EXEC) ./deviceQuery
 
 clean:
-	rm -f bandwidthTest bandwidthTest.o
-#	rm -rf ../../bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))/bandwidthTest
+	rm -f deviceQuery deviceQuery.o
+#	rm -rf ../../bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))/deviceQuery
 
 clobber: clean

@@ -25,5 +25,5 @@ stencil2d-nvgpu-um:
 	nvcc $(CFLAGS) *.o -o $@ ${LDFLAGS}
 
 clean:
-	rm -rf *.o stencil2d-thsim stencil2d-nvgpu *.plot core
+	rm -rf *.o stencil2d-* *.plot core
 
