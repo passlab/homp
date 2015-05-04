@@ -139,29 +139,22 @@ void sort_launcher(omp_offloading_t *off, void *args) {
     printf("Inside launcher function \n");
     struct sort_args *argss = (struct sort_args *) args;
     long start_n, length_n;
-    int *bufferInt = argss->bufferInt;
 
     omp_data_map_t *map_bufferInt = omp_map_get_map(off, argss->bufferInt, -1);
 
     //LatLong *locations=(LatLong *)map_distances->map_dev_ptr;
-    bufferInt = (int *) map_bufferInt->map_dev_ptr;
+    int *bufferInt = (int *) map_bufferInt->map_dev_ptr;
 
     omp_loop_get_range(off, 0, &start_n, &length_n);
 
     omp_device_type_t devtype = off->dev->type;
-
-
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 	int threads_per_team =
 		omp_get_optimal_threads_per_team(off->dev);
-		int teams_per_league =
-		omp_get_optimal_teams_per_league(off->dev, threads_per_team,
-				length_n);
+		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team,	length_n);
 
-		sort <<< teams_per_league, threads_per_team, 0,
-		off->stream->systream.cudaStream >>> (start_n, length_n,bufferInt);
-
+		sort <<< teams_per_league, threads_per_team, 0,	off->stream->systream.cudaStream >>> (start_n, length_n,bufferInt);
 		fprintf("device type is GPU \n");
 	}
 	else
@@ -252,96 +245,71 @@ void sort_launcher(omp_offloading_t *off, void *args) {
 //sort_ompacc_mdev function
 REAL sort_ompacc_mdev(int *bufferInt) {
     printf("Inside sort_ompacc_mdev function \n");
-    double ompacc_time = read_timer_ms();
-    int __num_target_devices__ = omp_get_num_active_devices();
+    double ompacc_init_time = read_timer_ms();
 
-    omp_device_t *__target_devices__[__num_target_devices__];
-
-    int __i__;
-    for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-        __target_devices__[__i__] = &omp_devices[__i__];
-    }
     printf("Initializing grid \n");
-    omp_grid_topology_t __top__;
-    int __top_ndims__ = 1;
-    int __top_dims__[__top_ndims__];
-    int __top_periodic__[__top_ndims__];
-    int __id_map__[__num_target_devices__];
-    omp_grid_topology_init_simple(__num_target_devices__, __top_ndims__);
+    /* use all the devices */
+    int __num_targets__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
+    omp_grid_topology_t *__top__ = omp_grid_topology_init_simple(__num_targets__, 1);
+    /* init other infos (dims, periodic, idmaps) of top if needed */
 
+    int __num_maps__ = 1; /* XXX: need compiler output */
 
     printf("Before mapping array \n");
-    int __num_mapped_array__ = 1;
-    omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
-
-    omp_offloading_info_t __offloading_info__;
-    __offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
-    printf("Before defining structure \n");
     struct sort_args args;
     args.bufferInt = bufferInt;
 
-    __offloading_info__.per_iteration_profile.num_fp_operations = 1;
-    __offloading_info__.per_iteration_profile.num_load = 2;
-    __offloading_info__.per_iteration_profile.num_store = 1;
-    omp_dist_info_t loop_nest_dist[1];
+    omp_offloading_info_t *__off_info__ = omp_offloading_init_info("Sorting Kernel", __top__, 1,
+                                                                   OMP_OFFLOADING_DATA_CODE, __num_maps__,
+                                                                   sort_launcher, &args, 1);
+    /*TODO this profiles are incorrect */
+    omp_offloading_append_profile_per_iteration(__off_info__, 1, 2, 1);
 
     printf("Befor calling the launcher function \n");
-
-    omp_offloading_init_info("Sorting Kernel", &__top__, 1, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__,
-                             sort_launcher, &args, 1);
-
     //a for loop for multiple arrays
-    omp_data_map_info_t *__info__ = &__data_map_infos__[0];
-
-    long bufferInt_dims[1];
-    bufferInt_dims[0] = NUMBERS;
-
-    omp_data_map_t bufferInt_maps[__num_target_devices__];
-    omp_dist_info_t bufferInt_dist[1];
-
-    __info__ = &__data_map_infos__[1];
-    omp_data_map_init_info("bufferInt", __info__, &__offloading_info__, bufferInt, 1, sizeof(int *), OMP_DATA_MAP_TO,
-                           OMP_DATA_MAP_AUTO);
-
+    omp_data_map_info_t *__bufferInt_map_info__ = &__off_info__->data_map_info[0];
+    omp_data_map_init_info("bufferInt", __bufferInt_map_info__, __off_info__, bufferInt, 1, sizeof(int),
+                           OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO);
+    omp_data_map_info_set_dims_1d(__bufferInt_map_info__, NUMBERS);
 
     printf("Before defining mdev types \n");
     if (sort_mdev_v == 3) {
         printf("Entering sort_mdev_v \n");
-        omp_data_map_dist_init_info(&bufferInt_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
-        omp_align_dist_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-                            OMP_DIST_TARGET_DATA_MAP, 0);
+        omp_data_map_dist_init_info(__bufferInt_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
+        omp_loop_dist_align_with_data_map(__off_info__, 0, __bufferInt_map_info__, 0);
         printf("VERSION 3: BLOCK dist policy for distances and location\n");
         printf("Exited sort_mdev_v version 3 \n");
     } else if (sort_mdev_v == 4) {
-        omp_data_map_dist_init_info(&loop_nest_dist[0], 0, OMP_DIST_POLICY_AUTO, 0, NUMBERS, 0);
-        omp_align_dist_info(&bufferInt_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
-                            OMP_DIST_TARGET_LOOP_ITERATION, 0);
+        omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, NUMBERS, 0);
+        omp_data_map_dist_align_with_loop(__bufferInt_map_info__, 0, __off_info__, 0);
         printf("Version 4: Auto policy for loop and distances and location with loop dist \n");
     } else {
-        omp_data_map_dist_init_info(&bufferInt_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
-        omp_data_map_dist_init_info(&loop_nest_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
+        omp_data_map_dist_init_info(__bufferInt_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
+        omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
     }
 #if DEBUG_MSG
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
     /* here we do not need sync start */
     printf("before omp_offloading_start function \n");
-
+    ompacc_init_time = read_timer_ms() - ompacc_init_time;
+    double off_total = read_timer_ms();
     int it;
-    int total_its = 20;
+    int total_its = 1;
     for (it = 0; it < total_its; it++)
-        omp_offloading_start(&__offloading_info__, it == total_its - 1);
-    omp_offloading_fini_info(&__offloading_info__);
-    ompacc_time = read_timer_ms() - ompacc_time;
+        omp_offloading_start(__off_info__, it == total_its - 1);
+    off_total = (read_timer_ms() - off_total) / total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
-    printf("Before profiling thingy \n");
-	omp_offloading_info_report_profile(&__offloading_info__);
+    printf("Before profiling thing \n");
+    omp_print_map_info(__bufferInt_map_info__);
+	omp_offloading_info_report_profile(__off_info__);
 #endif
 
-    double cpu_total = ompacc_time;
+    omp_offloading_fini_info(__off_info__);
+    omp_grid_topology_fini(__top__);
+    off_total += ompacc_init_time;
     printf("After calculating cpu_total \n");
-    return cpu_total;
-
+    return off_total;
 }
 
 void radix_serial(int *bufferInt) {
