@@ -1,4 +1,4 @@
-TEST_INCLUDES = -I../../runtime -I../../util -I.
+TEST_INCLUDES = -I../../runtime -I../../util -I. 
 #crill-102
 TEST_LINK = -L/usr/lib/gcc/x86_64-linux-gnu/4.8.2 -lgomp -lm -lrt -lpthread
 #gpu.sec

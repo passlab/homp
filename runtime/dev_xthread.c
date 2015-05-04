@@ -11,9 +11,8 @@
  * master is just the thread that will store
  */
 void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_completion) {
-	omp_device_t ** targets = off_info->targets;
 	off_info->free_after_completion = free_after_completion;
-	int num_targets = off_info->top->nnodes;
+	omp_grid_topology_t * top = off_info->top;
     /* generate master trace file */
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -21,11 +20,12 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_comple
 #endif
 
 	int i;
-	for (i = 0; i < num_targets; i++) {
-		if (targets[i]->offload_request != NULL) {
-			fprintf(stderr, "device %d is not ready for answering your request, offloading_start: %X. It is a bug so far\n", targets[i]->id, off_info);
+	for (i = 0; i < top->nnodes; i++) {
+		omp_device_t * dev = &omp_devices[top->idmap[i]];
+		if (dev->offload_request != NULL) {
+			fprintf(stderr, "device %d is not ready for answering your request, offloading_start: %X. It is a bug so far\n", dev->id, off_info);
 		}
-		targets[i]->offload_request = off_info;
+		dev->offload_request = off_info;
 		//printf("offloading to device: %d, %X\n", i, off_info);
 		/* TODO: this is data race if multiple host threads try to offload to the same devices,
 		 * FIX is to use cas operation to update this field

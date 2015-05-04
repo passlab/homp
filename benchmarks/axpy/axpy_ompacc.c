@@ -114,78 +114,56 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 		abort();
 	}
 }
-
 int axpy_mdev_v = 2;
 double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a) {
 	double ompacc_init_time = read_timer_ms();
 
-	/* get number of target devices specified by the programmers */
-	int __num_target_devices__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
+	/* use all the devices */
+	int __num_targets__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
+	omp_grid_topology_t * __top__ = omp_grid_topology_init_simple(__num_targets__, 1);
+	/* init other infos (dims, periodic, idmaps) of top if needed */
 
-	omp_device_t *__target_devices__[__num_target_devices__];
-	/**TODO: compiler generated code or runtime call to init the __target_devices__ array */
-	int __i__;
-	for (__i__ = 0; __i__ < __num_target_devices__; __i__++) {
-		__target_devices__[__i__] = &omp_devices[__i__]; /* currently this is simple a copy of the pointer */
-	}
+	int __num_maps__ = 2; /* XXX: need compiler output */
 
-	/**TODO: compiler generated code or runtime call to init the topology, topology(top1[4][4])  4x4 topology named top1 */
-	omp_grid_topology_t __top__;
-	int __top_ndims__ = 1;
-	int __top_dims__[__top_ndims__];
-	int __top_periodic__[__top_ndims__];
-	int __id_map__[__num_target_devices__];
-	omp_grid_topology_init_simple (&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__, __top_periodic__, __id_map__);
-
-	int __num_mapped_array__ = 2; /* XXX: need compiler output */
-	omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
-
-	omp_offloading_info_t __offloading_info__;
-	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
+	/* we use universal args and launcher because axpy can do it */
 	struct OUT__3__5904__other_args args;
 	args.a = a;
 	args.n = n;
 	args.x = x;
 	args.y = y;
-	__offloading_info__.per_iteration_profile.num_fp_operations = 1;
-	__offloading_info__.per_iteration_profile.num_load = 2;
-	__offloading_info__.per_iteration_profile.num_store = 1;
-	omp_dist_info_t loop_nest_dist[1];
-	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info("axpy kernel", &__offloading_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args, loop_nest_dist, 1);
+	omp_offloading_info_t *__off_info__ = omp_offloading_init_info("axpy kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
+																   __num_maps__, OUT__3__5904__launcher, &args, 1);
+	omp_offloading_append_profile_per_iteration(__off_info__, 2, 1, 1);
 
-	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	long x_dims[1]; x_dims[0] = n;
-	omp_data_map_t x_maps[__num_target_devices__];
-	omp_dist_info_t x_dist[1];
-	omp_data_map_init_info("x", __info__, &__offloading_info__, x, 1, x_dims, sizeof(REAL), x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist);
+	omp_data_map_info_t *__x_map_info__ = &__off_info__->data_map_info[0];
+	omp_data_map_init_info("x", __x_map_info__, __off_info__, x, 1, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
+	omp_data_map_info_set_dims_1d(__x_map_info__, n);
 
-	__info__ = &__data_map_infos__[1];
-	long y_dims[1]; y_dims[0] = n;
-	omp_data_map_t y_maps[__num_target_devices__];
-	omp_dist_info_t y_dist[1];
-	omp_data_map_init_info("y", __info__, &__offloading_info__, y, 1, y_dims, sizeof(REAL), y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist);
+	omp_data_map_info_t *__y_map_info__ = &__off_info__->data_map_info[1];
+	omp_data_map_init_info("y", __y_map_info__, __off_info__, y, 1, sizeof(REAL), OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO);
+	omp_data_map_info_set_dims_1d(__y_map_info__, n);
 
 	if (axpy_mdev_v == 3) { /* version 3 */
-		omp_dist_init_info(&x_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&y_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0], OMP_DIST_TARGET_DATA_MAP, 0);
+		omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		//omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		omp_data_map_dist_align_with_data_map(__y_map_info__, 0, __x_map_info__, 0);
+		omp_loop_dist_align_with_data_map(__off_info__, 0, __x_map_info__, 0);
 		printf("version 3: BLOCK dist policy for x and y, and loop dist aligns with x\n");
 	} else if (axpy_mdev_v == 4) {/* version 4 */
-		omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_AUTO, 0, n, 0);
-		omp_align_dist_init_info(&x_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__, OMP_DIST_TARGET_LOOP_ITERATION, 0);
-		omp_align_dist_init_info(&y_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__, OMP_DIST_TARGET_LOOP_ITERATION, 0);
+		omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0);
+		omp_data_map_dist_align_with_loop(__x_map_info__, 0, __off_info__, 0);
+		omp_data_map_dist_align_with_loop(__y_map_info__, 0, __off_info__, 0);
 		printf("version 4: AUTO dist policy for loop, and x and y align with loop dist\n");
 	} else { /* default, version 2, block */
-		omp_dist_init_info(&x_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&y_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
 		printf("version 2: BLOCK dist policy for x, y, and loop\n");
 	}
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
-	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
+	 printf("=========================================== offloading to %d targets ==========================================\n", __num_targets__);
 #endif
 	ompacc_init_time = read_timer_ms() - ompacc_init_time;
 	//  printf("init time: %fs\n", ompacc_init_time);
@@ -193,75 +171,20 @@ double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a) {
 	double off_total = read_timer_ms();
 	int it; int total_its = 20;
 	for (it=0; it<total_its; it++) {
-		omp_offloading_start(&__offloading_info__, it==total_its-1);
+		omp_offloading_start(__off_info__, it==total_its-1);
 	}
 	off_total = (read_timer_ms() - off_total)/total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
-	omp_print_map_info(&__data_map_infos__[0]);
-	omp_print_map_info(&__data_map_infos__[1]);
-	omp_offloading_info_report_profile(&__offloading_info__);
+	omp_print_map_info(__x_map_info__);
+	omp_print_map_info(__y_map_info__);
+	omp_offloading_info_report_profile(__off_info__);
 #endif
 
-	omp_offloading_fini_info(&__offloading_info__);
+	omp_offloading_fini_info(__off_info__);
+	omp_grid_topology_fini(__top__);
 	off_total += ompacc_init_time;
 	return off_total;
 }
 
-#if 0
-/* meant to simply the one-device offloading interface, may come back to this later */
-double axpy_ompacc_1dev(REAL *x, REAL *y,  long n,REAL a)
-{
-	double ompacc_time = read_timer_ms(); //read_timer_ms();
-
-	int __num_mapped_array__ = 2; /* XXX: need compiler output */
-	omp_data_map_info_t __data_map_infos__[__num_mapped_array__];
-
-	omp_offloading_info_t __offloading_info__;
-	__offloading_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t));
-	struct OUT__3__5904__other_args args;
-	args.a = a;
-	args.n = n;
-	args.x = x;
-	args.y = y;
-	__offloading_info__.per_iteration_profile.num_fp_operations = 1;
-	__offloading_info__.per_iteration_profile.num_load = 2;
-	__offloading_info__.per_iteration_profile.num_store = 1;
-	omp_dist_info_t loop_nest_dist[1];
-	/* we use universal args and launcher because axpy can do it */
-	//omp_offloading_init_info("axpy kernel", &__offloading_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__, __data_map_infos__, OUT__3__5904__launcher, &args, loop_nest_dist, 1);
-
-	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
-	long x_dims[1]; x_dims[0] = n;
-	omp_data_map_t x_maps;
-	omp_dist_info_t x_dist[1];
-	omp_data_map_init_info("x", __info__, &__offloading_info__, x, 1, x_dims, sizeof(REAL), &x_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, x_dist);
-
-	__info__ = &__data_map_infos__[1];
-	long y_dims[1]; y_dims[0] = n;
-	omp_data_map_t y_maps;
-	omp_dist_info_t y_dist[1];
-	omp_data_map_init_info("y", __info__, &__offloading_info__, y, 1, y_dims, sizeof(REAL), &y_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, y_dist);
-
-	/*********** NOW notifying helper thread to work on this offload ******************/
-#if DEBUG_MSG
-	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
-#endif
-	/* here we do not need sync start */
-	int it; int total_its = 20;
-	for (it=0; it<total_its; it++) {
-		omp_offloading_start(&__offloading_info__, it==total_its-1);
-	}
-
-	omp_offloading_fini_info(&__offloading_info__);
-	ompacc_time = (read_timer_ms() - ompacc_time)/total_its;
-#if defined (OMP_BREAKDOWN_TIMING)
-	omp_offloading_info_report_profile(&__offloading_info__);
-#endif
-
-	double cpu_total = ompacc_time;
-	return cpu_total;
-}
-
-#endif
 
 

@@ -108,32 +108,53 @@ void omp_map_free(omp_offloading_t *off) {
 	}
 }
 
-void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp_grid_topology_t *top, omp_device_t **targets,
-		int recurring, omp_offloading_type_t off_type, int num_mapped_vars, omp_data_map_info_t *data_map_info,
-		void (*kernel_launcher)(omp_offloading_t *, void *), void *args, omp_dist_info_t *loop_nest_dist, int loop_nest_depth) {
+/* we use as minimum malloc as posibble, so the mem layout is as follows:
+ * -----------------------------------------
+ * offloading_info_t[1]
+ * omp_data_map_info[num_maps]
+ * omp_offloading_t[num_targets]
+ * omp_data_map_t[num_maps][num_targets]
+ * -----------------------------------------
+ */
+omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topology_t *top, int recurring,
+												 omp_offloading_type_t off_type, int num_maps,
+												 void (*kernel_launcher)(omp_offloading_t *, void *), void *args,
+												 int loop_nest_depth) {
+	int total_size = sizeof(omp_offloading_info_t) + num_maps*sizeof(omp_data_map_info_t) +
+					 top->nnodes * sizeof(omp_offloading_t) + sizeof(struct omp_data_map)*num_maps*top->nnodes;
+	char * buffer = calloc(total_size, sizeof(char));
+	omp_offloading_info_t * info = (omp_offloading_info_t*) buffer;
+	info->data_map_info = (omp_data_map_info_t*)&buffer[sizeof(omp_offloading_info_t)];
+	info->offloadings = (omp_offloading_t*) &buffer[sizeof(omp_offloading_info_t) +
+													num_maps*sizeof(omp_data_map_info_t)];
+	omp_data_map_t * maps = (omp_data_map_t*) &buffer[sizeof(omp_offloading_info_t) +
+													  num_maps*sizeof(omp_data_map_info_t) + top->nnodes  * sizeof(omp_offloading_t)];
+
+	int i;
+	int offsetofmaps = 0;
+	for (i=0; i<num_maps; i++) {
+		info->data_map_info[i].maps = &maps[offsetofmaps];
+		offsetofmaps += top->nnodes;
+	}
 	info->name = name;
 	info->top = top;
-	info->targets = targets;
 	info->count = recurring == 0? 0 : 1;
 	info->type = off_type;
 	if (off_type == OMP_OFFLOADING_DATA) { /* we handle offloading data as two steps, thus a recurruing offloading */
 		info->count = 1;
 	}
-	info->num_mapped_vars = num_mapped_vars;
-	info->data_map_info = data_map_info;
+	info->num_mapped_vars = num_maps;
 	info->kernel_launcher = kernel_launcher;
 	info->args = args;
 	info->halo_x_info = NULL;
 	info->start_time = 0;
-	info->loop_dist_info = loop_nest_dist;
 	info->loop_depth = loop_nest_depth;
 
-	memset(info->offloadings, NULL, sizeof(omp_offloading_t)*top->nnodes);
-	int i;
+	//memset(info->offloadings, NULL, sizeof(omp_offloading_t)*top->nnodes);
 	/* we move the off initialization from each device thread here, i.e. we serialized this */
 	for (i=0; i<top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
-		omp_device_t * dev = targets[i];
+		omp_device_t * dev = &omp_devices[top->idmap[i]];
 		off->devseqid = i;
 		off->dev = dev;
 #if defined USING_PER_OFFLOAD_STREAM
@@ -149,6 +170,14 @@ void omp_offloading_init_info(const char *name, omp_offloading_info_t *info, omp
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 	pthread_barrier_init(&info->inter_dev_barrier, NULL, top->nnodes);
+	return info;
+}
+
+void omp_offloading_append_profile_per_iteration(omp_offloading_info_t *info, long num_fp_operations, long num_loads,
+												 long num_stores) {
+	info->per_iteration_profile.num_fp_operations = num_fp_operations;
+	info->per_iteration_profile.num_load = num_loads;
+	info->per_iteration_profile.num_store = num_stores;
 }
 
 void omp_offloading_fini_info(omp_offloading_info_t * info) {
@@ -161,6 +190,7 @@ void omp_offloading_fini_info(omp_offloading_info_t * info) {
 		free(off->events);
 	}
 #endif
+	free(info);
 }
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -388,15 +418,16 @@ void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp
 	info->num_maps_halo_x = num_maps_halo_x;
 }
 
-void omp_offloading_standalone_data_exchange_init_info(const char * name, omp_offloading_info_t * info,
-		omp_grid_topology_t * top, omp_device_t **targets, int recurring, int num_mapped_vars, omp_data_map_info_t * data_map_info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x ) {
+/**TODO this is incorrect now as we are using new mem management for off_info */
+void omp_offloading_standalone_data_exchange_init_info(const char *name, omp_offloading_info_t *info,
+                                                       omp_grid_topology_t *top, int recurring, int num_maps,
+                                                       omp_data_map_halo_exchange_info_t *halo_x_info,
+                                                       int num_maps_halo_x) {
 	info->name = name;
 	info->top = top;
-	info->targets = targets;
 	info->count = recurring == 0? 0 : 1;
 	info->type = OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE;
-	info->num_mapped_vars = num_mapped_vars;
-	info->data_map_info = data_map_info;
+	info->num_mapped_vars = num_maps;
 	info->halo_x_info = halo_x_info;
 	info->num_maps_halo_x = num_maps_halo_x;
 
@@ -413,9 +444,8 @@ char * omp_get_device_typename(omp_device_t * dev) {
 
 // Initialize data_map_info
 void omp_data_map_init_info(const char *symbol, omp_data_map_info_t *info, omp_offloading_info_t *off_info,
-							void *source_ptr, int num_dims, long *dims, int sizeof_element,
-							omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type,
-							omp_dist_info_t *dist) {
+                            void *source_ptr, int num_dims, int sizeof_element, omp_data_map_direction_t map_direction,
+                            omp_data_map_type_t map_type) {
 	if (num_dims > 3) {
 		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
 		exit(1);
@@ -424,13 +454,11 @@ void omp_data_map_init_info(const char *symbol, omp_data_map_info_t *info, omp_o
 	info->off_info = off_info;
 	info->source_ptr = source_ptr;
 	info->num_dims = num_dims;
-	info->dims = dims;
-	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * off_info->top->nnodes);
+	//memset(info->maps, 0, sizeof(omp_data_map_t) * off_info->top->nnodes);
 	info->map_direction = map_direction;
 	info->map_type = map_type;
-	info->halo_info = NULL;
+	info->num_halo_dims = 0;
 	info->sizeof_element = sizeof_element;
-	info->dist = dist;
 #if ENABLE_DIST_TARGET_INFO
 	int i;
 	for (i=0; i<num_dims; i++) {
@@ -441,73 +469,133 @@ void omp_data_map_init_info(const char *symbol, omp_data_map_info_t *info, omp_o
 #endif
 }
 
-void omp_data_map_init_info_with_halo(const char *symbol, omp_data_map_info_t *info, omp_offloading_info_t *off_info,
-									  void *source_ptr, int num_dims, long *dims, int sizeof_element,
-									  omp_data_map_t *maps, omp_data_map_direction_t map_direction,
-									  omp_data_map_type_t map_type, omp_dist_info_t *dist,
-									  omp_data_map_halo_region_info_t *halo_info) {
-	if (num_dims > 3) {
-		fprintf(stderr, "%d dimension array is not supported in this implementation!\n", num_dims);
-		exit(1);
-	}
-	int i;
-	for (i=0; i<num_dims; i++) {
-		halo_info[i].left = 0;
-		halo_info[i].right = 0;
-		halo_info[i].edging = OMP_DIST_HALO_EDGING_NOHALO;
-		halo_info[i].topdim = -1;
-	}
-	info->symbol = symbol;
-	info->off_info = off_info;
-	info->source_ptr = source_ptr;
-	info->num_dims = num_dims;
-	info->dims = dims;
-	info->maps = maps; memset(maps, 0, sizeof(omp_data_map_t) * off_info->top->nnodes);
-	info->map_direction = map_direction;
-	info->map_type = map_type;
-	info->dist = dist;
-	info->sizeof_element = sizeof_element;
-	info->halo_info = halo_info;
+void omp_data_map_info_set_dims_1d(omp_data_map_info_t * info, long dim0) {
+	info->dims[0] = dim0;
 }
 
-void omp_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, long start, long length, int topdim) {
+void omp_data_map_info_set_dims_2d(omp_data_map_info_t * info, long dim0, long dim1) {
+	info->dims[0] = dim0;
+	info->dims[1] = dim1;
+}
+void omp_data_map_info_set_dims_3d(omp_data_map_info_t * info, long dim0, long dim1, long dim2) {
+	info->dims[0] = dim0;
+	info->dims[1] = dim1;
+	info->dims[2] = dim2;
+}
+
+
+void omp_init_dist_info(omp_dist_info_t * dist_info, omp_dist_policy_t dist_policy, long start,
+						long length, int topdim) {
 	dist_info->start = start;
 	dist_info->length = length;
 	dist_info->policy = dist_policy;
 	dist_info->dim_index = topdim;
 }
 
-void omp_align_dist_init_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, void * alignee, omp_dist_target_type_t alignee_type, int alignee_dim) {
-	dist_info->policy = dist_policy; /* TODO assert dist_type == OMP_DIST_POLICY_ALIGN */
-	dist_info->alignee_type = alignee_type;
-	if (alignee_type == OMP_DIST_TARGET_DATA_MAP) {
-		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
-	} else if (alignee_type == OMP_DIST_TARGET_LOOP_ITERATION) {
-		dist_info->alignee.loop_iteration = (omp_offloading_info_t*) alignee;
-	} else { /*TODO: error should be reported */
-		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
-	}
-	dist_info->dim_index = alignee_dim;
+
+void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dist_policy_t dist_policy, long start,
+								 long length, int topdim) {
+	omp_dist_info_t * dist_info = &map_info->dist_info[dim];
+	omp_init_dist_info(dist_info, dist_policy, start, length, topdim);
 }
 
-/* the dist is straight, i.e.
- * 1. the number of array dimensions is the same as or less than the number of the topology dimensions
- * 2. the full range in each dimension of the array is distributed to the corresponding dimension of the topology
- * 3. the distribution type is the same for all dimensions
- */
-void omp_data_map_init_info_straight_dist(const char *symbol, omp_data_map_info_t *info, omp_grid_topology_t *top, void *source_ptr, int num_dims, long *dims, int sizeof_element,
-		omp_data_map_t *maps, omp_data_map_direction_t map_direction, omp_data_map_type_t map_type, omp_dist_info_t *dist, omp_dist_policy_t dist_policy) {
-	int i;
-	for (i=0; i<num_dims; i++) {
-		dist[i].start = 0;
-		dist[i].length = dims[i];
-		dist[i].policy = dist_policy;
-		dist[i].dim_index = i;
-	}
-
-	omp_data_map_init_info(symbol, info, top, source_ptr, num_dims, dims, sizeof_element, maps, map_direction, map_type, dist);
+void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy, long start,
+							 long length, int topdim) {
+	omp_dist_info_t * dist_info = &off_info->loop_dist_info[level];
+	omp_init_dist_info(dist_info, dist_policy, start, length, topdim);
 }
 
+/* to align one data map with another data map, if dim>=0, align a specific dim, if dim<0, align all the dims */
+void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, omp_data_map_info_t *alignee,
+										   int alignee_dim) {
+	if (dim >= 0) {
+		omp_dist_info_t *dist_info = &map_info->dist_info[dim];
+		dist_info->policy = OMP_DIST_POLICY_ALIGN;
+		dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
+		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
+		dist_info->dim_index = alignee_dim;
+	} else { /* for all the dimensions that will be aligned */
+		int i;
+		for (i=0; i<map_info->num_dims;i++) {
+			omp_dist_info_t *dist_info = &map_info->dist_info[i];
+			dist_info->policy = OMP_DIST_POLICY_ALIGN;
+			dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
+			dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
+			dist_info->dim_index = i;
+		}
+	}
+}
+
+/* to align one data map with another data map, if dim>=0, align a specific dim, if dim<0, align all the dims */
+void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, omp_data_map_info_t *alignee, int alignee_dim) {
+	if (dim >= 0) {
+		omp_dist_info_t *dist_info = &map_info->dist_info[dim];
+		dist_info->policy = OMP_DIST_POLICY_ALIGN;
+		dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
+		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
+		dist_info->dim_index = alignee_dim;
+		if (alignee->num_halo_dims) {
+			omp_data_map_halo_region_info_t * halo_info = &alignee->halo_info[alignee_dim];
+			omp_map_add_halo_region(map_info, dim, halo_info->left, halo_info->right, halo_info->edging);
+		}
+	} else { /* for all the dimensions that will be aligned */
+		int i;
+		for (i=0; i<map_info->num_dims;i++) {
+			omp_dist_info_t *dist_info = &map_info->dist_info[i];
+			dist_info->policy = OMP_DIST_POLICY_ALIGN;
+			dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
+			dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
+			dist_info->dim_index = i;
+			if (alignee->num_halo_dims) {
+				omp_data_map_halo_region_info_t * halo_info = &alignee->halo_info[i];
+				omp_map_add_halo_region(map_info, i, halo_info->left, halo_info->right, halo_info->edging);
+			}
+		}
+	}
+}
+
+void omp_data_map_dist_align_with_loop(omp_data_map_info_t *map_info, int dim, omp_offloading_info_t *alignee,
+									   int alignee_level) {
+	if (dim >=0) {
+		omp_dist_info_t *dist_info = &map_info->dist_info[dim];
+		dist_info->policy = OMP_DIST_POLICY_ALIGN;
+		dist_info->alignee_type = OMP_DIST_TARGET_LOOP_ITERATION;
+		dist_info->alignee.loop_iteration = (omp_offloading_info_t *) alignee;
+		dist_info->dim_index = alignee_level;
+	} else {
+		/* we only handle one-level loop nest now */
+		abort();
+	}
+}
+
+void omp_loop_dist_align_with_data_map(omp_offloading_info_t * loop_off_info, int level, omp_data_map_info_t * alignee, int alignee_dim) {
+	if (level >=0 ) {
+		omp_dist_info_t *dist_info = &loop_off_info->loop_dist_info[level];
+		dist_info->policy = OMP_DIST_POLICY_ALIGN;
+		dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
+		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
+		dist_info->dim_index = alignee_dim;
+	} else {
+		/* we only handle one-level loop nest now */
+		abort();
+	}
+}
+
+void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level, omp_offloading_info_t *alignee,
+								   int alignee_level) {
+	if (level >=0 ) {
+		omp_dist_info_t *dist_info = &loop_off_info->loop_dist_info[level];
+		dist_info->policy = OMP_DIST_POLICY_ALIGN;
+		dist_info->alignee_type = OMP_DIST_TARGET_LOOP_ITERATION;
+		dist_info->alignee.loop_iteration = (omp_offloading_info_t *) alignee;
+		dist_info->dim_index = alignee_level;
+	} else {
+		/* we only handle one-level loop nest now */
+		abort();
+	}
+}
+
+/*
 int omp_data_map_has_halo(omp_data_map_info_t * info, int dim) {
 	if (info->halo_info == NULL) return 0;
 	if (info->halo_info[dim].left == 0 && info->halo_info[dim].right == 0) return 0;
@@ -523,6 +611,8 @@ int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim) {
 	if (omp_data_map_has_halo(map->info, dim) == 0) return -1;
 	return (map->halo_mem[dim].right_dev_seqid);
 }
+
+*/
 
 static omp_data_map_t * omp_map_get_map_from_cache (omp_offloading_t *off, void * host_ptr) {
 	int i;
@@ -619,12 +709,12 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 	return map;
 }
 
-void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left, int right,
-							 omp_dist_halo_edging_type_t edging) {
+void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left, int right, omp_dist_halo_edging_type_t edging) {
+	info->num_halo_dims++;
 	info->halo_info[dim].left = left;
 	info->halo_info[dim].right = right;
 	info->halo_info[dim].edging = edging;
-	info->halo_info[dim].topdim = info->dist[dim].dim_index;
+	info->halo_info[dim].topdim = info->dist_info[dim].dim_index;
 }
 
 /**
@@ -828,7 +918,7 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 			int num_aligned_dims = 0;
 			int j;
 			for (j = 0; j < map_info->num_dims; j++) { /* process each dimension */
-				omp_dist_info_t *andist_info = &map_info->dist[j];
+				omp_dist_info_t *andist_info = &map_info->dist_info[j];
 				omp_dist_t * map_dist = &map->map_dist[j];
 				if (andist_info->policy != OMP_DIST_POLICY_ALIGN) { /* all non-auto distribution dimension, we will just do it */
 					omp_dist(andist_info, map_dist, top, coords, seqid, map, OMP_DIST_TARGET_DATA_MAP);
@@ -960,7 +1050,7 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 	long mt_wextra_from0 = 1;
 
 	for (i = map_info->num_dims-1; i>=0; i--) { /* process each dimension */
-		omp_dist_info_t *dist_info = &map_info->dist[i];
+		omp_dist_info_t *dist_info = &map_info->dist_info[i];
 		map->map_dist[i].info = dist_info;
 
 		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, map, OMP_DIST_TARGET_DATA_MAP);
@@ -978,7 +1068,7 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 			map->mem_noncontiguous = 1;
 		}
 
-		if (map_info->halo_info != NULL) {
+		if (map_info->num_halo_dims) {
 			omp_data_map_halo_region_info_t *halo = &map_info->halo_info[i];
 
 			/* handle halo region  */
@@ -1176,7 +1266,7 @@ void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
 	/*********************************************************************************************************************************************************/
 
 	/* TODO: so far, we only handle row-wise halo region in the first dimension of an array, i.e. contiginous memory space */
-	if (map_info->halo_info != NULL) {
+	if (map_info->num_halo_dims) {
 		/* TODO: assert map->map_size != map->map_wextra_size; */
 		if (map->mem_noncontiguous) {
 			printf("So far, we only handle row-wise halo region in the first dimension of an array\n");
@@ -1198,7 +1288,7 @@ void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
 		//printf("dev: %d, halo left in size: %d, left in ptr: %X, left out size: %d, left out ptr: %X\n", off->devseqid,
 		//	   halo_mem->left_in_size,halo_mem->left_in_ptr,halo_mem->left_out_size,halo_mem->left_out_ptr);
 		if (halo_mem->left_dev_seqid >= 0) {
-			omp_device_t *leftdev = off->off_info->targets[halo_mem->left_dev_seqid];
+			omp_device_t *leftdev = &omp_devices[top->idmap[halo_mem->left_dev_seqid]];
 			if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
 				/** FIXME, mem leak here and we have not thought where to free */
 				halo_mem->left_in_host_relay_ptr = (char *) malloc(halo_mem->left_in_size);
@@ -1219,7 +1309,7 @@ void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
 		//printf("dev: %d, halo right in size: %d, right in ptr: %X, right out size: %d, right out ptr: %X\n", off->devseqid,
 		//	   halo_mem->right_in_size,halo_mem->right_in_ptr,halo_mem->right_out_size,halo_mem->right_out_ptr);
 		if (halo_mem->right_dev_seqid >= 0) {
-			omp_device_t *rightdev = off->off_info->targets[halo_mem->right_dev_seqid];
+			omp_device_t *rightdev = &omp_devices[top->idmap[halo_mem->right_dev_seqid]];
 			if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
 				/** FIXME, mem leak here and we have not thought where to free */
 				halo_mem->right_in_host_relay_ptr = (char *) malloc(halo_mem->right_in_size);
@@ -1243,7 +1333,7 @@ void omp_print_map_info(omp_data_map_info_t * info) {
 	printf("MAPS for %s", info->symbol);
 	for (i=0; i<info->num_dims;i++) printf("[%d]", info->dims[i]);
 	printf(", ");
-	if (info->halo_info != NULL) {
+	if (info->num_halo_dims) {
 		printf("halo");
 		omp_data_map_halo_region_info_t * halo_info = info->halo_info;
 		for (i=0; i<info->num_dims;i++) printf("[%d|%d]", halo_info[i].left, halo_info[i].right);
@@ -1260,7 +1350,8 @@ void omp_print_data_map(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
 	printf("dev %d(%s), ", map->dev->id, omp_get_device_typename(map->dev));
 	int i;
-	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
+	//for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
+	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].length);
 
 	char * mem = "COPY";
 	if (map->map_type == OMP_DATA_MAP_SHARED) {
@@ -1510,31 +1601,39 @@ int omp_grid_topology_get_seqid(omp_grid_topology_t * top, int devid) {
 }
 
 /**
- * simple and common topology setup, i.e. devid is from 0 to n-1
- *
+ * simple and common topology setup, i.e. devid is from 0 to nnodes-1
  */
-void omp_grid_topology_init_simple (omp_grid_topology_t * top, omp_device_t **devs, int nnodes, int ndims, int *dims, int *periodic, int * idmap) {
+omp_grid_topology_t * omp_grid_topology_init_simple(int nnodes, int ndims) {
+	/* idmaps array is right after the object in mem */
+	omp_grid_topology_t * top = (omp_grid_topology_t*) malloc(sizeof(omp_grid_topology_t)+ sizeof(int)*nnodes);
+	top->nnodes = nnodes;
+	top->ndims = ndims;
+	top->idmap = (int*)&top[1];
+	omp_factor(nnodes, top->dims, ndims);
 	int i;
-	omp_factor(nnodes, dims, ndims);
 	for (i=0; i<ndims; i++) {
-		periodic[i] = 0;
+		top->periodic[i] = 0;
 	}
 
 	for (i=0; i<nnodes; i++) {
-		idmap[i] = devs[i]->id;
+		top->idmap[i] = omp_devices[i].id;
 	}
-	top->nnodes = nnodes;
-	top->ndims = ndims;
-	top->dims = dims;
-	top->periodic = periodic;
-	top->idmap = idmap;
+	return top;
+}
+
+void omp_grid_topology_fini(omp_grid_topology_t * top) {
+	free(top);
 }
 
 void omp_topology_print(omp_grid_topology_t * top) {
 	printf("top: %X (%d): ", top, top->nnodes);
 	int i;
 	for(i=0; i<top->ndims; i++)
-		printf("%d ", top->dims[i]);
+		printf("[%d]", top->dims[i]);
+	printf("\n");
+	for (i=0; i<top->nnodes; i++) {
+		printf("%d->%d\n", i, top->idmap[i]);
+	}
 	printf("\n");
 }
 

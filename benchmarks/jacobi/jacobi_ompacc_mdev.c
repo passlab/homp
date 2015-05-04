@@ -811,7 +811,7 @@ loop1:for (i=0;i<n;i++) {
   	int __top_dims__[__top_ndims__ ];
   	int __top_periodic__[__top_ndims__ ];
   	int __id_map__[__num_target_devices__ ];
-  	omp_grid_topology_init_simple(&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__,__top_periodic__, __id_map__);
+	omp_grid_topology_init_simple(__num_target_devices__, __top_ndims__);
 
   	int __num_mapped_array__ = 3; /* XXX: need compiler output */
   	omp_data_map_info_t __data_map_infos__[__num_mapped_array__ ];
@@ -819,7 +819,7 @@ loop1:for (i=0;i<n;i++) {
 	omp_offloading_info_t __copy_data_off_info__;
 	__copy_data_off_info__.offloadings = (omp_offloading_t *) alloca(sizeof(omp_offloading_t) * __num_target_devices__);
 	/* we use universal args and launcher because axpy can do it */
-	omp_offloading_init_info("data copy", &__copy_data_off_info__, &__top__, __target_devices__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, __data_map_infos__, NULL, NULL, NULL, 0);
+	omp_offloading_init_info("data copy", &__top__, 0, OMP_OFFLOADING_DATA, __num_mapped_array__, NULL, NULL, 0);
 
 	omp_offloading_info_t __uuold_exchange_off_info__;
 	omp_offloading_t __offs_1__[__num_target_devices__];
@@ -831,7 +831,8 @@ loop1:for (i=0;i<n;i++) {
 	__uuold_exchange_off_info__.per_iteration_profile.num_load = 1;
 	__uuold_exchange_off_info__.per_iteration_profile.num_store = 1;
 	omp_dist_info_t __uuold_exchange_loop_dist__[1];
-	omp_offloading_init_info("u<->uold exchange kernel", &__uuold_exchange_off_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__2__10550__launcher, &args_1, __uuold_exchange_loop_dist__, 1);
+	omp_offloading_init_info("u<->uold exchange kernel", &__top__, 1, OMP_OFFLOADING_CODE, 0, OUT__2__10550__launcher,
+							 &args_1, 1);
 
 	omp_offloading_info_t __jacobi_off_info__;
 	omp_offloading_t __offs_2__[__num_target_devices__];
@@ -844,14 +845,15 @@ loop1:for (i=0;i<n;i++) {
 	__jacobi_off_info__.per_iteration_profile.num_load = 7;
 	__jacobi_off_info__.per_iteration_profile.num_store = 1;
 	omp_dist_info_t __jacobi_off_loop_dist__[1];
-	omp_offloading_init_info("jacobi kernel", &__jacobi_off_info__, &__top__, __target_devices__, 1, OMP_OFFLOADING_CODE, 0, NULL, OUT__1__10550__launcher, &args_2, __jacobi_off_loop_dist__, 1);
+	omp_offloading_init_info("jacobi kernel", &__top__, 1, OMP_OFFLOADING_CODE, 0, OUT__1__10550__launcher, &args_2, 1);
 
   	/* f map info */
   	omp_data_map_info_t * __info__ = &__data_map_infos__[0];
   	long f_dims[2];f_dims[0] = n;f_dims[1] = m;
   	omp_data_map_t f_maps[__num_target_devices__];
   	omp_dist_info_t f_dist[2];
-  	omp_data_map_init_info("f", __info__, &__copy_data_off_info__, f_p, 2, f_dims, sizeof(REAL), f_maps, OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, f_dist);
+	omp_data_map_init_info("f", __info__, &__copy_data_off_info__, f_p, 2, sizeof(REAL), OMP_DATA_MAP_TO,
+						   OMP_DATA_MAP_AUTO);
 
   	/* u map info */
   	__info__ = &__data_map_infos__[1];
@@ -859,7 +861,8 @@ loop1:for (i=0;i<n;i++) {
   	omp_data_map_t u_maps[__num_target_devices__];
   	omp_dist_info_t u_dist[2];
   	//omp_data_map_halo_region_info_t u_halo[2];
-  	omp_data_map_init_info("u", __info__, &__copy_data_off_info__, u_p, 2, u_dims, sizeof(REAL), u_maps, OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO, u_dist);
+	omp_data_map_init_info("u", __info__, &__copy_data_off_info__, u_p, 2, sizeof(REAL), OMP_DATA_MAP_TOFROM,
+						   OMP_DATA_MAP_AUTO);
 
   	/* uold map info */
   	__info__ = &__data_map_infos__[2];
@@ -895,81 +898,81 @@ loop1:for (i=0;i<n;i++) {
   	/**************************************** dist-specific *****************************************/
   	if (dist_dim == 1) {
 		if (dist_policy == 1) { /* BLOCK_BLOCK */
-			omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 
-			omp_dist_init_info(&u_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_dist_init_info(&u_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&u_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 
-			omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&uold_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
-			omp_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_dist_init_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_data_map_dist_init_info(&__uuold_exchange_loop_dist__[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_data_map_dist_init_info(&__jacobi_off_loop_dist__[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
 			printf("BLOCK dist policy for arrays and loop dist\n");
 		} else if (dist_policy == 2) { /* BLOCK_ALIGN */
-			omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 
-			omp_align_dist_init_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-									 OMP_DIST_TARGET_DATA_MAP, 0);
-			omp_align_dist_init_info(&u_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-									 OMP_DIST_TARGET_DATA_MAP, 1);
+			omp_align_dist_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+								OMP_DIST_TARGET_DATA_MAP, 0);
+			omp_align_dist_info(&u_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+								OMP_DIST_TARGET_DATA_MAP, 1);
 
-			omp_align_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-									 OMP_DIST_TARGET_DATA_MAP, 0);
-			omp_align_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-									 OMP_DIST_TARGET_DATA_MAP, 1);
+			omp_align_dist_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+								OMP_DIST_TARGET_DATA_MAP, 0);
+			omp_align_dist_info(&uold_dist[1], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+								OMP_DIST_TARGET_DATA_MAP, 1);
 			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
-			omp_align_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-									 OMP_DIST_TARGET_DATA_MAP, 0);
-			omp_align_dist_init_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-									 OMP_DIST_TARGET_DATA_MAP, 0);
+			omp_align_dist_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+								OMP_DIST_TARGET_DATA_MAP, 0);
+			omp_align_dist_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+								OMP_DIST_TARGET_DATA_MAP, 0);
 			printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
 		} else if (dist_policy == 3) { /* AUTO_ALIGN */
-			omp_dist_init_info(&__jacobi_off_loop_dist__[0], OMP_DIST_POLICY_AUTO, 0, n, 0);
+			omp_data_map_dist_init_info(&__jacobi_off_loop_dist__[0], 0, OMP_DIST_POLICY_AUTO, 0, n, 0);
 
-			omp_align_dist_init_info(&f_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
-									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
-			omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_align_dist_info(&f_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+								OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 
-			omp_align_dist_init_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
-									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
-			omp_dist_init_info(&u_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_align_dist_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+								OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 
-			omp_align_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
-									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
-			omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_align_dist_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+								OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
 			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
-			omp_align_dist_init_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
-									 OMP_DIST_TARGET_LOOP_ITERATION, 0);
+			omp_align_dist_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
+								OMP_DIST_TARGET_LOOP_ITERATION, 0);
 			printf("AUTO dist policy for loop dist and array align with loops\n");
 		}
   	} else if (dist_dim == 2) {
-		omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
-		omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 0);
+		omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+		omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 0);
 
-		omp_dist_init_info(&u_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
-		omp_dist_init_info(&u_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 0);
+		omp_data_map_dist_init_info(&u_dist[0], 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+		omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 0);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 1, 1, 1, 0);
 
-		omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
-		omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 0);
+		omp_data_map_dist_init_info(&uold_dist[0], 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+		omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 0);
   		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
   	} else /* dist == 3 */{
-		omp_dist_init_info(&f_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&f_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 1);
+		omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 1);
 
-		omp_dist_init_info(&u_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&u_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 1);
+		omp_data_map_dist_init_info(&u_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 1);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 0, 1, 1, 0);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 1, 1, 1, 0);
 
-		omp_dist_init_info(&uold_dist[0], OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_dist_init_info(&uold_dist[1], OMP_DIST_POLICY_BLOCK, 0, m, 1);
+		omp_data_map_dist_init_info(&uold_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+		omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 1);
   		omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
   		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
   	}

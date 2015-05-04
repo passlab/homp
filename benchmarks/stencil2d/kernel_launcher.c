@@ -19,6 +19,7 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
     long u_dimX = iargs->u_dimX;
     long u_dimY = iargs->u_dimY;
     int coeff_dimX = iargs->coeff_dimX;
+    printf("coeff_dimX: %d\n", coeff_dimX);
 
     omp_data_map_t * map_u = omp_map_get_map(off, iargs->u, -1); /* 1 is for the map u */
     omp_data_map_t * map_uold = omp_map_get_map(off, iargs->uold, -1); /* 2 is for the map uld */
@@ -48,7 +49,7 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
         omp_loop_get_range(off, 0, &start, &len); /* todo */
     }
     omp_device_type_t devtype = off->dev->type;
-    //printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
+    printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
 
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
     for (it = 0; it < num_its; it++) {

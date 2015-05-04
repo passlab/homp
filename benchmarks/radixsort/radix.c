@@ -267,8 +267,7 @@ REAL sort_ompacc_mdev(int *bufferInt) {
     int __top_dims__[__top_ndims__];
     int __top_periodic__[__top_ndims__];
     int __id_map__[__num_target_devices__];
-    omp_grid_topology_init_simple(&__top__, __target_devices__, __num_target_devices__, __top_ndims__, __top_dims__,
-                                  __top_periodic__, __id_map__);
+    omp_grid_topology_init_simple(__num_target_devices__, __top_ndims__);
 
 
     printf("Before mapping array \n");
@@ -288,9 +287,8 @@ REAL sort_ompacc_mdev(int *bufferInt) {
 
     printf("Befor calling the launcher function \n");
 
-    omp_offloading_init_info("Sorting Kernel", &__offloading_info__, &__top__, __target_devices__, 1,
-                             OMP_OFFLOADING_DATA_CODE,
-                             __num_mapped_array__, __data_map_infos__, sort_launcher, &args, loop_nest_dist, 1);
+    omp_offloading_init_info("Sorting Kernel", &__top__, 1, OMP_OFFLOADING_DATA_CODE, __num_mapped_array__,
+                             sort_launcher, &args, 1);
 
     //a for loop for multiple arrays
     omp_data_map_info_t *__info__ = &__data_map_infos__[0];
@@ -302,27 +300,26 @@ REAL sort_ompacc_mdev(int *bufferInt) {
     omp_dist_info_t bufferInt_dist[1];
 
     __info__ = &__data_map_infos__[1];
-    omp_data_map_init_info("bufferInt", __info__, &__offloading_info__, bufferInt, 1, bufferInt_dims, sizeof(int *),
-                           bufferInt_maps,
-                           OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO, bufferInt_dist);
+    omp_data_map_init_info("bufferInt", __info__, &__offloading_info__, bufferInt, 1, sizeof(int *), OMP_DATA_MAP_TO,
+                           OMP_DATA_MAP_AUTO);
 
 
     printf("Before defining mdev types \n");
     if (sort_mdev_v == 3) {
         printf("Entering sort_mdev_v \n");
-        omp_dist_init_info(&bufferInt_dist[0], OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
-        omp_align_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
-                                 OMP_DIST_TARGET_DATA_MAP, 0);
+        omp_data_map_dist_init_info(&bufferInt_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
+        omp_align_dist_info(&loop_nest_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
+                            OMP_DIST_TARGET_DATA_MAP, 0);
         printf("VERSION 3: BLOCK dist policy for distances and location\n");
         printf("Exited sort_mdev_v version 3 \n");
     } else if (sort_mdev_v == 4) {
-        omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_AUTO, 0, NUMBERS, 0);
-        omp_align_dist_init_info(&bufferInt_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
-                                 OMP_DIST_TARGET_LOOP_ITERATION, 0);
+        omp_data_map_dist_init_info(&loop_nest_dist[0], 0, OMP_DIST_POLICY_AUTO, 0, NUMBERS, 0);
+        omp_align_dist_info(&bufferInt_dist[0], OMP_DIST_POLICY_ALIGN, &__offloading_info__,
+                            OMP_DIST_TARGET_LOOP_ITERATION, 0);
         printf("Version 4: Auto policy for loop and distances and location with loop dist \n");
     } else {
-        omp_dist_init_info(&bufferInt_dist[0], OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
-        omp_dist_init_info(&loop_nest_dist[0], OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
+        omp_data_map_dist_init_info(&bufferInt_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
+        omp_data_map_dist_init_info(&loop_nest_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
     }
 #if DEBUG_MSG
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
