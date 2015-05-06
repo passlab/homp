@@ -139,7 +139,7 @@ int main(int argc, char * argv[]) {
 
 	printf("OMP execution\n");
 	REAL omp_elapsed = read_timer_ms();
-	int i; int nits = 2;
+	int i; int nits = 1;
 	for (i=0;i<nits;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
 	omp_elapsed = (read_timer_ms() - omp_elapsed)/nits;
 
@@ -416,6 +416,7 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	omp_offloading_info_t *__copy_data_off_info__ =
 			omp_offloading_init_info("data copy", __top__, 1, OMP_OFFLOADING_DATA, __num_maps__, NULL, NULL, 0);
 
+	printf("u: %X\n", u);
 	/* stencil kernel offloading */
 	struct stencil2d_off_args off_args;
 	off_args.n = n; off_args.m = m; off_args.u = u; off_args.radius = radius; off_args.coeff = coeff; off_args.num_its = num_its;
@@ -451,28 +452,28 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 			//printf("BLOCK dist policy for arrays and loop dist\n");
 		} else if (dist_policy == 2) { /* BLOCK_ALIGN */
 			omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-			omp_loop_dist_align_with_data_map(__off_info__, 0, __u_map_info__, 0);
+			omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __u_map_info__, 0);
 			//printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
 		} else if (dist_policy == 3) { /* AUTO_ALIGN */
 			omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0);
-			omp_data_map_dist_align_with_loop(__u_map_info__, 0, __off_info__, 0);
+			omp_data_map_dist_align_with_loop(__u_map_info__, 0, radius, __off_info__, 0);
 			//printf("AUTO dist policy for loop dist and array align with loops\n");
 		}
 		omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_DUPLICATE, 0, u_dimY, 0);
-		omp_map_add_halo_region(__u_map_info__, 0, radius, radius, 0);
-		omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, -1, __u_map_info__, -1);
+		omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+		omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, OMP_ALIGNEE_START, __u_map_info__, OMP_ALL_DIMENSIONS);
   	} else if (dist_dim == 2) {
 		omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, radius, n, 0);
 		omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-		omp_map_add_halo_region(__u_map_info__, 0, radius, radius, 0);
-		omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, -1, __u_map_info__, -1);
+		omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+		omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
 		omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0);
   	} else /* dist == 3 */{
 		omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
 		omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 1);
-		omp_map_add_halo_region(__u_map_info__, 0, radius, radius, 0);
-		omp_map_add_halo_region(__u_map_info__, 1, radius, radius, 1);
-		omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, -1, __u_map_info__, -1);
+		omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+		omp_map_add_halo_region(__u_map_info__, 1, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+		omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
 		omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
 		omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 1);
   	}
@@ -491,7 +492,7 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	off_copyto_time = read_timer_ms() - off_copyto_time;
 //	printf("offloading from stencil now\n");
 	double off_kernel_time = read_timer_ms();
-	int total_its = 2;
+	int total_its = 1;
 	int it;
 	for (it=0; it<total_its; it++) omp_offloading_start(__off_info__, it==total_its-1);
 	off_kernel_time = (read_timer_ms() - off_kernel_time)/total_its;

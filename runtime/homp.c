@@ -149,6 +149,11 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 	info->halo_x_info = NULL;
 	info->start_time = 0;
 	info->loop_depth = loop_nest_depth;
+	for (i=0; i<loop_nest_depth; i++) {
+		info->loop_dist_info[i].target_type = OMP_DIST_TARGET_LOOP_ITERATION;
+		info->loop_dist_info[i].target = info;
+		info->loop_dist_info[i].target_dim = i;
+	}
 
 	//memset(info->offloadings, NULL, sizeof(omp_offloading_t)*top->nnodes);
 	/* we move the off initialization from each device thread here, i.e. we serialized this */
@@ -459,14 +464,12 @@ void omp_data_map_init_info(const char *symbol, omp_data_map_info_t *info, omp_o
 	info->map_type = map_type;
 	info->num_halo_dims = 0;
 	info->sizeof_element = sizeof_element;
-#if ENABLE_DIST_TARGET_INFO
 	int i;
 	for (i=0; i<num_dims; i++) {
-		dist[i].target_type = OMP_DIST_TARGET_DATA_MAP;
-		dist[i].target.data_map_info = info;
-		dist[i].target_dim = i; /* we donot know which dim this dist is applied to, also dist is an array, making default here */
+		info->dist_info[i].target_type = OMP_DIST_TARGET_DATA_MAP;
+		info->dist_info[i].target = info;
+		info->dist_info[i].target_dim = i; /* we donot know which dim this dist is applied to, also dist is an array, making default here */
 	}
-#endif
 }
 
 void omp_data_map_info_set_dims_1d(omp_data_map_info_t * info, long dim0) {
@@ -492,7 +495,6 @@ void omp_init_dist_info(omp_dist_info_t * dist_info, omp_dist_policy_t dist_poli
 	dist_info->dim_index = topdim;
 }
 
-
 void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dist_policy_t dist_policy, long start,
 								 long length, int topdim) {
 	omp_dist_info_t * dist_info = &map_info->dist_info[dim];
@@ -505,92 +507,131 @@ void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dis
 	omp_init_dist_info(dist_info, dist_policy, start, length, topdim);
 }
 
-/* to align one data map with another data map, if dim>=0, align a specific dim, if dim<0, align all the dims */
-void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, omp_data_map_info_t *alignee,
-										   int alignee_dim) {
-	if (dim >= 0) {
-		omp_dist_info_t *dist_info = &map_info->dist_info[dim];
+static void omp_set_align_dist_policy(omp_dist_info_t * dist_info, omp_dist_target_type_t alignee_type, void * alignee, int alignee_dim, long start) {
+	omp_dist_info_t *alignee_dist_info = NULL;
+	if (alignee_type == OMP_DIST_TARGET_DATA_MAP) {
+		omp_data_map_info_t *alignee_map_info = (omp_data_map_info_t *) alignee;
+		alignee_dist_info = &alignee_map_info->dist_info[alignee_dim];
+	} else { /* OMP_DIST_TARGET_LOOP_ITERATION */
+		alignee_dist_info = &((omp_offloading_info_t*)alignee)->loop_dist_info[alignee_dim];
+	}
+	start = (start == OMP_ALIGNEE_START ? alignee_dist_info->start : start);
+	if (alignee_dist_info->policy == OMP_DIST_POLICY_ALIGN) {/* if there is a chain of alignment, make it point to the root */
+		omp_set_align_dist_policy(dist_info, alignee_dist_info->alignee_type, alignee_dist_info->alignee.data_map_info, alignee_dist_info->dim_index, start);
+	} else {
 		dist_info->policy = OMP_DIST_POLICY_ALIGN;
-		dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
+		dist_info->alignee_type = alignee_type;
 		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
 		dist_info->dim_index = alignee_dim;
-	} else { /* for all the dimensions that will be aligned */
-		int i;
-		for (i=0; i<map_info->num_dims;i++) {
-			omp_dist_info_t *dist_info = &map_info->dist_info[i];
-			dist_info->policy = OMP_DIST_POLICY_ALIGN;
-			dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
-			dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
-			dist_info->dim_index = i;
-		}
+		dist_info->start = start;
 	}
 }
 
 /* to align one data map with another data map, if dim>=0, align a specific dim, if dim<0, align all the dims */
-void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, omp_data_map_info_t *alignee, int alignee_dim) {
-	if (dim >= 0) {
-		omp_dist_info_t *dist_info = &map_info->dist_info[dim];
-		dist_info->policy = OMP_DIST_POLICY_ALIGN;
-		dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
-		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
-		dist_info->dim_index = alignee_dim;
+void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, long start,
+                                           omp_data_map_info_t *alignee, int alignee_dim) {
+	if (dim >= 0 && alignee_dim >=0) {
+		omp_set_align_dist_policy(&map_info->dist_info[dim], OMP_DIST_TARGET_DATA_MAP, alignee, alignee_dim, start);
+	} else if (dim == OMP_ALL_DIMENSIONS && alignee_dim == OMP_ALL_DIMENSIONS){ /* for all the dimensions that will be aligned */
+		int i;
+		for (i=0; i<map_info->num_dims;i++) {
+			omp_set_align_dist_policy(&map_info->dist_info[i], OMP_DIST_TARGET_DATA_MAP, alignee, i, start);
+		}
+	} else if (dim == OMP_ALL_DIMENSIONS && alignee_dim >=0) {
+		int i;
+		for (i=0; i<map_info->num_dims;i++) {
+			omp_set_align_dist_policy(&map_info->dist_info[i], OMP_DIST_TARGET_DATA_MAP, alignee, alignee_dim, start);
+		}
+	} else {
+		abort();
+	}
+}
+
+/* to align one data map with another data map, if dim>=0, align a specific dim, if dim<0, align all the dims */
+void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, long start,
+                                                     omp_data_map_info_t *alignee, int alignee_dim) {
+	if (dim >= 0 && alignee_dim >=0) {
+		omp_set_align_dist_policy(&map_info->dist_info[dim], OMP_DIST_TARGET_DATA_MAP, alignee, alignee_dim, start);
 		if (alignee->num_halo_dims) {
 			omp_data_map_halo_region_info_t * halo_info = &alignee->halo_info[alignee_dim];
 			omp_map_add_halo_region(map_info, dim, halo_info->left, halo_info->right, halo_info->edging);
 		}
-	} else { /* for all the dimensions that will be aligned */
+	} else if (dim == OMP_ALL_DIMENSIONS && alignee_dim == OMP_ALL_DIMENSIONS){ /* for all the dimensions that will be aligned */
 		int i;
 		for (i=0; i<map_info->num_dims;i++) {
-			omp_dist_info_t *dist_info = &map_info->dist_info[i];
-			dist_info->policy = OMP_DIST_POLICY_ALIGN;
-			dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
-			dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
-			dist_info->dim_index = i;
+			omp_set_align_dist_policy(&map_info->dist_info[i], OMP_DIST_TARGET_DATA_MAP, alignee, i, start);
 			if (alignee->num_halo_dims) {
 				omp_data_map_halo_region_info_t * halo_info = &alignee->halo_info[i];
 				omp_map_add_halo_region(map_info, i, halo_info->left, halo_info->right, halo_info->edging);
 			}
 		}
-	}
-}
-
-void omp_data_map_dist_align_with_loop(omp_data_map_info_t *map_info, int dim, omp_offloading_info_t *alignee,
-									   int alignee_level) {
-	if (dim >=0) {
-		omp_dist_info_t *dist_info = &map_info->dist_info[dim];
-		dist_info->policy = OMP_DIST_POLICY_ALIGN;
-		dist_info->alignee_type = OMP_DIST_TARGET_LOOP_ITERATION;
-		dist_info->alignee.loop_iteration = (omp_offloading_info_t *) alignee;
-		dist_info->dim_index = alignee_level;
+	} else if (dim == OMP_ALL_DIMENSIONS && alignee_dim >=0) {
+		int i;
+		for (i=0; i<map_info->num_dims;i++) {
+			omp_set_align_dist_policy(&map_info->dist_info[i], OMP_DIST_TARGET_DATA_MAP, alignee, alignee_dim, start);
+			if (alignee->num_halo_dims) {
+				omp_data_map_halo_region_info_t * halo_info = &alignee->halo_info[alignee_dim];
+				omp_map_add_halo_region(map_info, i, halo_info->left, halo_info->right, halo_info->edging);
+			}
+		}
 	} else {
-		/* we only handle one-level loop nest now */
 		abort();
 	}
 }
 
-void omp_loop_dist_align_with_data_map(omp_offloading_info_t * loop_off_info, int level, omp_data_map_info_t * alignee, int alignee_dim) {
-	if (level >=0 ) {
-		omp_dist_info_t *dist_info = &loop_off_info->loop_dist_info[level];
-		dist_info->policy = OMP_DIST_POLICY_ALIGN;
-		dist_info->alignee_type = OMP_DIST_TARGET_DATA_MAP;
-		dist_info->alignee.data_map_info = (omp_data_map_info_t *) alignee;
-		dist_info->dim_index = alignee_dim;
+void omp_data_map_dist_align_with_loop(omp_data_map_info_t *map_info, int dim, long start,
+                                       omp_offloading_info_t *alignee, int alignee_level) {
+	if (dim >= 0 && alignee_level >=0) {
+		omp_set_align_dist_policy(&map_info->dist_info[dim], OMP_DIST_TARGET_LOOP_ITERATION, alignee, alignee_level, start);
+	} else if (dim == OMP_ALL_DIMENSIONS && alignee_level == OMP_ALL_DIMENSIONS){ /* for all the dimensions that will be aligned */
+		int i;
+		for (i=0; i<map_info->num_dims;i++) {
+			omp_set_align_dist_policy(&map_info->dist_info[i], OMP_DIST_TARGET_LOOP_ITERATION, alignee, i, start);
+		}
+	} else if (dim == OMP_ALL_DIMENSIONS && alignee_level >=0) {
+		int i;
+		for (i=0; i<map_info->num_dims;i++) {
+			omp_set_align_dist_policy(&map_info->dist_info[i], OMP_DIST_TARGET_LOOP_ITERATION, alignee, alignee_level, start);
+		}
 	} else {
-		/* we only handle one-level loop nest now */
 		abort();
 	}
 }
 
-void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level, omp_offloading_info_t *alignee,
-								   int alignee_level) {
-	if (level >=0 ) {
-		omp_dist_info_t *dist_info = &loop_off_info->loop_dist_info[level];
-		dist_info->policy = OMP_DIST_POLICY_ALIGN;
-		dist_info->alignee_type = OMP_DIST_TARGET_LOOP_ITERATION;
-		dist_info->alignee.loop_iteration = (omp_offloading_info_t *) alignee;
-		dist_info->dim_index = alignee_level;
+void omp_loop_dist_align_with_data_map(omp_offloading_info_t *loop_off_info, int level, long start,
+                                       omp_data_map_info_t *alignee, int alignee_dim) {
+	if (level >= 0 && alignee_dim >=0) {
+		omp_set_align_dist_policy(&loop_off_info->loop_dist_info[level], OMP_DIST_TARGET_DATA_MAP, alignee, alignee_dim, start);
+	} else if (level == OMP_ALL_DIMENSIONS && alignee_dim == OMP_ALL_DIMENSIONS){ /* for all the dimensions that will be aligned */
+		int i;
+		for (i=0; i<loop_off_info->loop_depth;i++) {
+			omp_set_align_dist_policy(&loop_off_info->loop_dist_info[i], OMP_DIST_TARGET_DATA_MAP, alignee, i, start);
+		}
+	} else if (level == OMP_ALL_DIMENSIONS && alignee_dim >=0) {
+		int i;
+		for (i=0; i<loop_off_info->loop_depth;i++) {
+			omp_set_align_dist_policy(&loop_off_info->loop_dist_info[level], OMP_DIST_TARGET_DATA_MAP, alignee, alignee_dim, start);
+		}
 	} else {
-		/* we only handle one-level loop nest now */
+		abort();
+	}
+}
+
+void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level, long start,
+                                   omp_offloading_info_t *alignee, int alignee_level) {
+	if (level >= 0 && alignee_level >=0) {
+		omp_set_align_dist_policy(&loop_off_info->loop_dist_info[level], OMP_DIST_TARGET_LOOP_ITERATION, alignee, alignee_level, start);
+	} else if (level == OMP_ALL_DIMENSIONS && alignee_level == OMP_ALL_DIMENSIONS){ /* for all the dimensions that will be aligned */
+		int i;
+		for (i=0; i<loop_off_info->loop_depth;i++) {
+			omp_set_align_dist_policy(&loop_off_info->loop_dist_info[i], OMP_DIST_TARGET_LOOP_ITERATION, alignee, i, start);
+		}
+	} else if (level == OMP_ALL_DIMENSIONS && alignee_level >=0) {
+		int i;
+		for (i=0; i<loop_off_info->loop_depth;i++) {
+			omp_set_align_dist_policy(&loop_off_info->loop_dist_info[level], OMP_DIST_TARGET_LOOP_ITERATION, alignee, alignee_level, start);
+		}
+	} else {
 		abort();
 	}
 }
@@ -723,12 +764,12 @@ void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left, int r
 void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev) {
 	if (map->access_level >= OMP_DATA_MAP_ACCESS_LEVEL_1) return;
 	map->info = info;
-	map->dev = dev;
+	map->dev = dev; /* mainly use as cache so we save one pointer deference */
 	map->mem_noncontiguous = 0;
 	map->map_type = info->map_type;
 
 	if (map->map_type == OMP_DATA_MAP_AUTO) {
-		if (omp_device_mem_discrete(dev->mem_type)) {
+		if (omp_device_mem_discrete(map->dev->mem_type)) {
 			map->map_type = OMP_DATA_MAP_COPY;
 			//printf("COPY data map: %X, dev: %d\n", map, dev->id);
 		} else { /* we can make it shared and we will do it */
@@ -767,9 +808,9 @@ void omp_dist_block(long start, long full_length, long position, int dim, long *
 /**
  * The general dist algorithm that applies to both data distribution and iteration distribution
  */
-void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_t * top, int * coords, int seqid,
-			  void *target, omp_dist_target_type_t target_type) {
+void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t *top, int *coords, int seqid) {
 	long n = dist_info->length;
+	omp_device_t * dev = &omp_devices[top->idmap[seqid]];
 
 	int dim_index = dist_info->dim_index;
 	//	printf("dim_index: %d\n", dim_index);
@@ -795,61 +836,50 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 		dist->length = n;
 		dist->offset = dist_info->start;
 	} else if (dist_info->policy == OMP_DIST_POLICY_ALIGN) {
-		omp_device_t * dev = NULL;
-		if (target_type == OMP_DIST_TARGET_DATA_MAP) {
-			omp_data_map_t *map = (omp_data_map_t *) target;
-			dev = map->dev;
-		} else if (target_type == OMP_DIST_TARGET_LOOP_ITERATION ) {
-			omp_offloading_t * off = (omp_offloading_t*)target;
-			dev = off->dev;
-		} else {
-			dev = NULL; /* to break code so we know it is bug triggered from here */
-		}
 		omp_dist_info_t *alignee_dist_info = NULL;
 		omp_dist_t *alignee_dist = NULL;
 		if (dist_info->alignee_type == OMP_DIST_TARGET_DATA_MAP) {
 			omp_data_map_info_t * alignee_data_map_info = dist_info->alignee.data_map_info;
-			//alignee_dist_info = &alignee_data_map_info->dist[dim_index];
+			int anseqid = omp_grid_topology_get_seqid(alignee_data_map_info->off_info->top, dev->id);
 
 			/* get the actual alignee map */
-			omp_data_map_t * alignee_data_map = &alignee_data_map_info->maps[seqid];
+			omp_data_map_t * alignee_data_map = &alignee_data_map_info->maps[anseqid];
 			/* do the alignee distribution first */
 			if (alignee_data_map->access_level < OMP_DATA_MAP_ACCESS_LEVEL_1)
 				omp_data_map_init_map(alignee_data_map, alignee_data_map_info, dev);
 			if (alignee_data_map->access_level < OMP_DATA_MAP_ACCESS_LEVEL_2) {
-				int anseqid = omp_grid_topology_get_seqid(alignee_data_map_info->off_info->top, dev->id);
 				omp_data_map_dist(alignee_data_map, anseqid);;
 			}
 			/* copy the alignee length and offset */
+			alignee_dist_info = &alignee_data_map_info->dist_info[dim_index];
 			alignee_dist = &alignee_data_map->map_dist[dim_index];
 		} else if (dist_info->alignee_type == OMP_DIST_TARGET_LOOP_ITERATION) {
-			omp_offloading_info_t * alignee_loop = dist_info->alignee.loop_iteration;
+			omp_offloading_info_t *alignee_off_info = dist_info->alignee.loop_iteration;
 			//alignee_dist_info = &alignee_loop->loop_dist_info[dim_index];
-			int anseqid = omp_grid_topology_get_seqid(alignee_loop->top, dev->id);
-			omp_offloading_t *alignee_off = &alignee_loop->offloadings[anseqid];
+			int anseqid = omp_grid_topology_get_seqid(alignee_off_info->top, dev->id);
+			omp_offloading_t *alignee_off = &alignee_off_info->offloadings[anseqid];
 			if (!alignee_off->loop_dist_done) { /* TODO not yet executed, so loop iteration has not yet distributed */
 				//printf("dist the alignee loop iteration\n");
 				omp_loop_iteration_dist(alignee_off);
 			}
-
+			alignee_dist_info = &alignee_off_info->loop_dist_info[dim_index];
 			alignee_dist = &alignee_off->loop_dist[dim_index];
 		} else {
 			alignee_dist_info = NULL;
 			alignee_dist = NULL;
 		}
 		dist->length = alignee_dist->length;
-		dist->offset = alignee_dist->offset;
-		//printf("aligned dist on dev %d: offset: %d, length: %d\n", seqid, alignee_dist->offset, alignee_dist->length);
+		dist->offset = alignee_dist->offset - alignee_dist_info->start + dist_info->start;
+//		printf("aligned dist on dev %d: offset: %d, length: %d\n", seqid, alignee_dist->offset, alignee_dist->length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_AUTO) {
 		/* in LINEAR_MODEL_1, only computation is considered */
-		omp_offloading_t *off = NULL;
-		if (target_type == OMP_DIST_TARGET_LOOP_ITERATION ) {
-			off = (omp_offloading_t *) target;
+		if (dist_info->target_type == OMP_DIST_TARGET_LOOP_ITERATION ) {
 		} else {
+			abort();
 			/* error, so far AUTO is only applied to loop iteration */
 		}
-		omp_offloading_info_t * off_info = off->off_info;
-		omp_dist_info_t * dist_info = &off_info->loop_dist_info[0];
+		omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
+		omp_offloading_t * off = &off_info->offloadings[seqid];
 		long offset = 0;
 		int i;
 #ifdef LINEAR_MODEL_1
@@ -921,7 +951,7 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 				omp_dist_info_t *andist_info = &map_info->dist_info[j];
 				omp_dist_t * map_dist = &map->map_dist[j];
 				if (andist_info->policy != OMP_DIST_POLICY_ALIGN) { /* all non-auto distribution dimension, we will just do it */
-					omp_dist(andist_info, map_dist, top, coords, seqid, map, OMP_DIST_TARGET_DATA_MAP);
+					omp_dist(andist_info, map_dist, top, coords, seqid);
 					map_size *= map_dist->length;
 				} else {/* ALIGN policy, and so far, we only handle one-dimension ALIGN with loop*/
 					align_maps[i].map = map;
@@ -944,10 +974,10 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 			}
 		}
 
-		A = A/(off->dev->bandwidth*10.0e6); /* bandwidth in MB/s */
-		B = B/(off->dev->bandwidth*10.0e6);
-		A += off_info->per_iteration_profile.num_fp_operations/(off->dev->total_real_flopss * 10.0e9); /* FLOPs is in GFLOPs/s */
-		B += num_transfer * (off->dev->latency * 10.0e-6); /* latency in us */
+		A = A/(dev->bandwidth*10.0e6); /* bandwidth in MB/s */
+		B = B/(dev->bandwidth*10.0e6);
+		A += off_info->per_iteration_profile.num_fp_operations/(dev->total_real_flopss * 10.0e9); /* FLOPs is in GFLOPs/s */
+		B += num_transfer * (dev->latency * 10.0e-6); /* latency in us */
 		/* here T = n*A+B --> n = T/A - B/A. We have then Ar = 1/A, and Br = -B/A*/
 
 		double Ar = 1.0/A;
@@ -977,7 +1007,7 @@ void omp_dist(omp_dist_info_t * dist_info, omp_dist_t * dist, omp_grid_topology_
 			if (i == off_info->top->nnodes-1 && offset + length != dist_info->length) { /* fix rounding error */
 				length = dist_info->length - offset;
 			}
-			if (off->devseqid == i) {
+			if (seqid == i) {
 				dist->length = length;
 				dist->offset = offset;
 			}
@@ -1017,7 +1047,7 @@ void omp_loop_iteration_dist(omp_offloading_t * off) {
 		omp_dist_info_t *dist_info = &off_info->loop_dist_info[i];
 		off->loop_dist[i].info = dist_info;
 
-		omp_dist(dist_info, &off->loop_dist[i], top, coords, off->devseqid, off, OMP_DIST_TARGET_LOOP_ITERATION);
+		omp_dist(dist_info, &off->loop_dist[i], top, coords, off->devseqid);
 	}
 
 	off->loop_dist_done = 1;
@@ -1032,7 +1062,6 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 	if (map->access_level >= OMP_DATA_MAP_ACCESS_LEVEL_2) return; /* a simple way of mutual exclusion */
 	omp_data_map_info_t *map_info = map->info;
 	omp_offloading_info_t * off_info = map_info->off_info;
-
 	omp_grid_topology_t * top = off_info->top;
 
 	int coords[top->ndims];
@@ -1053,7 +1082,7 @@ void omp_data_map_dist(omp_data_map_t *map, int seqid) {
 		omp_dist_info_t *dist_info = &map_info->dist_info[i];
 		map->map_dist[i].info = dist_info;
 
-		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, map, OMP_DIST_TARGET_DATA_MAP);
+		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid);
 
 		long length = map->map_dist[i].length;
 		long offset = map->map_dist[i].offset;

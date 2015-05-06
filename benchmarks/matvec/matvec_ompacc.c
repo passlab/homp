@@ -153,16 +153,16 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
     if (matvec_mdev_v == 3) { /* version 3 */
         omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
         omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-        omp_data_map_dist_align_with_data_map(__a_map_info__, 0, __y_map_info__, 0);
+        omp_data_map_dist_align_with_data_map(__a_map_info__, 0, 0, __y_map_info__, 0);
         //omp_data_map_dist_init_info(__a_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
-        omp_loop_dist_align_with_data_map(__off_info__, 0, __y_map_info__, 0);
+        omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __y_map_info__, 0);
         printf("version 3: BLOCK dist policy for x and y, and loop dist aligns with x\n");
     } else if (matvec_mdev_v == 4) {/* version 4 */
         omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0);
         omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
-        omp_data_map_dist_align_with_loop(__y_map_info__, 0, __off_info__, 0);
-        omp_data_map_dist_align_with_loop(__a_map_info__, 0, __off_info__, 0);
+        omp_data_map_dist_align_with_loop(__y_map_info__, 0, 0, __off_info__, 0);
+        omp_data_map_dist_align_with_loop(__a_map_info__, 0, 0, __off_info__, 0);
         omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
 
         printf("version 4: AUTO dist policy for loop, and x and y align with loop dist\n");

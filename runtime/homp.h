@@ -34,6 +34,9 @@ typedef struct omp_offloading omp_offloading_t;
 
 /* the max number of dimensions runtime support now for array and cart topology */
 #define OMP_MAX_NUM_DIMENSIONS 3
+#define OMP_ALL_DIMENSIONS -1
+/* the LONG_MIN */
+#define OMP_ALIGNEE_START -2147483647
 
 /**
  * multiple device support
@@ -297,16 +300,16 @@ typedef struct omp_dist_info {
 		omp_data_map_info_t * data_map_info;
 	} alignee;
 
-	/* this is not used so far */
-#if ENABLE_DIST_TARGET_INFO
-	/* the following are the container so we know which array/loop uses this dist */
-	omp_dist_target_type_ts target_type;
-	union dist_target_t { /* is the dist applied to an array dimension or a loop iteration? it is where dist is stored */
+	/* the following are the container so we know which array/loop uses this dist, a backtrack pointer of a dist_info */
+	omp_dist_target_type_t target_type;
+	int target_dim;
+	void * target; /* opaque, see below union */
+	/*
+	union dist_target_t {
 		omp_offloading_info_t * loop_iteration;
 		omp_data_map_info_t * data_map_info;
-	} target;
-	int target_dim;
-#endif
+	};
+	*/
 } omp_dist_info_t;
 
 typedef enum omp_dist_halo_edging_type {
@@ -676,14 +679,16 @@ extern void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, 
 extern void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy,
 									long start,
 									long length, int topdim);
-extern void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, omp_data_map_info_t *alignee, int alignee_dim);
-extern void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, omp_data_map_info_t *alignee,
-												  int alignee_dim);
-extern void omp_data_map_dist_align_with_loop(omp_data_map_info_t *map_info, int dim,
-											  omp_offloading_info_t *alignee, int alignee_level);
-extern void omp_loop_dist_align_with_data_map(omp_offloading_info_t * loop_off_info, int level, omp_data_map_info_t * alignee, int alignee_dim);
-extern void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level,
-										  omp_offloading_info_t *alignee, int alignee_level);
+extern void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, long start,
+                                                     omp_data_map_info_t *alignee, int alignee_dim);
+extern void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, long start,
+                                           omp_data_map_info_t *alignee, int alignee_dim);
+extern void omp_data_map_dist_align_with_loop(omp_data_map_info_t *map_info, int dim, long start,
+                                       omp_offloading_info_t *alignee, int alignee_level);
+extern void omp_loop_dist_align_with_data_map(omp_offloading_info_t *loop_off_info, int level, long start,
+                                       omp_data_map_info_t *alignee, int alignee_dim);
+extern void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level, long start,
+                                   omp_offloading_info_t *alignee, int alignee_level);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev);
 extern void omp_data_map_dist(omp_data_map_t *map, int seqid);
 extern void omp_loop_iteration_dist(omp_offloading_t * off);

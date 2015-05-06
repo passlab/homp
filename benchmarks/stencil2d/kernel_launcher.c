@@ -19,7 +19,6 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
     long u_dimX = iargs->u_dimX;
     long u_dimY = iargs->u_dimY;
     int coeff_dimX = iargs->coeff_dimX;
-    printf("coeff_dimX: %d\n", coeff_dimX);
 
     omp_data_map_t * map_u = omp_map_get_map(off, iargs->u, -1); /* 1 is for the map u */
     omp_data_map_t * map_uold = omp_map_get_map(off, iargs->uold, -1); /* 2 is for the map uld */

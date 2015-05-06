@@ -276,12 +276,12 @@ REAL sort_ompacc_mdev(int *bufferInt) {
     if (sort_mdev_v == 3) {
         printf("Entering sort_mdev_v \n");
         omp_data_map_dist_init_info(__bufferInt_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
-        omp_loop_dist_align_with_data_map(__off_info__, 0, __bufferInt_map_info__, 0);
+        omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __bufferInt_map_info__, 0);
         printf("VERSION 3: BLOCK dist policy for distances and location\n");
         printf("Exited sort_mdev_v version 3 \n");
     } else if (sort_mdev_v == 4) {
         omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, NUMBERS, 0);
-        omp_data_map_dist_align_with_loop(__bufferInt_map_info__, 0, __off_info__, 0);
+        omp_data_map_dist_align_with_loop(__bufferInt_map_info__, 0, 0, __off_info__, 0);
         printf("Version 4: Auto policy for loop and distances and location with loop dist \n");
     } else {
         omp_data_map_dist_init_info(__bufferInt_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, NUMBERS, 0);
