@@ -30,17 +30,18 @@ void print_array(char * title, char * name, REAL * A, long n, long m) {
     printf("\n");
 }
 
-void init_array(long N, REAL *A) {
+void init_array(long N, REAL *A, REAL lower, REAL upper) {
 	long i;
 
 	for (i = 0; i < N; i++) {
-		A[i] = (REAL)(-0.5 + ((REAL)rand() / (REAL)RAND_MAX) * (0.5 - (-0.5)));
+		A[i] = (REAL)(lower + ((REAL)rand() / (REAL)RAND_MAX) * (upper - lower));
 	}
 }
 
 REAL check_accdiff(const REAL *output, const REAL *reference, const long dimx, const long dimy, const int radius, REAL tolerance){
 	int ix, iy;
 	REAL acc_diff = 0.0;
+	int count = 0;
 	for (ix = -radius ; ix < dimx + radius ; ix++) {
 		for (iy = -radius ; iy < dimy + radius ; iy++) {
 			if (ix >= 0 && ix < dimx && iy >= 0 && iy < dimy) {
@@ -60,13 +61,12 @@ REAL check_accdiff(const REAL *output, const REAL *reference, const long dimx, c
 				if (error > tolerance) {
 					printf("Data error at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
 				}
+				//if (count++<16) printf("Data error at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
 			}
-
 			++output;
 			++reference;
 		}
 	}
-
 	return acc_diff;
 }
 
@@ -112,6 +112,8 @@ int main(int argc, char * argv[]) {
     	/* the rest of arg ignored */
     }
 
+	if (num_its%2==0) num_its++; /* make it odd so uold/u exchange easier */
+
 	long u_dimX = n+radius+radius;
 	long u_dimY = m+radius+radius;
 	long u_volumn = u_dimX*u_dimY;
@@ -124,8 +126,8 @@ int main(int argc, char * argv[]) {
 	REAL *coeff = (REAL *) omp_unified_malloc(sizeof(REAL)*coeff_volumn);
 
 	srand(0);
-	init_array(u_volumn, u);
-	init_array(coeff_volumn, coeff);
+	init_array(u_volumn, u, 0.0, 1.0);
+	init_array(coeff_volumn, coeff, 0.0, 1.0);
 	memcpy(u_omp, u, sizeof(REAL)*u_volumn);
 	memcpy(u_omp_mdev, u, sizeof(REAL)*u_volumn);
 	//print_array("coeff", "coeff", coeff, 2*radius+1, 2*radius+1);
@@ -160,8 +162,8 @@ int main(int argc, char * argv[]) {
 	printf("Performance:\t\tRuntime (ms)\t MFLOPS \t\tError (compared to base)\n");
 	printf("------------------------------------------------------------------------------------------------------\n");
 	printf("stencil2d_base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
-	printf("stencil2d_omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.0001f));
-	printf("stencil2d_omp_mdev: \t%4f\t%4f \t\t%g\n", mdev_elapsed, flops / (1.0e-3 * mdev_elapsed), check_accdiff(u, u_omp_mdev, n, m, radius, 0.0001f));
+	printf("stencil2d_omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
+	printf("stencil2d_omp_mdev: \t%4f\t%4f \t\t%g\n", mdev_elapsed, flops / (1.0e-3 * mdev_elapsed), check_accdiff(u, u_omp_mdev, n, m, radius, 0.00001f));
 
 	free(u);
 	free(u_omp);
@@ -182,6 +184,10 @@ void stencil2d_seq_normal(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	coeff = coeff + (2*radius+1) * radius + radius; /* let coeff point to the center element */
 	REAL * uold_save = uold;
 	REAL * u_save = u;
+	int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
 
 	for (it = 0; it < num_its; it++) {
 		int ix, iy, ir;
@@ -204,7 +210,7 @@ void stencil2d_seq_normal(long n, long m, REAL *u, int radius, REAL *coeff, int 
 					result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
 				}
-				*temp_u = result;
+				*temp_u = result/count;
 			}
 		}
 		REAL * tmp = uold;
@@ -213,9 +219,6 @@ void stencil2d_seq_normal(long n, long m, REAL *u, int radius, REAL *coeff, int 
 //		if (it % 500 == 0)
 //			printf("Finished %d iteration\n", it);
 	} /*  End iteration loop */
-	if (num_its % 2 != 0) { /* uold is actually u */
-		memcpy(u_save, uold_save, sizeof(REAL) * u_dimX * u_dimY);
-	}
 	free(uold_save);
 }
 
@@ -229,6 +232,10 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	coeff = coeff + (2*radius+1) * radius + radius; /* let coeff point to the center element */
 	REAL * uold_save = uold;
 	REAL * u_save = u;
+	int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
 
 	for (it = 0; it < num_its; it++) {
 		int ix, iy, ir;
@@ -251,7 +258,7 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 					result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
 				}
-				*temp_u = result;
+				*temp_u = result/count;
 				temp_u++;
 				temp_uold++;
 			}
@@ -262,9 +269,6 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 //		if (it % 500 == 0)
 //			printf("Finished %d iteration\n", it);
 	} /*  End iteration loop */
-	if (num_its % 2 != 0) { /* uold is actually u */
-		memcpy(u_save, uold_save, sizeof(REAL) * u_dimX * u_dimY);
-	}
 	free(uold_save);
 }
 
@@ -276,10 +280,14 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	REAL *uold = (REAL *) malloc(sizeof(REAL) * u_dimX * u_dimY);
 	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY);
 	coeff = coeff + (2 * radius + 1) * radius + radius; /* let coeff point to the center element */
+	int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
 
 	REAL * uold_save = uold;
 	REAL * u_save = u;
-#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) firstprivate(u, uold) private(it)
+#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX, count) firstprivate(u, uold) private(it)
 	{
 		int ix, iy, ir;
 		for (it = 0; it < num_its; it++) {
@@ -302,7 +310,7 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 						result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
 					}
-					*temp_u = result;
+					*temp_u = result/count;
 					temp_u++;
 					temp_uold++;
 				}
@@ -314,9 +322,6 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 //			printf("Finished %d iteration by thread %d of %d\n", it, omp_get_thread_num(), omp_get_num_threads());
 		} /*  End iteration loop */
 	}
-	if (num_its % 2 != 0) { /* uold is actually u */
-		memcpy(u_save, uold_save, sizeof(REAL) * u_dimX * u_dimY);
-	}
 	free(uold_save);
 }
 
@@ -327,6 +332,10 @@ void stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int nu
 	long u_dimY = m + 2 * radius;
 	int coeff_dimX = 2 * radius + 1;
 	coeff = coeff + (2 * radius + 1) * radius + radius; /* let coeff point to the center element */
+	int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
 
 	/* uold should be simpliy allocated on the dev and then copy data from u, here we simplified the initialization */
 	REAL *uold = (REAL *) malloc(sizeof(REAL) * u_dimX * u_dimY);
@@ -367,7 +376,7 @@ void stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int nu
 						result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
 					}
-					*temp_u = result;
+					*temp_u = result/count;
 					temp_u++;
 					temp_uold++;
 				}
@@ -380,12 +389,7 @@ void stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int nu
 //			printf("Finished %d iteration by thread %d of %d\n", it, omp_get_thread_num(), omp_get_num_threads());
 		} /*  End iteration loop */
 	}
-	if (it % 2 != 0) { /* uold is actually u */
-		memcpy(uold, u, sizeof(REAL) * u_dimX * u_dimY);
-		free(u);
-	} else {
-		free(uold);
-	}
+	free(uold);
 }
 #endif
 
@@ -416,7 +420,6 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	omp_offloading_info_t *__copy_data_off_info__ =
 			omp_offloading_init_info("data copy", __top__, 1, OMP_OFFLOADING_DATA, __num_maps__, NULL, NULL, 0);
 
-	printf("u: %X\n", u);
 	/* stencil kernel offloading */
 	struct stencil2d_off_args off_args;
 	off_args.n = n; off_args.m = m; off_args.u = u; off_args.radius = radius; off_args.coeff = coeff; off_args.num_its = num_its;
@@ -514,6 +517,8 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	omp_offloading_fini_info(__copy_data_off_info__);
 	omp_offloading_fini_info(__off_info__);
 	omp_grid_topology_fini(__top__);
+
+	omp_unified_free(uold);
 
 	return off_total;
 }

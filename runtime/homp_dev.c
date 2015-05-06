@@ -471,7 +471,11 @@ void omp_map_mapto(omp_data_map_t * map) {
 }
 
 void omp_map_mapto_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
-	if (map->map_type == OMP_DATA_MAP_COPY) omp_map_memcpy_to_async((void*)map->map_dev_wextra_ptr, map->dev, (void*)map->map_source_wextra_ptr, map->map_wextra_size, stream);
+	if (map->map_type == OMP_DATA_MAP_COPY) {
+		omp_map_memcpy_to_async((void*)map->map_dev_wextra_ptr, map->dev, (void*)map->map_source_wextra_ptr, map->map_wextra_size, stream);
+	//	printf("%s, dev: %d, mapto: %X <--- %X\n", map->info->symbol, map->dev->id, map->map_dev_ptr, map->map_source_ptr);
+	//	printf("%s, dev: %d, mapto: %X <--- %X of extra\n",  map->info->symbol, map->dev->id, map->map_dev_wextra_ptr, map->map_source_wextra_ptr);
+	}
 }
 
 void omp_map_mapfrom(omp_data_map_t * map) {
@@ -480,8 +484,12 @@ void omp_map_mapfrom(omp_data_map_t * map) {
 }
 
 void omp_map_mapfrom_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
-	if (map->map_type == OMP_DATA_MAP_COPY)
+	if (map->map_type == OMP_DATA_MAP_COPY) {
+		omp_map_memcpy_from_async((void*)map->map_source_ptr, (void*)map->map_dev_ptr, map->dev, map->map_size, stream); /* memcpy from host to device */
 		omp_map_memcpy_from_async((void*)map->map_source_wextra_ptr, (void*)map->map_dev_wextra_ptr, map->dev, map->map_wextra_size, stream); /* memcpy from host to device */
+	//	printf("%s, dev: %d, mapfrom: %X <--- %X\n", map->info->symbol, map->dev->id, map->map_source_ptr, map->map_dev_ptr);
+	//	printf("%s, dev: %d, mapfrom: %X <--- %X of extra\n",  map->info->symbol, map->dev->id, map->map_source_wextra_ptr, map->map_dev_wextra_ptr);
+	}
 }
 
 void * omp_unified_malloc(long size) {

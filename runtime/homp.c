@@ -1378,6 +1378,7 @@ void omp_print_map_info(omp_data_map_info_t * info) {
 void omp_print_data_map(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
 	printf("dev %d(%s), ", map->dev->id, omp_get_device_typename(map->dev));
+	int soe = info->sizeof_element;
 	int i;
 	//for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
 	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].length);
@@ -1388,6 +1389,18 @@ void omp_print_data_map(omp_data_map_t * map) {
 	}
 	printf(", size: %d, size wextra: %d, mem: %s\n",map->map_size, map->map_wextra_size, mem);
 	printf("\t\tsrc ptr: %X, src wextra ptr: %X, dev ptr: %X, dev wextra ptr: %X\n", map->map_source_ptr, map->map_source_wextra_ptr, map->map_dev_ptr, map->map_dev_wextra_ptr);
+	if (info->num_halo_dims) {
+		//printf("\t\thalo memory:\n");
+		omp_data_map_halo_region_mem_t * all_halo_mems = map->halo_mem;
+		for (i=0; i<info->num_dims; i++) {
+			omp_data_map_halo_region_mem_t * halo_mem = &all_halo_mems[i];
+			printf("\t\t%d-d halo, L_IN: %X[%d], L_OUT: %X[%d], R_OUT: %X[%d], R_IN: %X[%d]", i,
+				   halo_mem->left_in_ptr, halo_mem->left_in_size/soe, halo_mem->left_out_ptr, halo_mem->left_out_size/soe,
+				   halo_mem->right_out_ptr, halo_mem->right_out_size/soe, halo_mem->right_in_ptr, halo_mem->right_in_size/soe);
+			//printf(", L_IN_relay: %X, R_IN_relay: %X", halo_mem->left_in_host_relay_ptr, halo_mem->right_in_host_relay_ptr);
+			printf("\n");
+		}
+	}
 }
 
 void omp_print_off_maps(omp_offloading_t * off) {

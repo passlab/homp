@@ -28,6 +28,10 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
     REAL * uold = (REAL*) map_uold->map_dev_wextra_ptr;
     REAL *coeff = (REAL*) map_coeff->map_dev_wextra_ptr;
     coeff = coeff + (2*radius+1) * radius + radius; /* TODO this should be a call to map a host-side address to dev-side address*/
+    int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
 
     long it; /* iteration */
 #if CORRECTNESS_CHECK
@@ -48,7 +52,7 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
         omp_loop_get_range(off, 0, &start, &len); /* todo */
     }
     omp_device_type_t devtype = off->dev->type;
-    printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
+    //printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
 
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
     for (it = 0; it < num_its; it++) {
@@ -91,7 +95,7 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
 						result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
                     }
-                    *temp_u = result;
+                    *temp_u = result/count;
                     temp_u++;
                     temp_uold++;
                 }
@@ -101,7 +105,8 @@ void stencil2d_off_launcher(omp_offloading_t * off, void *args) {
         }
 
         pthread_barrier_wait(&off->off_info->inter_dev_barrier);
-        omp_halo_region_pull(map_u, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
+        if (it % 2 == 0) omp_halo_region_pull(map_u, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
+        else omp_halo_region_pull(map_uold, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
 
         REAL * tmp = uold;
         uold = u;

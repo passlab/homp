@@ -14,6 +14,10 @@
 __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u,
                                        REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
     long ix, iy, ir;
+    int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
     ix = blockIdx.y * blockDim.y + threadIdx.y;
     iy = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -33,7 +37,7 @@ __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, i
 		result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
     }
-    *temp_u = result;
+    *temp_u = result/count;
 }
 
 #else
@@ -42,6 +46,10 @@ __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, i
     long ix, iy, ir;
     long ixy;
     long ixy_lower, ixy_upper;
+    int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
 
     // variables for adjusted loop info considering both original chunk size and step(strip)
     long _dev_loop_chunk_size;
@@ -85,7 +93,7 @@ __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, i
 				result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
 #endif
             }
-            *temp_u = result;
+            *temp_u = result/count;
         }
     }
 }
