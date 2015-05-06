@@ -75,6 +75,7 @@ double stencil2d_omp_mdev(long u_dimX, long u_dimY, REAL *u, int radius, REAL *c
 
 int dist_dim;
 int dist_policy;
+int num_runs = 1;
 
 int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
@@ -140,9 +141,9 @@ int main(int argc, char * argv[]) {
 
 	printf("OMP execution\n");
 	REAL omp_elapsed = read_timer_ms();
-	int i; int nits = 1;
-	for (i=0;i<nits;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
-	omp_elapsed = (read_timer_ms() - omp_elapsed)/nits;
+	int i;
+	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
+	omp_elapsed = (read_timer_ms() - omp_elapsed)/num_runs;
 
 	omp_init_devices();
 	printf("OMP mdev execution\n");
@@ -494,10 +495,9 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	off_copyto_time = read_timer_ms() - off_copyto_time;
 //	printf("offloading from stencil now\n");
 	double off_kernel_time = read_timer_ms();
-	int total_its = 1;
 	int it;
-	for (it=0; it<total_its; it++) omp_offloading_start(__off_info__, it==total_its-1);
-	off_kernel_time = (read_timer_ms() - off_kernel_time)/total_its;
+	for (it=0; it< num_runs; it++) omp_offloading_start(__off_info__, it== num_runs -1);
+	off_kernel_time = (read_timer_ms() - off_kernel_time)/ num_runs;
 	/* copy back u from each device and free others */
 	double off_copyfrom_time = read_timer_ms();
 	omp_offloading_start(__copy_data_off_info__, 1);
