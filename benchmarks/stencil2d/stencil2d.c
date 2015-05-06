@@ -59,9 +59,8 @@ REAL check_accdiff(const REAL *output, const REAL *reference, const long dimx, c
 				// Check the error is within the tolerance
 				//printf("Data at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
 				if (error > tolerance) {
-					printf("Data error at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
+					if (count++<16)	printf("Data error at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
 				}
-				//if (count++<16) printf("Data error at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
 			}
 			++output;
 			++reference;
@@ -505,13 +504,13 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	off_copyfrom_time = read_timer_ms() - off_copyfrom_time;
 	double off_total = off_init_time + off_copyto_time + off_copyfrom_time + off_kernel_time;
 #if defined (OMP_BREAKDOWN_TIMING)
-//	omp_offloading_info_report_profile(__copy_data_off_info__);
-//	omp_offloading_info_report_profile(__off_info__);
+	omp_offloading_info_report_profile(__copy_data_off_info__);
+	omp_offloading_info_report_profile(__off_info__);
 	omp_offloading_info_t *infos[2];
 	infos[0] = __copy_data_off_info__;
 	infos[1] = __off_info__;
 	omp_offloading_info_sum_profile(infos, 2, start_time, start_time+off_total);
-//	omp_offloading_info_report_profile(__copy_data_off_info__);
+	omp_offloading_info_report_profile(__copy_data_off_info__);
 #endif
 
 	omp_offloading_fini_info(__copy_data_off_info__);

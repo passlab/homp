@@ -18,8 +18,8 @@ __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, i
 #ifdef SQUARE_SETNCIL
 	count = coeff_dimX * coeff_dimX;
 #endif
-    ix = blockIdx.y * blockDim.y + threadIdx.y;
-    iy = blockIdx.x * blockDim.x + threadIdx.x;
+    ix = blockIdx.x * blockDim.x + threadIdx.x;
+    iy = blockIdx.y * blockDim.y + threadIdx.y;
 
     REAL *temp_u = &u[(ix + radius) * u_dimY + radius + iy];
     REAL *temp_uold = &uold[(ix + radius) * u_dimY + radius + iy];
