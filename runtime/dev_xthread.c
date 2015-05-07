@@ -235,9 +235,33 @@ omp_offloading_copyto: ;
 		omp_event_record_stop(&events[kernel_exe_event_index]);
 #endif
 	}
-//	case OMP_OFFLOADING_EXCHANGE:
-	{
 
+//	case OMP_OFFLOADING_EXCHANGE:
+data_exchange:;
+	/* for data exchange, either a standalone or an appended exchange */
+	if (off_info->halo_x_info != NULL) {
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_start(&events[acc_ex_event_index], NULL, "DATA_X", "Time for data exchange between devices");
+#endif
+		for (i=0; i<off_info->num_maps_halo_x; i++) {
+			omp_data_map_halo_exchange_info_t * x_halos = &off_info->halo_x_info[i];
+			omp_data_map_info_t * map_info = x_halos->map_info;
+			//int devseqid = omp_grid_topology_get_seqid(map_info->top, dev->id);
+
+			omp_data_map_t * map = &map_info->maps[seqid];
+			//printf("dev: %d (seqid: %d) holo region pull\n", dev->id, devseqid);
+			omp_halo_region_pull(map, x_halos->x_dim, x_halos->x_direction);
+		}
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_stop(&events[acc_ex_event_index]);
+		omp_event_record_start(&events[acc_ex_barrier_event_index], NULL, "BAR_DATA_X", "Time for barrier sync for data exchange between devices");
+#endif
+//		dev->offload_request = NULL; /* release this dev */
+		pthread_barrier_wait(&off_info->inter_dev_barrier);
+
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_stop(&events[acc_ex_barrier_event_index]);
+#endif
 	}
 
 //	case OMP_OFFLOADING_COPYFROM:
@@ -304,7 +328,8 @@ omp_offloading_sync_cleanup: ;
 #endif
 		off->stage = OMP_OFFLOADING_MDEV_BARRIER;
 	}
-//	case OMP_OFFLOADING_MDEV_BARRIER:
+
+	//	case OMP_OFFLOADING_MDEV_BARRIER:
 	{
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[barrier_wait_event_index], NULL, "BAR_FINI_2", "Time for barrier wait for other to complete");
@@ -315,32 +340,6 @@ omp_offloading_sync_cleanup: ;
 		omp_event_record_stop(&events[barrier_wait_event_index]);
 #endif
 		//off_info->stage = OMP_OFFLOADING_COMPLETE; /* data race for any access to off_info
-	}
-data_exchange:;
-	/* for data exchange, either a standalone or an appended exchange */
-	if (off_info->halo_x_info != NULL) {
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[acc_ex_event_index], NULL, "DATA_X", "Time for data exchange between devices");
-#endif
-		for (i=0; i<off_info->num_maps_halo_x; i++) {
-			omp_data_map_halo_exchange_info_t * x_halos = &off_info->halo_x_info[i];
-			omp_data_map_info_t * map_info = x_halos->map_info;
-			//int devseqid = omp_grid_topology_get_seqid(map_info->top, dev->id);
-
-			omp_data_map_t * map = &map_info->maps[seqid];
-			//printf("dev: %d (seqid: %d) holo region pull\n", dev->id, devseqid);
-			omp_halo_region_pull(map, x_halos->x_dim, x_halos->x_direction);
-		}
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[acc_ex_event_index]);
-		omp_event_record_start(&events[acc_ex_barrier_event_index], NULL, "BAR_DATA_X", "Time for barrier sync for data exchange between devices");
-#endif
-		dev->offload_request = NULL; /* release this dev */
-		pthread_barrier_wait(&off_info->barrier);
-
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[acc_ex_barrier_event_index]);
-#endif
 	}
 
 #if defined (OMP_BREAKDOWN_TIMING)
