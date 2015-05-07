@@ -1443,6 +1443,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 		if (left_halo_mem->right_in_host_relay_ptr != NULL) {
 			/* wait make sure the data in the right_in_host_relay buffer is already pulled */
 			while (left_halo_mem->right_in_data_in_relay_pushed > left_halo_mem->right_in_data_in_relay_pulled);
+			//if (map->map_type == OMP_DATA_MAP_COPY || left_map->map_type == OMP_DATA_MAP_COPY)
 			omp_map_memcpy_from((void*)left_halo_mem->right_in_host_relay_ptr, (void*)halo_mem->left_out_ptr, map->dev, halo_mem->left_out_size);
 			left_halo_mem->right_in_data_in_relay_pushed ++;
 		} else {

@@ -23,7 +23,8 @@ struct stencil2d_off_args {
 extern int dist_dim;
 extern int dist_policy;
 
-extern void stencil2d_off_launcher(omp_offloading_t * off, void *args);
+extern void stencil2d_omp_mdev_off_launcher(omp_offloading_t *off, void *args);
+extern void stencil2d_omp_mdev_iterate_off_launcher(omp_offloading_t *off, void *args);
 
 #ifdef __cplusplus
  }
