@@ -59,7 +59,7 @@ void stencil2d_omp_mdev_off_launcher(omp_offloading_t *off, void *args) {
 #if defined (DEVICE_NVGPU_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
 			dim3 threads_per_team(16, 16);
-			dim3 teams_per_league(len/threads_per_team.x, m/threads_per_team.y); /* we assume dividable */
+			dim3 teams_per_league((len+threads_per_team.x-1)/threads_per_team.x, (m+threads_per_team.y-1)/threads_per_team.y); /* we assume dividable */
             stencil2d_nvgpu_kernel<<<teams_per_league, threads_per_team, 0, off->stream->systream.cudaStream>>>
                 (start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
 		} else
@@ -162,7 +162,7 @@ void stencil2d_omp_mdev_iterate_off_launcher(omp_offloading_t * off, void *args)
 #if defined (DEVICE_NVGPU_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		dim3 threads_per_team(16, 16);
-		dim3 teams_per_league(len/threads_per_team.x, m/threads_per_team.y); /* we assume dividable */
+		dim3 teams_per_league((len+threads_per_team.x-1)/threads_per_team.x, (m+threads_per_team.y-1)/threads_per_team.y); /* we assume dividable */
            stencil2d_nvgpu_kernel<<<teams_per_league, threads_per_team, 0, off->stream->systream.cudaStream>>>
                (start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
 	} else
