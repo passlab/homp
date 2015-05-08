@@ -149,9 +149,9 @@ int main(int argc, char * argv[]) {
 	omp_elapsed = (read_timer_ms() - omp_elapsed)/num_runs;
 
 	omp_init_devices();
-	printf("OMP mdev execution\n");
+//	printf("OMP mdev execution\n");
 	REAL mdev_elapsed = 0.0;
-	mdev_elapsed = stencil2d_omp_mdev(n, m, u_omp_mdev, radius, coeff, num_its);
+//	mdev_elapsed = stencil2d_omp_mdev(n, m, u_omp_mdev, radius, coeff, num_its);
 
 	printf("OMP mdev iterate execution\n");
 	REAL mdev_iterate_elapsed = 0.0;
@@ -171,7 +171,7 @@ int main(int argc, char * argv[]) {
 	printf("------------------------------------------------------------------------------------------------------\n");
 	printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
 	printf("omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
-	printf("omp_mdev: \t%4f\t%4f \t\t%g\n", mdev_elapsed, flops / (1.0e-3 * mdev_elapsed), check_accdiff(u, u_omp_mdev, n, m, radius, 0.00001f));
+//	printf("omp_mdev: \t%4f\t%4f \t\t%g\n", mdev_elapsed, flops / (1.0e-3 * mdev_elapsed), check_accdiff(u, u_omp_mdev, n, m, radius, 0.00001f));
 	printf("omp_mdev_it: \t%4f\t%4f \t\t%g\n", mdev_iterate_elapsed, flops / (1.0e-3 * mdev_iterate_elapsed), check_accdiff(u, u_omp_mdev_iterate, n, m, radius, 0.00001f));
 
 	free(u);
@@ -622,7 +622,6 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
 		omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 1);
 	}
 
-#if 0
 	/* halo exchange offloading */
 	omp_data_map_halo_exchange_info_t x_halos[1];
 	x_halos[0].map_info = __u_map_info__; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* u and uold*/
@@ -641,11 +640,7 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
 	omp_offloading_append_data_exchange_info(__off_info__, x_halos, 1);
 #else
   	/* option 2: standalone offloading */
-  	omp_offloading_info_t uuold_halo_x_off_info;
-	omp_offloading_t uuold_halo_x_offs[__num_target_devices__];
-	uuold_halo_x_off_info.offloadings = uuold_halo_x_offs;
-  	omp_offloading_standalone_data_exchange_init_info("u-uold halo exchange", &uuold_halo_x_off_info, &__top__, __target_devices__, 1, 0, NULL, x_halos, 1);
-#endif
+  	omp_offloading_info_t * uuold_halo_x_off_info = omp_offloading_standalone_data_exchange_init_info("u-uold halo exchange", __top__,1, x_halos, 1);
 #endif
 
 	/************************************************************************************************/
@@ -667,7 +662,19 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
 	for (itrun =0; itrun < num_runs; itrun++) {
 		int it;
 		for (it = 0; it < num_its; it++) {
+			if (it%2==0) {
+				x_halos[0].map_info = __u_map_info__;
+				off_args.u = u;
+				off_args.uold = uold;
+			} else {
+				x_halos[0].map_info = __uold_map_info__;
+				off_args.u = uold;
+				off_args.uold = u;
+			}
 			omp_offloading_start(__off_info__, itrun == num_runs - 1);
+#if defined STANDALONE_DATA_X
+			omp_offloading_start(uuold_halo_x_off_info, itrun == num_runs - 1);
+#endif
 		}
 	}
 	off_kernel_time = (read_timer_ms() - off_kernel_time)/ num_runs;
@@ -679,10 +686,18 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_offloading_info_report_profile(__copy_data_off_info__);
 	omp_offloading_info_report_profile(__off_info__);
-	omp_offloading_info_t *infos[2];
+	int num_offs = 2;
+#if defined STANDALONE_DATA_X
+	omp_offloading_info_report_profile(uuold_halo_x_off_info);
+	num_offs = 3;
+#endif
+	omp_offloading_info_t *infos[num_offs];
 	infos[0] = __copy_data_off_info__;
 	infos[1] = __off_info__;
-	omp_offloading_info_sum_profile(infos, 2, start_time, start_time+off_total);
+#if defined STANDALONE_DATA_X
+	infos[2] = uuold_halo_x_off_info;
+#endif
+	omp_offloading_info_sum_profile(infos, num_offs, start_time, start_time+off_total);
 	omp_offloading_info_report_profile(__copy_data_off_info__);
 #endif
 

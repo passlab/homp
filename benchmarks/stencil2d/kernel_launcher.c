@@ -207,12 +207,9 @@ void stencil2d_omp_mdev_iterate_off_launcher(omp_offloading_t * off, void *args)
         fprintf(stderr, "device type is not supported for this call\n");
     }
 
+    /*
     pthread_barrier_wait(&off->off_info->inter_dev_barrier);
     omp_halo_region_pull(map_u, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
-
-    if (off->devseqid == 0) {
-        iargs->uold = u;
-        iargs->u = uold;
-    }
+     */
 }
 

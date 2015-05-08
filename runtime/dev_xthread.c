@@ -34,9 +34,6 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_comple
 
 	pthread_barrier_wait(&off_info->barrier);
 
-	if (off_info->type != OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE && off_info->halo_x_info != NULL) { /* appended halo exchange */
-		pthread_barrier_wait(&off_info->barrier);
-	}
 	if (off_info->count) off_info->count++; /* recurring, increment the number of offloading */
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -249,7 +246,6 @@ data_exchange:;
 			//int devseqid = omp_grid_topology_get_seqid(map_info->top, dev->id);
 
 			omp_data_map_t * map = &map_info->maps[seqid];
-			//printf("dev: %d (seqid: %d) holo region pull\n", dev->id, devseqid);
 			omp_halo_region_pull(map, x_halos->x_dim, x_halos->x_direction);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -258,6 +254,7 @@ data_exchange:;
 #endif
 //		dev->offload_request = NULL; /* release this dev */
 		pthread_barrier_wait(&off_info->inter_dev_barrier);
+		//printf("dev: %d (seqid: %d) holo region pull\n", dev->id, seqid);
 
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_ex_barrier_event_index]);

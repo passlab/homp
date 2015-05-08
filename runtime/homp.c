@@ -178,6 +178,53 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 	return info;
 }
 
+void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x) {
+	info->halo_x_info = halo_x_info;
+	info->num_maps_halo_x = num_maps_halo_x;
+}
+
+omp_offloading_info_t * omp_offloading_standalone_data_exchange_init_info(const char *name, omp_grid_topology_t *top, int recurring,
+																		  omp_data_map_halo_exchange_info_t *halo_x_info,
+																		  int num_maps_halo_x) {
+	int total_size = sizeof(omp_offloading_info_t) + top->nnodes * sizeof(omp_offloading_t);
+	char *buffer = calloc(total_size, sizeof(char));
+	omp_offloading_info_t *info = (omp_offloading_info_t *) buffer;
+	info->offloadings = (omp_offloading_t *) &buffer[sizeof(omp_offloading_info_t)];
+
+	info->name = name;
+	info->top = top;
+	info->count = recurring == 0? 0 : 1;
+	info->type = OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE;
+	info->num_mapped_vars = 0;
+	info->halo_x_info = halo_x_info;
+	info->num_maps_halo_x = num_maps_halo_x;
+
+	int i;
+
+	//memset(info->offloadings, NULL, sizeof(omp_offloading_t)*top->nnodes);
+	/* we move the off initialization from each device thread here, i.e. we serialized this */
+	for (i=0; i<top->nnodes; i++) {
+		omp_offloading_t * off = &info->offloadings[i];
+		omp_device_t * dev = &omp_devices[top->idmap[i]];
+		off->devseqid = i;
+		off->dev = dev;
+#if defined USING_PER_OFFLOAD_STREAM
+		omp_stream_create(dev, &off->mystream, 0);
+		off->stream = &off->mystream;
+#else
+		off->stream = &dev->devstream;
+#endif
+		off->off_info = info;
+		off->num_maps = 0;
+		off->stage = OMP_OFFLOADING_INIT;
+	}
+
+	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
+	pthread_barrier_init(&info->inter_dev_barrier, NULL, top->nnodes);
+	return info;
+}
+
+
 void omp_offloading_append_profile_per_iteration(omp_offloading_info_t *info, long num_fp_operations, long num_loads,
 												 long num_stores) {
 	info->per_iteration_profile.num_fp_operations = num_fp_operations;
@@ -417,27 +464,6 @@ void omp_event_print_elapsed(omp_event_t * ev, double * start_time, double * ela
     }
 }
 #endif
-
-void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x) {
-	info->halo_x_info = halo_x_info;
-	info->num_maps_halo_x = num_maps_halo_x;
-}
-
-/**TODO this is incorrect now as we are using new mem management for off_info */
-void omp_offloading_standalone_data_exchange_init_info(const char *name, omp_offloading_info_t *info,
-                                                       omp_grid_topology_t *top, int recurring, int num_maps,
-                                                       omp_data_map_halo_exchange_info_t *halo_x_info,
-                                                       int num_maps_halo_x) {
-	info->name = name;
-	info->top = top;
-	info->count = recurring == 0? 0 : 1;
-	info->type = OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE;
-	info->num_mapped_vars = num_maps;
-	info->halo_x_info = halo_x_info;
-	info->num_maps_halo_x = num_maps_halo_x;
-
-	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
-}
 
 char * omp_get_device_typename(omp_device_t * dev) {
 	int i;

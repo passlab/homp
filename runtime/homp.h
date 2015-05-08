@@ -637,10 +637,8 @@ extern void omp_offloading_fini_info(omp_offloading_info_t * info);
 extern void omp_offloading_info_report_profile(omp_offloading_info_t * info);
 
 extern void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x);
-extern void omp_offloading_standalone_data_exchange_init_info(const char *name, omp_offloading_info_t *info,
-                                                       omp_grid_topology_t *top, int recurring, int num_maps,
-                                                       omp_data_map_halo_exchange_info_t *halo_x_info,
-                                                       int num_maps_halo_x);
+extern omp_offloading_info_t * omp_offloading_standalone_data_exchange_init_info(const char *name, omp_grid_topology_t *top, int recurring,
+																				 omp_data_map_halo_exchange_info_t *halo_x_info, int num_maps_halo_x);
 extern void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_completion);
 
 extern void omp_stream_create(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default);
