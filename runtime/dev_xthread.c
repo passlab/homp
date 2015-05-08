@@ -92,7 +92,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	int num_events;
 	omp_event_t *events;
 	if (off_info->count <= 1) { /* the first time of recurring offloading or a non-recurring offloading */
-		num_events = off_info->num_mapped_vars * 2 + 10; /* the max posibble # of events to be used */
+		num_events = off_info->num_mapped_vars * 2 + 11; /* the max posibble # of events to be used */
 		events = (omp_event_t *) malloc(sizeof(omp_event_t) * num_events); /**TODO: free this memory somewhere later */
 		off->num_events = num_events;
 		off->events = events;
@@ -245,7 +245,7 @@ data_exchange:;
 	if (off_info->halo_x_info != NULL) {
 		omp_stream_sync(off->stream);/* make sure previous operation are complete, should NOT be timed for exchange */
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[acc_ex_pre_barrier_event_index], NULL, "PRE_BAR_DATA_X", "Time for barrier sync for data exchange between devices");
+		omp_event_record_start(&events[acc_ex_pre_barrier_event_index], NULL, "PRE_BAR_X", "Time for barrier sync before data exchange between devices");
 #endif
 		pthread_barrier_wait(&off_info->inter_dev_barrier); /* make sure everybody is completed so we can exchange now */
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -265,7 +265,7 @@ data_exchange:;
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_ex_event_index]);
-		omp_event_record_start(&events[acc_ex_post_barrier_event_index], NULL, "POST_BAR_DATA_X", "Time for barrier sync for data exchange between devices");
+		omp_event_record_start(&events[acc_ex_post_barrier_event_index], NULL, "POST_BAR_X", "Time for barrier sync after data exchange between devices");
 #endif
 //		dev->offload_request = NULL; /* release this dev */
 		pthread_barrier_wait(&off_info->inter_dev_barrier);
