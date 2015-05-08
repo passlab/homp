@@ -263,6 +263,7 @@ data_exchange:;
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_ex_barrier_event_index]);
 #endif
+//		if (off_info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE) goto omp_offloading_sync_cleanup;
 	}
 
 //	case OMP_OFFLOADING_COPYFROM:

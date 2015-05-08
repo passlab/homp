@@ -97,7 +97,6 @@ int omp_get_num_active_devices() {
 void omp_map_free(omp_offloading_t *off) {
 	int i;
 	omp_offloading_info_t * off_info = off->off_info;
-	omp_stream_sync(off->stream);
 
 	for (i = 0; i < off_info->num_mapped_vars; i++) {
 		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];

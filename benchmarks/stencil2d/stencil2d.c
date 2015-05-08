@@ -671,7 +671,8 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
 				off_args.u = uold;
 				off_args.uold = u;
 			}
-			omp_offloading_start(__off_info__, itrun == num_runs - 1);
+			omp_offloading_start(__off_info__, 0);
+			//omp_offloading_start(__off_info__, itrun == num_runs - 1 && it == num_its);
 #if defined STANDALONE_DATA_X
 			omp_offloading_start(uuold_halo_x_off_info, itrun == num_runs - 1);
 #endif
