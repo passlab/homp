@@ -49,15 +49,16 @@ int timing_init_event_index = 1; 		/* host event */
 int map_init_event_index = 2;  			/* host event */
 
 int acc_mapto_event_index = 3; 			/* dev event */
-int kernel_exe_event_index = 4;			/* dev event */
-int acc_ex_event_index = 5;  			/* host event for data exchange such as halo xchange */
-int acc_ex_barrier_event_index = 6;  	/* host event */
-int acc_mapfrom_event_index = 7;		/* dev event */
+int acc_kernel_exe_event_index = 4;		/* dev event */
+int acc_ex_pre_barrier_event_index = 5; /* host event */
+int acc_ex_event_index = 6;  			/* host event for data exchange such as halo xchange */
+int acc_ex_post_barrier_event_index = 7;/* host event */
+int acc_mapfrom_event_index = 8;		/* dev event */
 
-int sync_cleanup_event_index = 8;		/* host event */
-int barrier_wait_event_index = 9;		/* host event */
+int sync_cleanup_event_index = 9;		/* host event */
+int barrier_wait_event_index = 10;		/* host event */
 
-int misc_event_index_start = 10;        /* other events, e.g. mapto/from for each array, start with 9*/
+int misc_event_index_start = 11;        /* other events, e.g. mapto/from for each array, start with 9*/
 #endif
 
 /**
@@ -80,10 +81,10 @@ void omp_offloading_run(omp_device_t * dev) {
 	 * 1: The init time (stream, event, etc), this is the overhead for the breakdown timing, measured from host
 	 * 2: The time for map init, data dist, buffer allocation and data marshalling, measured from host
 	 * 3: The accumulated time for mapto datamovement, measured from dev
-	 *     4 - kernel_exe_event_index-1: The time for each mapto datamovement, measured from dev (total num_mapto events)
-	 * kernel_exe_event_index: kernel exe time
-	 * kernel_exe_event_index+1: The accumulated time for mapfrom datamovement, measured from dev
-	 *     kernel_exe_event_index+2 - xxxx: The time for each mapfrom datamovement, measured from dev (total num_mapfrom events)
+	 * 4 - acc_kernel_exe_event_index-1: The time for each mapto datamovement, measured from dev (total num_mapto events)
+	 * acc_kernel_exe_event_index: kernel exe time
+	 * acc_kernel_exe_event_index+1: The accumulated time for mapfrom datamovement, measured from dev
+	 *     acc_kernel_exe_event_index+2 - xxxx: The time for each mapfrom datamovement, measured from dev (total num_mapfrom events)
 	 * xxxx: The time for cleanup resources (stream, event, data unmarshalling, etc), measured from host
 	 * xxxx: The time for barrier wait (for other kernel to complete), measured from host
 	 */
@@ -124,10 +125,10 @@ void omp_offloading_run(omp_device_t * dev) {
 		omp_event_init(&events[sync_cleanup_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD);
-		omp_event_init(&events[kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD);
+		omp_event_init(&events[acc_kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD);
 		omp_event_init(&events[acc_mapfrom_event_index], dev, OMP_EVENT_DEV_RECORD);
 		omp_event_init(&events[acc_ex_event_index], dev, OMP_EVENT_HOST_RECORD);
-		omp_event_init(&events[acc_ex_barrier_event_index], dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[acc_ex_post_barrier_event_index], dev, OMP_EVENT_HOST_RECORD);
 
 		for (i=misc_event_index_start; i<num_events; i++) {
 			omp_event_init(&events[i], dev, OMP_EVENT_DEV_RECORD);
@@ -224,7 +225,7 @@ omp_offloading_copyto: ;
 //	case OMP_OFFLOADING_KERNEL:
 	{
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
+		omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
 #endif
 		/* launching the kernel */
 		void * args = off_info->args;
@@ -233,7 +234,7 @@ omp_offloading_copyto: ;
 		if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
 		kernel_launcher(off, args);
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[kernel_exe_event_index]);
+		omp_event_record_stop(&events[acc_kernel_exe_event_index]);
 #endif
 	}
 
@@ -241,6 +242,15 @@ omp_offloading_copyto: ;
 data_exchange:;
 	/* for data exchange, either a standalone or an appended exchange */
 	if (off_info->halo_x_info != NULL) {
+		omp_stream_sync(off->stream);/* make sure previous operation are complete, should NOT be timed for exchange */
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_start(&events[acc_ex_pre_barrier_event_index], NULL, "PRE_BAR_DATA_X", "Time for barrier sync for data exchange between devices");
+#endif
+		pthread_barrier_wait(&off_info->inter_dev_barrier); /* make sure everybody is completed so we can exchange now */
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_stop(&events[acc_ex_pre_barrier_event_index]);
+#endif
+
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[acc_ex_event_index], NULL, "DATA_X", "Time for data exchange between devices");
 #endif
@@ -254,14 +264,14 @@ data_exchange:;
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_ex_event_index]);
-		omp_event_record_start(&events[acc_ex_barrier_event_index], NULL, "BAR_DATA_X", "Time for barrier sync for data exchange between devices");
+		omp_event_record_start(&events[acc_ex_post_barrier_event_index], NULL, "POST_BAR_DATA_X", "Time for barrier sync for data exchange between devices");
 #endif
 //		dev->offload_request = NULL; /* release this dev */
 		pthread_barrier_wait(&off_info->inter_dev_barrier);
 		//printf("dev: %d (seqid: %d) holo region pull\n", dev->id, seqid);
 
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[acc_ex_barrier_event_index]);
+		omp_event_record_stop(&events[acc_ex_post_barrier_event_index]);
 #endif
 //		if (off_info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE) goto omp_offloading_sync_cleanup;
 	}

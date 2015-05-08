@@ -20,6 +20,7 @@ extern "C" {
 #include <cuda_runtime.h>
 #endif
 
+#define OMP_BREAKDOWN_TIMING 1
 /**************************** OpenMP 4.0 standard support *******************************/
 extern int default_device_var; /* -1 means no device, the runtime should be initialized this to be 0 if there is at least one device */
 /* the OMP_DEFAULT_DEVICE env variable is also defined in 4.0, which set the default-device-var icv */
@@ -214,15 +215,16 @@ extern int timing_init_event_index; 		/* host event */
 extern int map_init_event_index;  			/* host event */
 
 extern int acc_mapto_event_index; 			/* dev event */
-extern int kernel_exe_event_index;			/* dev event */
+extern int acc_kernel_exe_event_index;		/* dev event */
+extern int acc_ex_pre_barrier_event_index; 	/* host event */
 extern int acc_ex_event_index;  			/* host event for data exchange such as halo xchange */
-extern int acc_ex_barrier_event_index;  	/* host event */
-extern int acc_mapfrom_event_index;		/* dev event */
+extern int acc_ex_post_barrier_event_index;	/* host event */
+extern int acc_mapfrom_event_index;			/* dev event */
 
 extern int sync_cleanup_event_index;		/* host event */
 extern int barrier_wait_event_index;		/* host event */
 
-extern int misc_event_index_start;        /* other events, e.g. mapto/from for each array, start with 9*/
+extern int misc_event_index_start;      	/* other events, e.g. mapto/from for each array, start with 9*/
 extern void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time);
 
 #endif
