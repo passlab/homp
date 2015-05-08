@@ -127,6 +127,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD);
 		omp_event_init(&events[acc_kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD);
 		omp_event_init(&events[acc_mapfrom_event_index], dev, OMP_EVENT_DEV_RECORD);
+		omp_event_init(&events[acc_ex_pre_barrier_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[acc_ex_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[acc_ex_post_barrier_event_index], dev, OMP_EVENT_HOST_RECORD);
 
