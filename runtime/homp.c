@@ -429,19 +429,19 @@ void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_ti
     omp_event_record_method_t record_method = ev->record_method;
     if (record_method == OMP_EVENT_HOST_RECORD) {
         printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
 		*start_time = ev->start_time_host - reference;
 		*elapsed = ev->elapsed_host;
     } else if (record_method == OMP_EVENT_DEV_RECORD) {
         printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
 		*start_time = ev->start_time_dev - reference;;
 		*elapsed = ev->elapsed_dev;
     } else {
 		printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host, ev->event_description);
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
 		printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev, ev->event_description);
+                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
 		*start_time = ev->start_time_host - reference;;
 		*elapsed = ev->elapsed_host;
     }
