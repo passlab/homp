@@ -410,8 +410,9 @@ void omp_warmup_device(omp_device_t * dev) {
 		dev->dev_properties = (struct cudaDeviceProp*)malloc(sizeof(struct cudaDeviceProp));
 		cudaSetDevice(dev->sysid);
 		cudaGetDeviceProperties(dev->dev_properties, dev->sysid);
-		dev->devstream.systream.cudaStream = 0;
-
+		//dev->devstream.systream.cudaStream = 0;
+		int result = cudaStreamCreateWithFlags(&dev->devstream.systream.cudaStream, cudaStreamNonBlocking);
+		devcall_assert (result);
 		/* warm up the device */
 		void * dummy_dev;
 		char dummy_host[1024];
@@ -781,7 +782,7 @@ void omp_stream_sync(omp_dev_stream_t *st) {
 void omp_stream_destroy(omp_dev_stream_t * st) {
 	omp_device_type_t devtype = st->dev->type;
 #if defined (DEVICE_NVGPU_SUPPORT)
-	if (devtype == OMP_DEVICE_NVGPU && st->systream.cudaStream != 0) {
+	if (devtype == OMP_DEVICE_NVGPU && st->systream.cudaStream != NULL) {
 		cudaError_t result;
 		result = cudaStreamDestroy(st->systream.cudaStream);
 		devcall_assert(result);
