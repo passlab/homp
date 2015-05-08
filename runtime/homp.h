@@ -15,6 +15,7 @@ extern "C" {
 #include <string.h>
 #include <pthread.h>
 #if defined (DEVICE_NVGPU_SUPPORT)
+#define CUDA_API_PER_THREAD_DEFAULT_STREAM 1
 #include <cuda.h>
 #include <cuda_runtime.h>
 #endif
@@ -641,7 +642,7 @@ extern omp_offloading_info_t * omp_offloading_standalone_data_exchange_init_info
 																				 omp_data_map_halo_exchange_info_t *halo_x_info, int num_maps_halo_x);
 extern void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_completion);
 
-extern void omp_stream_create(omp_device_t * d, omp_dev_stream_t * stream, int using_dev_default);
+extern void omp_stream_create(omp_device_t *d, omp_dev_stream_t *stream);
 extern void omp_stream_destroy(omp_dev_stream_t * st);
 extern void omp_stream_sync(omp_dev_stream_t *st);
 extern void omp_map_free(omp_offloading_t *off);

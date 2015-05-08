@@ -98,7 +98,6 @@ void omp_map_free(omp_offloading_t *off) {
 	int i;
 	omp_offloading_info_t * off_info = off->off_info;
 	omp_stream_sync(off->stream);
-//	omp_stream_destroy(off->stream);
 
 	for (i = 0; i < off_info->num_mapped_vars; i++) {
 		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
@@ -162,12 +161,6 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 		omp_device_t * dev = &omp_devices[top->idmap[i]];
 		off->devseqid = i;
 		off->dev = dev;
-#if defined USING_PER_OFFLOAD_STREAM
-		omp_stream_create(dev, &off->mystream, 0);
-		off->stream = &off->mystream;
-#else
-		off->stream = &dev->devstream;
-#endif
 		off->off_info = info;
 		off->num_maps = 0;
 		off->stage = OMP_OFFLOADING_INIT;
@@ -208,12 +201,6 @@ omp_offloading_info_t * omp_offloading_standalone_data_exchange_init_info(const 
 		omp_device_t * dev = &omp_devices[top->idmap[i]];
 		off->devseqid = i;
 		off->dev = dev;
-#if defined USING_PER_OFFLOAD_STREAM
-		omp_stream_create(dev, &off->mystream, 0);
-		off->stream = &off->mystream;
-#else
-		off->stream = &dev->devstream;
-#endif
 		off->off_info = info;
 		off->num_maps = 0;
 		off->stage = OMP_OFFLOADING_INIT;
