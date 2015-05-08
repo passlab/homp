@@ -15,9 +15,7 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_comple
 	omp_grid_topology_t * top = off_info->top;
     /* generate master trace file */
 
-#if defined (OMP_BREAKDOWN_TIMING)
-	if (off_info->count <= 1) off_info->start_time = read_timer_ms(); /* only for the first time */
-#endif
+	off_info->start_time = read_timer_ms(); /* only for the first time */
 
 	int i;
 	for (i = 0; i < top->nnodes; i++) {
@@ -35,10 +33,10 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_comple
 	pthread_barrier_wait(&off_info->barrier);
 
 	if (off_info->count) off_info->count++; /* recurring, increment the number of offloading */
+	off_info->compl_time = read_timer_ms();
 
 #if defined (OMP_BREAKDOWN_TIMING)
 	pthread_barrier_wait(&off_info->barrier); /* this one make sure the profiling is collected */
-	off_info->compl_time = read_timer_ms();
 #endif
 }
 
