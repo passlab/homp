@@ -303,10 +303,10 @@ omp_offloading_copyfrom: ;
 	{
 omp_offloading_sync_cleanup: ;
 		/* sync stream to wait for completion */
+		omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[sync_cleanup_event_index], NULL, "FINI_1", "Time for dev sync and cleaning (event/stream/map, deallocation/unmarshalling)");
 #endif
-		omp_stream_sync(off->stream);
 		if (off->stage == OMP_OFFLOADING_SYNC) {
 			if (off_info->type == OMP_OFFLOADING_DATA) { /* this should be just an assertation */
 				/* put in the offloading stack */

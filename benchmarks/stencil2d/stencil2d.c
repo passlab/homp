@@ -684,6 +684,8 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
 	omp_offloading_start(__copy_data_off_info__, 1);
 	off_copyfrom_time = read_timer_ms() - off_copyfrom_time;
 	double off_total = off_init_time + off_copyto_time + off_copyfrom_time + off_kernel_time;
+	printf("blackbox measurement(ms): off_init: %0.4f, off_copyto: %.4f, off_kernel: %.4f, off_copyfrom: %.4f\n",
+		   off_init_time, off_copyto_time, off_kernel_time, off_copyfrom_time);
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_offloading_info_report_profile(__copy_data_off_info__);
 	omp_offloading_info_report_profile(__off_info__);
@@ -704,6 +706,9 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
 
 	omp_offloading_fini_info(__copy_data_off_info__);
 	omp_offloading_fini_info(__off_info__);
+#if defined STANDALONE_DATA_X
+	omp_offloading_fini_info(uuold_halo_x_off_info);
+#endif
 	omp_grid_topology_fini(__top__);
 
 	omp_unified_free(uold);
