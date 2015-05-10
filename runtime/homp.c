@@ -153,7 +153,8 @@ void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, 
 		suminfo->start_time = start_time;
 		suminfo->compl_time = compl_time;
 	}
-	suminfo->name = "Accumulated profiling of multiple offloading";
+	//sprintf(suminfo->name, "Accumulated Profiles %d Types of Offloading", count);
+	suminfo->name = "Accumulated Multiple Types of Offloading";
 	for (i = 0; i < suminfo->top->nnodes; i++) {
 		suminfo->offloadings[i].num_events = misc_event_index_start;
 	}
@@ -297,8 +298,8 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		int devid = off->dev->id;
 		int devsysid = off->dev->sysid;
 		char * type = omp_get_device_typename(off->dev);
-		printf("\n-------------- Profiling Report (ms) for Offloading(%s) on %s dev %d (sysid: %d) ---------------------------\n", info->name,  type, devid, devsysid);
-		printf("-------------- Last TOTAL: %10.2f, Last start: %10.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
+		printf("\n-------------- Profiles (ms) for Offloading(%s) on %s dev %d (sysid: %d) ---------------------------\n", info->name,  type, devid, devsysid);
+		printf("-------------- Last TOTAL: %.2f, Last start: %.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {
 			omp_event_t * ev = &off->events[j];
@@ -335,19 +336,19 @@ void omp_event_print_profile_header() {
 void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed) {
     omp_event_record_method_t record_method = ev->record_method;
     if (record_method == OMP_EVENT_HOST_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
+        printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
 		*start_time = ev->start_time_host - reference;
 		*elapsed = ev->elapsed_host;
     } else if (record_method == OMP_EVENT_DEV_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
+        printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
 		*start_time = ev->start_time_dev - reference;;
 		*elapsed = ev->elapsed_dev;
     } else {
-		printf("%*s%10.2f%10.2f(%d)\t%10.2f\thost\t%s\n",
+		printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
-		printf("%*s%10.2f%10.2f(%d)\t%10.2f\tdev\t%s\n",
+		printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
                 OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
 		*start_time = ev->start_time_host - reference;;
 		*elapsed = ev->elapsed_host;
