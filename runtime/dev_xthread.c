@@ -378,6 +378,7 @@ void helper_thread_main(void * arg) {
 	omp_stream_create(dev, &dev->devstream);
 //	omp_set_num_threads(dev->num_cores);
 	omp_warmup_device(dev);
+	pthread_barrier_wait(&all_dev_sync_barrier);
 //	printf("helper threading (devid: %s) loop ....\n", dev->name);
 	/*************** loop *******************/
 	while (omp_device_complete == 0) {

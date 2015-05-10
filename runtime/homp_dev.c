@@ -65,6 +65,85 @@ double cpu_sustain_gflopss (double * flopss) {
 	*flopss = n/timer/1e9;
 }
 
+
+/* OpenMP 4.0 support */
+int default_device_var = -1;
+void omp_set_default_device(int device_num ) {
+	default_device_var = device_num;
+}
+int omp_get_default_device(void) {
+	return default_device_var;
+}
+
+int omp_get_num_devices() {
+	return omp_num_devices;
+}
+
+int omp_num_devices;
+omp_device_t * omp_devices;
+pthread_barrier_t all_dev_sync_barrier;
+volatile int omp_device_complete = 0;
+
+volatile int omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scramble together */
+omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
+		{OMP_DEVICE_HOSTCPU, "OMP_DEVICE_HOSTCPU", "HOSTCPU", 1},
+		{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", "NVGPU", 0},
+		{OMP_DEVICE_ITLMIC, "OMP_DEVICE_ITLMIC", "ITLMIC", 0},
+		{OMP_DEVICE_TIDSP, "OMP_DEVICE_TIDSP", "TIDSP", 0},
+		{OMP_DEVICE_AMDAPU, "OMP_DEVICE_AMDAPU", "AMDAPU", 0},
+		{OMP_DEVICE_THSIM, "OMP_DEVICE_THSIM", "THSIM", 0},
+		{OMP_DEVICE_REMOTE, "OMP_DEVICE_REMOTE", "REMOTE", 0},
+		{OMP_DEVICE_LOCALPS, "OMP_DEVICE_LOCALPS", "LOCALPS", 0}
+};
+
+/* APIs to support multiple devices: */
+char * omp_supported_device_types() { /* return a list of devices supported by the compiler in the format of TYPE1:TYPE2 */
+	/* FIXME */
+	return "OMP_DEVICE_HOSTCPU";
+}
+omp_device_type_t omp_get_device_type(int devid) {
+	return omp_devices[devid].type;
+}
+
+char * omp_get_device_type_as_string(int devid) {
+	return omp_device_types[omp_devices[devid].type].name;
+}
+
+int omp_get_num_devices_of_type(omp_device_type_t type) { /* current omp has omp_get_num_devices(); */
+	return omp_device_types[type].num_devs;
+}
+/*
+ * return the first ndev device IDs of the specified type, the function returns the actual number of devices
+ * in the array (devnum_array)
+ *
+ * before calling this function, the caller should allocate the devnum_array[ndev]
+ */
+int omp_get_devices(omp_device_type_t type, int *devnum_array, int ndev) { /* return a list of devices of the specified type */
+	int i;
+	int num = 0;
+	for (i=0; i<omp_num_devices; i++)
+		if (omp_devices[i].type == type && num <= ndev) {
+			devnum_array[num] = omp_devices[i].id;
+			num ++;
+		}
+	return num;
+}
+omp_device_t * omp_get_device(int id) {
+	return &omp_devices[id];
+}
+
+int omp_get_num_active_devices() {
+	int num_dev;
+	char * ndev = getenv("OMP_NUM_ACTIVE_DEVICES");
+	if (ndev != NULL) {
+		num_dev = atoi(ndev);
+		if (num_dev == 0 || num_dev > omp_num_devices) num_dev = omp_num_devices;
+	} else {
+		num_dev = omp_num_devices;
+	}
+	return num_dev;
+}
+
 void omp_init_hostcpu_device(omp_device_t *dev, int id, int sysid, int num_cores) {
 	dev->type = OMP_DEVICE_HOSTCPU;
 	dev->id = id;
@@ -357,6 +436,7 @@ int omp_init_devices() {
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	pthread_setconcurrency(omp_num_devices+1);
+	pthread_barrier_init(&all_dev_sync_barrier, NULL, omp_num_devices+1);
 
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
@@ -400,6 +480,7 @@ int omp_init_devices() {
 	printf("\t\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
 	printf("=====================================================================================================================\n");
 
+	pthread_barrier_wait(&all_dev_sync_barrier);
 	return omp_num_devices;
 }
 
@@ -433,6 +514,7 @@ void omp_warmup_device(omp_device_t * dev) {
 	} else {
 		/* abort(); unknow device type */
 	}
+	omp_stream_sync(&dev->devstream);
 }
 
 // terminate helper threads
@@ -451,6 +533,7 @@ void omp_fini_devices() {
 #endif
 	}
 
+	pthread_barrier_destroy(&all_dev_sync_barrier);
 	free(omp_devices);
 }
 

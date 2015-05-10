@@ -13,99 +13,6 @@
 
 #include "homp.h"
 
-/* OpenMP 4.0 support */
-int default_device_var = -1;
-void omp_set_default_device(int device_num ) {
-  default_device_var = device_num;
-}
-int omp_get_default_device(void) {
-  return default_device_var;
-}
-
-int omp_get_num_devices() {
-	return omp_num_devices;
-}
-
-int omp_num_devices;
-omp_device_t * omp_devices;
-volatile int omp_device_complete = 0;
-
-volatile int omp_printf_turn = 0; /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scramble together */
-omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
-	{OMP_DEVICE_HOSTCPU, "OMP_DEVICE_HOSTCPU", "HOSTCPU", 1},
-	{OMP_DEVICE_NVGPU, "OMP_DEVICE_NVGPU", "NVGPU", 0},
-	{OMP_DEVICE_ITLMIC, "OMP_DEVICE_ITLMIC", "ITLMIC", 0},
-	{OMP_DEVICE_TIDSP, "OMP_DEVICE_TIDSP", "TIDSP", 0},
-	{OMP_DEVICE_AMDAPU, "OMP_DEVICE_AMDAPU", "AMDAPU", 0},
-	{OMP_DEVICE_THSIM, "OMP_DEVICE_THSIM", "THSIM", 0},
-	{OMP_DEVICE_REMOTE, "OMP_DEVICE_REMOTE", "REMOTE", 0},
-	{OMP_DEVICE_LOCALPS, "OMP_DEVICE_LOCALPS", "LOCALPS", 0}
-};
-
-/* APIs to support multiple devices: */
-char * omp_supported_device_types() { /* return a list of devices supported by the compiler in the format of TYPE1:TYPE2 */
-	/* FIXME */
-	return "OMP_DEVICE_HOSTCPU";
-}
-omp_device_type_t omp_get_device_type(int devid) {
-	return omp_devices[devid].type;
-}
-
-char * omp_get_device_type_as_string(int devid) {
-	return omp_device_types[omp_devices[devid].type].name;
-}
-
-int omp_get_num_devices_of_type(omp_device_type_t type) { /* current omp has omp_get_num_devices(); */
-	return omp_device_types[type].num_devs;
-}
-/*
- * return the first ndev device IDs of the specified type, the function returns the actual number of devices
- * in the array (devnum_array)
- *
- * before calling this function, the caller should allocate the devnum_array[ndev]
- */
-int omp_get_devices(omp_device_type_t type, int *devnum_array, int ndev) { /* return a list of devices of the specified type */
-	int i;
-	int num = 0;
-	for (i=0; i<omp_num_devices; i++)
-		if (omp_devices[i].type == type && num <= ndev) {
-			devnum_array[num] = omp_devices[i].id;
-			num ++;
-		}
-	return num;
-}
-omp_device_t * omp_get_device(int id) {
-	return &omp_devices[id];
-}
-
-int omp_get_num_active_devices() {
-	 int num_dev;
-	 char * ndev = getenv("OMP_NUM_ACTIVE_DEVICES");
-	 if (ndev != NULL) {
-		 num_dev = atoi(ndev);
-	     if (num_dev == 0 || num_dev > omp_num_devices) num_dev = omp_num_devices;
-	 } else {
-		 num_dev = omp_num_devices;
-	 }
-	 return num_dev;
-}
-
-/**
- * seqid is the sequence id of the device in the top, it is also used as index to access maps
- *
- */
-void omp_map_free(omp_offloading_t *off) {
-	int i;
-	omp_offloading_info_t * off_info = off->off_info;
-
-	for (i = 0; i < off_info->num_mapped_vars; i++) {
-		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
-		if (map->map_type == OMP_DATA_MAP_COPY) {
-			omp_map_free_dev(map->dev, map->map_dev_wextra_ptr);
-		}
-	}
-}
-
 /* we use as minimum malloc as posibble, so the mem layout is as follows:
  * -----------------------------------------
  * offloading_info_t[1]
@@ -1146,82 +1053,6 @@ long omp_loop_get_range(omp_offloading_t *off, int loop_level, long *start, long
 	return off->loop_dist[loop_level].offset;
 }
 
-void omp_map_unmarshal(omp_data_map_t * map) {
-	if (!map->mem_noncontiguous) return;
-	omp_data_map_info_t * info = map->info;
-	int sizeof_element = info->sizeof_element;
-	int i;
-	switch (info->num_dims) {
-	case 1: {
-		fprintf(stderr, "data unmarshall can only do 2-d or 3-d array, currently is 1-d\n");
-		break;
-	}
-	case 2: {
-		long region_line_size = map->map_dist[1].length*sizeof_element;
-		long full_line_size = info->dims[1]*sizeof_element;
-		long region_off = 0;
-		long full_off = 0;
-		char * src_ptr = &info->source_ptr[sizeof_element*info->dims[1]*map->map_dist[0].offset + sizeof_element*map->map_dist[1].offset];
-		for (i=0; i<map->map_dist[0].length; i++) {
-			memcpy((void*)&src_ptr[full_off], (void*)&map->map_source_ptr[region_off], region_line_size);
-			region_off += region_line_size;
-			full_off += full_line_size;
-		}
-		break;
-	}
-	case 3: {
-		break;
-	}
-	default: {
-		fprintf(stderr, "data unmarshall can only do 2-d or 3-d array\n");
-		break;
-	}
-	}
-//	printf("total %ld bytes of data unmarshalled\n", region_off);
-}
-
-/**
- *  so far works for at most 2D
- */
-void * omp_map_marshal(omp_data_map_t *map) {
-	omp_data_map_info_t * info = map->info;
-	int sizeof_element = info->sizeof_element;
-	int i;
-	switch (info->num_dims) {
-	case 1: {
-		fprintf(stderr,
-				"data marshall can only do 2-d or 3-d array, currently is 1-d\n");
-		break;
-	}
-	case 2: {
-		void *map_buffer = (void*) malloc(map->map_size);
-		long region_line_size = map->map_dist[1].length * sizeof_element;
-		long full_line_size = info->dims[1] * sizeof_element;
-		long region_off = 0;
-		long full_off = 0;
-		char * src_ptr = &info->source_ptr[sizeof_element * info->dims[1] * map->map_dist[0].offset
-				+ sizeof_element * map->map_dist[1].offset];
-		for (i = 0; i < map->map_dist[0].length; i++) {
-			memcpy((void*)&map_buffer[region_off], (void*)&src_ptr[full_off], region_line_size);
-			region_off += region_line_size;
-			full_off += full_line_size;
-		}
-		return map_buffer;
-		break;
-	}
-	case 3: {
-		break;
-	}
-	default: {
-		fprintf(stderr, "data marshall can only do 2-d or 3-d array\n");
-		break;
-	}
-	}
-
-	return NULL;
-//	printf("total %ld bytes of data marshalled\n", region_off);
-}
-
 /**
  * for a ndims-dimensional array, the dimensions are stored in dims array.
  * Given an element with index stored in idx array, this function return the offset
@@ -1364,6 +1195,22 @@ void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
 	}
 
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_4;
+}
+
+/**
+ * seqid is the sequence id of the device in the top, it is also used as index to access maps
+ *
+ */
+void omp_map_free(omp_offloading_t *off) {
+	int i;
+	omp_offloading_info_t * off_info = off->off_info;
+
+	for (i = 0; i < off_info->num_mapped_vars; i++) {
+		omp_data_map_t * map = &off_info->data_map_info[i].maps[off->devseqid];
+		if (map->map_type == OMP_DATA_MAP_COPY) {
+			omp_map_free_dev(map->dev, map->map_dev_wextra_ptr);
+		}
+	}
 }
 
 void omp_print_map_info(omp_data_map_info_t * info) {
@@ -1513,6 +1360,82 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 }
 
 #undef CORRECTNESS_CHECK
+
+void omp_map_unmarshal(omp_data_map_t * map) {
+	if (!map->mem_noncontiguous) return;
+	omp_data_map_info_t * info = map->info;
+	int sizeof_element = info->sizeof_element;
+	int i;
+	switch (info->num_dims) {
+		case 1: {
+			fprintf(stderr, "data unmarshall can only do 2-d or 3-d array, currently is 1-d\n");
+			break;
+		}
+		case 2: {
+			long region_line_size = map->map_dist[1].length*sizeof_element;
+			long full_line_size = info->dims[1]*sizeof_element;
+			long region_off = 0;
+			long full_off = 0;
+			char * src_ptr = &info->source_ptr[sizeof_element*info->dims[1]*map->map_dist[0].offset + sizeof_element*map->map_dist[1].offset];
+			for (i=0; i<map->map_dist[0].length; i++) {
+				memcpy((void*)&src_ptr[full_off], (void*)&map->map_source_ptr[region_off], region_line_size);
+				region_off += region_line_size;
+				full_off += full_line_size;
+			}
+			break;
+		}
+		case 3: {
+			break;
+		}
+		default: {
+			fprintf(stderr, "data unmarshall can only do 2-d or 3-d array\n");
+			break;
+		}
+	}
+//	printf("total %ld bytes of data unmarshalled\n", region_off);
+}
+
+/**
+ *  so far works for at most 2D
+ */
+void * omp_map_marshal(omp_data_map_t *map) {
+	omp_data_map_info_t * info = map->info;
+	int sizeof_element = info->sizeof_element;
+	int i;
+	switch (info->num_dims) {
+		case 1: {
+			fprintf(stderr,
+					"data marshall can only do 2-d or 3-d array, currently is 1-d\n");
+			break;
+		}
+		case 2: {
+			void *map_buffer = (void*) malloc(map->map_size);
+			long region_line_size = map->map_dist[1].length * sizeof_element;
+			long full_line_size = info->dims[1] * sizeof_element;
+			long region_off = 0;
+			long full_off = 0;
+			char * src_ptr = &info->source_ptr[sizeof_element * info->dims[1] * map->map_dist[0].offset
+											   + sizeof_element * map->map_dist[1].offset];
+			for (i = 0; i < map->map_dist[0].length; i++) {
+				memcpy((void*)&map_buffer[region_off], (void*)&src_ptr[full_off], region_line_size);
+				region_off += region_line_size;
+				full_off += full_line_size;
+			}
+			return map_buffer;
+			break;
+		}
+		case 3: {
+			break;
+		}
+		default: {
+			fprintf(stderr, "data marshall can only do 2-d or 3-d array\n");
+			break;
+		}
+	}
+
+	return NULL;
+//	printf("total %ld bytes of data marshalled\n", region_off);
+}
 
 /**
  * utilities
