@@ -152,8 +152,8 @@ void omp_offloading_run(omp_device_t * dev) {
 			/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
 			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
 
-			omp_data_map_t * map = omp_map_get_map_inheritance (dev, map_info->source_ptr);
 			int inherited = 1;
+			omp_data_map_t * map = omp_map_get_map_inheritance (dev, map_info->source_ptr);
 			if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
 				map = &map_info->maps[seqid];
 				omp_data_map_init_map(map, map_info, dev);
@@ -170,6 +170,7 @@ void omp_offloading_run(omp_device_t * dev) {
 			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
 			omp_data_map_t * map = &map_info->maps[seqid];
 			omp_map_malloc(map, off);
+			//omp_print_map_info(map_info);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[map_init_event_index]);
@@ -332,7 +333,11 @@ omp_offloading_sync_cleanup: ;
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		}
 		if (off_info->free_after_completion) {
-			omp_map_free(off);
+			for (i=0; i<off_info->num_mapped_vars; i++) {
+				omp_data_map_info_t *map_info = &off_info->data_map_info[i];
+				omp_data_map_t *map = &map_info->maps[seqid];
+				omp_map_free(map, off);
+			}
 #if defined USING_PER_OFFLOAD_STREAM
 			omp_stream_destroy(&off->mystream);
 #endif
