@@ -160,17 +160,15 @@ void omp_offloading_run(omp_device_t * dev) {
 				omp_data_map_dist(map, seqid); /* handle all unmapped variable */
 				inherited = 0;
 			}
-			omp_offload_append_map_to_cache(off, map, inherited);
+			omp_map_append_map_to_offcache(off, map, inherited);
 			//omp_print_data_map(map);
 		}
 
-		/* TODO: we did not check the cache again here */
 		/* buffer allocation */
-		for (i=0; i<off_info->num_mapped_vars; i++) {
-			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
-			omp_data_map_t * map = &map_info->maps[seqid];
-			omp_map_malloc(map, off);
-			//omp_print_map_info(map_info);
+		for (i=0; i<off->num_maps; i++) {
+			int inherited;
+			omp_data_map_t * map = omp_map_offcache_iterator(off, i, &inherited);
+			if (!inherited) omp_map_malloc(map, off);
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[map_init_event_index]);
@@ -192,11 +190,11 @@ omp_offloading_copyto: ;
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_start(&events[acc_mapto_event_index], stream, "ACC_MAPTO", "Accumulated time for mapto data movement for all array");
 #endif
-		for (i=0; i<off_info->num_mapped_vars; i++) {
-			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
-			omp_data_map_t * map = &map_info->maps[seqid];
-			if (omp_map_is_map_inherited(off, map)) continue;
-
+		for (i=0; i<off->num_maps; i++) {
+			int inherited;
+			omp_data_map_t * map = omp_map_offcache_iterator(off, i, &inherited);
+			if (inherited) continue;
+			omp_data_map_info_t * map_info = map->info;
 			if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 				omp_event_record_start(&events[misc_event_index], stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
@@ -285,11 +283,11 @@ omp_offloading_copyfrom: ;
 			omp_event_record_start(&events[acc_mapfrom_event_index], stream,  "ACC_MAPFROM", "Accumulated time for mapfrom data movement for all array");
 #endif
 		/* copy back results */
-		for (i=0; i<off_info->num_mapped_vars; i++) {
-			omp_data_map_info_t * map_info = &off_info->data_map_info[i];
-			omp_data_map_t * map = &map_info->maps[seqid];
-			if (omp_map_is_map_inherited(off, map)) continue;
-
+		for (i=0; i<off->num_maps; i++) {
+			int inherited;
+			omp_data_map_t * map = omp_map_offcache_iterator(off, i, &inherited);
+			if (inherited) continue;
+			omp_data_map_info_t * map_info = map->info;
 			if (map_info->map_direction == OMP_DATA_MAP_FROM || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 				/* TODO bug here if this is reached from the above goto, since events is not available */
@@ -333,10 +331,10 @@ omp_offloading_sync_cleanup: ;
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		}
 		if (off_info->free_after_completion) {
-			for (i=0; i<off_info->num_mapped_vars; i++) {
-				omp_data_map_info_t *map_info = &off_info->data_map_info[i];
-				omp_data_map_t *map = &map_info->maps[seqid];
-				omp_map_free(map, off);
+			for (i=0; i<off->num_maps; i++) {
+				int inherited;
+				omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+				if (!inherited) omp_map_free(map, off);
 			}
 #if defined USING_PER_OFFLOAD_STREAM
 			omp_stream_destroy(&off->mystream);

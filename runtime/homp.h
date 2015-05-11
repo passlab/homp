@@ -592,7 +592,7 @@ struct omp_offloading {
 	/* an offload can has as many as OFFLOADING_MAP_CACHE_SIZE mapped variable */
 	struct {
 		omp_data_map_t * map;
-		int * inherited; /* flag to mark whether this is an inherited map or not */
+		int inherited; /* flag to mark whether this is an inherited map or not */
 	} map_cache[OFF_MAP_CACHE_SIZE];
 	int num_maps;
 
@@ -700,7 +700,8 @@ extern void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left
 //extern int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim);
 //extern int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim);
 
-extern void omp_offload_append_map_to_cache (omp_offloading_t *off, omp_data_map_t *map, int inherited);
+extern omp_data_map_t *omp_map_offcache_iterator(omp_offloading_t *off, int index, int * inherited);
+extern void omp_map_append_map_to_offcache(omp_offloading_t *off, omp_data_map_t *map, int inherited);
 extern int omp_map_is_map_inherited(omp_offloading_t *off, omp_data_map_t *map);
 extern omp_data_map_t * omp_map_get_map_inheritance (omp_device_t * dev, void * host_ptr);
 extern omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map_index);
