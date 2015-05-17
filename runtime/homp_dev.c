@@ -463,10 +463,19 @@ int omp_init_devices() {
 			   dev->id, dev->sysid, omp_get_device_typename(dev), dev->name, dev->num_cores, mem_type, dev->total_real_flopss, dev->bandwidth,
 			   dev->latency);
 		//printf("\t\tstream dev: %s\n", dev->devstream.dev->name);
-		if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE && dev->type == OMP_DEVICE_NVGPU) {
+		if (dev->type == OMP_DEVICE_NVGPU) {
+			if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE) {
 #if defined(DEVICE_NVGPU_VSHAREDM)
-			printf("\t\tUnified Memory is Supported in the runtime, but this device is not set to use it. To use it, enable shared mem in the dev spec\n");
+			printf("\t\tUnified Memory is supported in the runtime, but this device is not set to use it. To use it, enable shared mem in the dev spec(Memory=shared)\n");
 #endif
+			}
+			if (dev->mem_type == OMP_DEVICE_MEM_SHARED) {
+#if defined(DEVICE_NVGPU_VSHAREDM)
+#else
+				printf("\t\tUnified Memory is NOT supported in the runtime, fall back to discrete memory for this device. To enable shared mem support in runtime, set the DEVICE_NVGPU_VSHAREDM macro.\n");
+				dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
+#endif
+			}
 		}
 	}
 	printf("The device specifications can be provided by a spec file, or through system probing:\n");
@@ -567,7 +576,7 @@ void omp_map_mapfrom(omp_data_map_t * map) {
 
 void omp_map_mapfrom_async(omp_data_map_t * map, omp_dev_stream_t * stream) {
 	if (map->map_type == OMP_DATA_MAP_COPY) {
-		omp_map_memcpy_from_async((void*)map->map_source_ptr, (void*)map->map_dev_ptr, map->dev, map->map_size, stream); /* memcpy from host to device */
+	//	omp_map_memcpy_from_async((void*)map->map_source_ptr, (void*)map->map_dev_ptr, map->dev, map->map_size, stream); /* memcpy from host to device */
 		omp_map_memcpy_from_async((void*)map->map_source_wextra_ptr, (void*)map->map_dev_wextra_ptr, map->dev, map->map_wextra_size, stream); /* memcpy from host to device */
 	//	printf("%s, dev: %d, mapfrom: %X <--- %X\n", map->info->symbol, map->dev->id, map->map_source_ptr, map->map_dev_ptr);
 	//	printf("%s, dev: %d, mapfrom: %X <--- %X of extra\n",  map->info->symbol, map->dev->id, map->map_source_wextra_ptr, map->map_dev_wextra_ptr);
