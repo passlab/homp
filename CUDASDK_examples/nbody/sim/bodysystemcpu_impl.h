@@ -254,7 +254,7 @@ void _integrateNBodySystem_launcher(omp_offloading_t * off, void *args) {
     T* force_p = (T *)map_force->map_dev_ptr;
 
     omp_device_type_t devtype = off_info->targets[off->devseqid]->type;
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
     if (devtype == OMP_DEVICE_NVGPU) {
 	int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 	int teams_per_league = (n*m + threads_per_team - 1) / threads_per_team;

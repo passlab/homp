@@ -78,7 +78,7 @@ struct sort_args {
     int *bufferInt;
 };
 
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void sort(long start_n, long length_n, int *bufferInt) {
 	printf("Inside kernel \n");
@@ -148,7 +148,7 @@ void sort_launcher(omp_offloading_t *off, void *args) {
     omp_loop_get_range(off, 0, &start_n, &length_n);
 
     omp_device_type_t devtype = off->dev->type;
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 	int threads_per_team =
 		omp_get_optimal_threads_per_team(off->dev);

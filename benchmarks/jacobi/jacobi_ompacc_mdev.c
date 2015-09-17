@@ -282,7 +282,7 @@ void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL *
 	printf("Residual: %.15g\n", error);
 }
 
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 
 #define LOOP_COLLAPSE 1
@@ -480,7 +480,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
 	omp_device_type_t devtype = off->dev->type;
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);
@@ -600,7 +600,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
 	omp_device_type_t devtype = off->dev->type;
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);

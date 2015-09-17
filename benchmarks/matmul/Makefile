@@ -15,13 +15,13 @@ matmul-thsim:
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 matmul-nvgpu:
-	nvcc $(TEST_INCLUDES) -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  -c
-	nvcc -I../../runtime -I. -O2 -I/APPS/cuda/include/include -Xcompiler -fopenmp -Xcompiler -O2 -DDEVICE_NVGPU_SUPPORT=1 -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 matmul_mdev.cu  -c
+	nvcc $(TEST_INCLUDES) -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPUACC_CUDA_SUPPORT=1 -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  -c
+	nvcc -I../../runtime -I. -O2 -I/APPS/cuda/include/include -Xcompiler -fopenmp -Xcompiler -O2 -DDEVICE_NVGPUACC_CUDA_SUPPORT=1 -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 matmul_mdev.cu  -c
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 matmul-nvgpu-vsharedm:
-	nvcc $(TEST_INCLUDES) -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_SUPPORT=1 -DDEVICE_NVGPU_VSHAREDM=1  -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  -c
-	nvcc -I../../runtime -I. -O2 -I/APPS/cuda/include/include -Xcompiler -fopenmp -Xcompiler -O2 -DDEVICE_NVGPU_SUPPORT=1 -DDEVICE_NVGPU_VSHAREDM=1  -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 matmul_mdev.cu  -c
+	nvcc $(TEST_INCLUDES) -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPUACC_CUDA_SUPPORT=1 -DDEVICE_NVGPUACC_CUDA_VSHAREDM=1  -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  -c
+	nvcc -I../../runtime -I. -O2 -I/APPS/cuda/include/include -Xcompiler -fopenmp -Xcompiler -O2 -DDEVICE_NVGPUACC_CUDA_SUPPORT=1 -DDEVICE_NVGPUACC_CUDA_VSHAREDM=1  -DOMP_BREAKDOWN_TIMING=1 -DPROFILE_PLOT=1 matmul_mdev.cu  -c
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 clean:

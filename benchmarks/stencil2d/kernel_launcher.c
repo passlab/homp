@@ -6,7 +6,7 @@
 #include "homp.h"
 #include "stencil2d.h"
 
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 extern __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff);
 #endif
 
@@ -56,7 +56,7 @@ void stencil2d_omp_mdev_off_launcher(omp_offloading_t *off, void *args) {
 
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
     for (it = 0; it < num_its; it++) {
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 		if (devtype == OMP_DEVICE_NVGPU) {
 			dim3 threads_per_team(16, 16);
 			dim3 teams_per_league((len+threads_per_team.x-1)/threads_per_team.x, (m+threads_per_team.y-1)/threads_per_team.y); /* we assume dividable */
@@ -159,7 +159,7 @@ void stencil2d_omp_mdev_iterate_off_launcher(omp_offloading_t * off, void *args)
     //printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
 
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
-#if defined (DEVICE_NVGPU_SUPPORT)
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		dim3 threads_per_team(16, 16);
 		dim3 teams_per_league((len+threads_per_team.x-1)/threads_per_team.x, (m+threads_per_team.y-1)/threads_per_team.y); /* we assume dividable */
