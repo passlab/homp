@@ -113,7 +113,7 @@ int main(int argc, char * argv[]) {
     else if (argc == 7) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &radius); sscanf(argv[6], "%d", &num_its); }
     else if (argc == 8) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &k); sscanf(argv[6], "%d", &radius); sscanf(argv[7], "%d", &num_its); }
     else {
-    	/* the rest of arg ignored/
+    	/* the rest of arg ignored*/
     }
 
 	if (num_its%2==0) num_its++; /* make it odd so uold/u exchange easier */
@@ -189,66 +189,6 @@ int main(int argc, char * argv[]) {
 	return 0;
 }
 
-void stencil3d_seq_normal(long n, long m, long k, REAL *u, int radius, REAL *coeff, int num_its) {
-	long it; /* iteration */
-	long u_dimX = n + 2 * radius;
-	long u_dimY = m + 2 * radius;
-    long u_dimZ = k + 2 * radius;
-	int coeff_dimX = 2*radius+1;
-	REAL *uold = (REAL*)malloc(sizeof(REAL)*u_dimX * u_dimY * u_dimZ);
-	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY*u_dimZ);
-	coeff = coeff + (2*radius+1) * radius + radius; /* let coeff point to the center element */
-	REAL * uold_save = uold;
-	REAL * u_save = u;
-	int count = 6*radius+1;
-    #ifdef SQUARE_SETNCIL
-	count = coeff_dimX * coeff_dimX * coeff_dimX;
-    #endif
-
-	for (it = 0; it < num_its; it++) 
-	{
-		int ix, iy, iz, ir;
-
-		for (ix = 0; ix < n; ix++) 
-		{
-		 for (iy = 0; iy < m; iy++) 
-		    {
-             for (iz = 0; iz < k; iz++) 
-		        {
-				   REAL * temp_u = &u[(ix+radius)*u_dimY*u_dimZ+radius+iy+iz];
-				   REAL * temp_uold = &uold[(ix+radius)*u_dimY*u_dimZ+radius+iy+iz]; //because it should have a 1D array for storing 3D elements
-				   REAL result = temp_uold[0] * coeff[0];//the coeff will now provide the supporting lenght
-				   /* 2/4 way loop unrolling */ // in 3D the progression on the Z direction is same as that of Y 
-				   for (ir = 1; ir <= radius; ir++) 
-				   {
-					    result += coeff[ir] * temp_uold[ir];           		//horizontal right
-					    result += coeff[-ir]* temp_uold[-ir];                  // horizontal left
-						result += coeff[-ir*coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up in Y
-						result += coeff[ir*coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom in Y
-						result += coeff[-ir*coeff_dimX] * temp_uold[-ir * u_dimZ]; //vertical up in Z
-						result += coeff[ir*coeff_dimX] * temp_uold[ir * u_dimZ]; // vertical bottom in Z
-						#ifdef SQUARE_SETNCIL
-						result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
-						result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
-						result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir] // left bottom corner in Y
-						result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner in Y
-						result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimZ]-ir] // left bottom corner in Z
-						result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimZ]+ir] // right bottom corner in Z
-						#endif   
-                    }//end of rad loop
-				   *temp_u = result/count;
-				   temp_u++;
-				   temp_uold++;
-			    }//end of 
-		    }//end of y
-		    
-        }//end of x loop      
-        REAL * tmp = uold;
-		uold = u;
-		u = tmp;
-	}/*  End iteration loop */ //NOTE: confirm with the concept
-	free(uold_save);
-}
 
 void stencil3d_seq(long n, long m, long k, REAL *u, int radius, REAL *coeff, int num_its) 
 {
@@ -483,7 +423,7 @@ double stencil3d_omp_mdev(long n, long m, long k, REAL *u, int radius, REAL *coe
 	omp_offloading_info_t * __off_info__ =
 			omp_offloading_init_info("stencil3d kernel", __top__, 1, OMP_OFFLOADING_CODE, 0,
 									 stencil3d_omp_mdev_off_launcher, &off_args, 1);
-	omp_offloading_append_profile_per_iteration(__off_info__, 13*u_dimY, 7, 1);//NOTE: how to handle this for z?
+	omp_offloading_append_profile_per_iteration(__off_info__, 13*u_dimY*u_dimZ, 7, 1);//NOTE: how to handle this for z?
 
 	//printf("data copy off: %X, stencil3d off: %X\n", __copy_data_off_info__, __off_info__);
 
@@ -664,7 +604,7 @@ double stencil3d_omp_mdev_iterate(long n, long m, long k, REAL *u, int radius, R
 	} else if (dist_dim == 2) {
 		omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, radius, n, 0);
 		omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-   omp_data_map_dist_init_info(__u_map_info__, 2, OMP_DIST_POLICY_BLOCK, radius, n, 0);
+    omp_data_map_dist_init_info(__u_map_info__, 2, OMP_DIST_POLICY_BLOCK, radius, n, 0);
 		omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
 		omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
 		omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0);
