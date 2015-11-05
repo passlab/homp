@@ -1,6 +1,7 @@
 #include "hotspot.h"
+#include "omp.h"
 
-
+double start,end;
 void writeoutput(float *vect, int grid_rows, int grid_cols, char *file) {
 
 	int i,j, index=0;
@@ -86,7 +87,7 @@ int compute_tran_temp(cl_mem MatrixPower, cl_mem MatrixTemp[2], int col, int row
 	local_work_size[1] = BLOCK_SIZE;
 	
 	
-	long long start_time = get_time();	
+	//long long start_time = get_time();	
 	
 	for (t = 0; t < total_iterations; t += num_iterations) {
 		
@@ -105,11 +106,11 @@ int compute_tran_temp(cl_mem MatrixPower, cl_mem MatrixTemp[2], int col, int row
 		clSetKernelArg(kernel, 10, sizeof(float), (void *) &Ry);
 		clSetKernelArg(kernel, 11, sizeof(float), (void *) &Rz);
 		clSetKernelArg(kernel, 12, sizeof(float), (void *) &step);
-		
+
 		// Launch kernel
 		error = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
 		if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
-		
+	
 		// Flush the queue
 		error = clFlush(command_queue);
 		if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
@@ -123,9 +124,9 @@ int compute_tran_temp(cl_mem MatrixPower, cl_mem MatrixTemp[2], int col, int row
 	error = clFinish(command_queue);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
 	
-	long long end_time = get_time();
-	long long total_time = (end_time - start_time);	
-	printf("\nKernel time: %.3f seconds\n", ((float) total_time) / (1000*1000));
+	//long long end_time = get_time();
+	//long long total_time = (end_time - start_time);	
+	//printf("\nKernel time: %.3f seconds\n", ((float) total_time) / (1000*1000));
 	
 	return src;
 }
@@ -227,7 +228,10 @@ int main(int argc, char** argv) {
 	// Read input data from disk
     readinput(FilesavingTemp, grid_rows, grid_cols, tfile);
     readinput(FilesavingPower, grid_rows, grid_cols, pfile);
-	
+
+   /* start the total timer */
+   /* start the stage 1 timer */	
+	start = omp_get_wtime();
 	// Load kernel source from file
 	const char *source = load_kernel_source("hotspot_kernel.cl");
 	size_t sourceSize = strlen(source);
@@ -254,7 +258,7 @@ int main(int argc, char** argv) {
     if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
 	
 		
-	long long start_time = get_time();
+	//long long start_time = get_time();
 	
 	// Create two temperature matrices and copy the temperature input data
 	cl_mem MatrixTemp[2];
@@ -267,20 +271,27 @@ int main(int argc, char** argv) {
 	// Copy the power input data
 	cl_mem MatrixPower = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(float) * size, FilesavingPower, &error);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
-	
+
+        /* stop the stage 1 timer */
+        /* start the stage 2 timer */	
 	// Perform the computation
 	int ret = compute_tran_temp(MatrixPower, MatrixTemp, grid_cols, grid_rows, total_iterations, pyramid_height,
 								blockCols, blockRows, borderCols, borderRows, FilesavingTemp, FilesavingPower);
-	
+        /* stop the stage 2 timer */
+        /* start the stage 3 timer */	
 	// Copy final temperature data back
 	cl_float *MatrixOut = (cl_float *) clEnqueueMapBuffer(command_queue, MatrixTemp[ret], CL_TRUE, CL_MAP_READ, 0, sizeof(float) * size, 0, NULL, NULL, &error);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
 	
-	long long end_time = get_time();	
-	printf("Total time: %.3f seconds\n", ((float) (end_time - start_time)) / (1000*1000));
+	//long long end_time = get_time();	
+	//printf("Total time: %.3f seconds\n", ((float) (end_time - start_time)) / (1000*1000));
 	
 	// Write final output to output file
+	/* start IOoutput timer */
+	double IO_start = omp_get_wtime();
     writeoutput(MatrixOut, grid_rows, grid_cols, ofile);
+        /* stop IOoutput timer */
+	double IO_end = omp_get_wtime();
     
 	error = clEnqueueUnmapMemObject(command_queue, MatrixTemp[ret], (void *) MatrixOut, 0, NULL, NULL);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
@@ -290,6 +301,9 @@ int main(int argc, char** argv) {
 	clReleaseMemObject(MatrixPower);
 	
         clReleaseContext(context);
-
+        /* stop stage 3 timer, need to minus IO time */
+        /* stop total timer, need to minus IO time too */
+	end = omp_get_wtime();
+	printf("%.8f",(end-start-(IO_end-IO_start)));
 	return 0;
 }

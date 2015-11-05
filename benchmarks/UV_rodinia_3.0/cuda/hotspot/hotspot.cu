@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <assert.h>
+#include "omp.h"
 
 #ifdef RD_WG_SIZE_0_0                                                            
         #define BLOCK_SIZE RD_WG_SIZE_0_0                                        
@@ -24,6 +25,7 @@
 /* capacitance fitting factor	*/
 #define FACTOR_CHIP	0.5
 
+
 /* chip parameters	*/
 float t_chip = 0.0005;
 float chip_height = 0.016;
@@ -37,7 +39,6 @@ void run(int argc, char** argv);
 #define pin_stats_reset()   startCycle()
 #define pin_stats_pause(cycles)   stopCycle(cycles)
 #define pin_stats_dump(cycles)    printf("timer: %Lu\n", cycles)
-
 
 
 void 
@@ -239,7 +240,7 @@ int compute_tran_temp(float *MatrixPower,float *MatrixTemp[2], int col, int row,
 	time_elapsed=0.001;
 
         int src = 1, dst = 0;
-	
+
 	for (t = 0; t < total_iterations; t+=num_iterations) {
             int temp = src;
             src = dst;
@@ -316,6 +317,8 @@ void run(int argc, char** argv)
 	
     readinput(FilesavingTemp, grid_rows, grid_cols, tfile);
     readinput(FilesavingPower, grid_rows, grid_cols, pfile);
+    //timer
+    double start = omp_get_wtime();
 
     float *MatrixTemp[2], *MatrixPower;
     cudaMalloc((void**)&MatrixTemp[0], sizeof(float)*size);
@@ -329,11 +332,13 @@ void run(int argc, char** argv)
 	 total_iterations,pyramid_height, blockCols, blockRows, borderCols, borderRows);
 	printf("Ending simulation\n");
     cudaMemcpy(MatrixOut, MatrixTemp[ret], sizeof(float)*size, cudaMemcpyDeviceToHost);
-
-    writeoutput(MatrixOut,grid_rows, grid_cols, ofile);
+    //timer    
 
     cudaFree(MatrixPower);
     cudaFree(MatrixTemp[0]);
     cudaFree(MatrixTemp[1]);
+    double end = omp_get_wtime();
+    printf("%.8f",(end-start));
+    writeoutput(MatrixOut,grid_rows, grid_cols, ofile);
     free(MatrixOut);
 }

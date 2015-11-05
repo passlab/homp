@@ -15,7 +15,7 @@
 #include <avilib.h>
 #include <avimod.h>
 #include <cuda.h>
-
+#include "omp.h"
 //======================================================================================================================================================
 //	STRUCTURES, GLOBAL STRUCTURE VARIABLES
 //======================================================================================================================================================
@@ -37,7 +37,7 @@ __constant__ params_unique d_unique[ALL_POINTS];
 
 #include "kernel.cu"
 
-
+double start,end;
 
 
 
@@ -187,7 +187,8 @@ int main(int argc, char *argv []){
 	common.tSize = 25;
 	common.maxMove = 10;
 	common.alpha = 0.87;
-
+	
+	start = omp_get_wtime();
 	//====================================================================================================
 	//	ENDO POINTS
 	//====================================================================================================
@@ -769,6 +770,9 @@ int main(int argc, char *argv []){
 		cudaFree(unique[i].d_tMask);
 		cudaFree(unique[i].d_mask_conv);
 	}
+	end = omp_get_wtime();
+        printf("Total time:\n");
+        printf("%.8f\n", (end-start));
 
 }
 

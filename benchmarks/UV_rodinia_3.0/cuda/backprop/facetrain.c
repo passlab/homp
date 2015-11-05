@@ -22,7 +22,12 @@ backprop_face()
   load(net);
   //entering the training kernel, only one iteration
   printf("Starting training kernel\n");
+  //timer_start
+  double start = omp_get_wtime();
   bpnn_train_cuda(net, &out_err, &hid_err);
+  //timer_end
+   double end = omp_get_wtime();
+    printf("%.8f\n",(end-start));
   bpnn_free(net);
   printf("Training done\n");
 }

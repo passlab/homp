@@ -12,7 +12,7 @@
 
 #include "CLHelper.h"
 #include "util.h"
-
+#include "omp.h"
 #define MAX_THREADS_PER_BLOCK 256
 
 //Structure to hold a node information
@@ -74,11 +74,14 @@ void run_bfs_gpu(int no_of_nodes, Node *h_graph_nodes, int edge_list_size, \
 
 	//int number_elements = height*width;
 	char h_over;
+	double start,end;
 	cl_mem d_graph_nodes, d_graph_edges, d_graph_mask, d_updating_graph_mask, \
 			d_graph_visited, d_cost, d_over;
 	try{
 		//--1 transfer data from host to device
+		start = omp_get_wtime();
 		_clInit();			
+		//double start = omp_get_wtime();
 		d_graph_nodes = _clMalloc(no_of_nodes*sizeof(Node), h_graph_nodes);
 		d_graph_edges = _clMalloc(edge_list_size*sizeof(int), h_graph_edges);
 		d_graph_mask = _clMallocRW(no_of_nodes*sizeof(char), h_graph_mask);
@@ -97,7 +100,7 @@ void run_bfs_gpu(int no_of_nodes, Node *h_graph_nodes, int edge_list_size, \
 		_clMemcpyH2D(d_cost, no_of_nodes*sizeof(int), h_cost);	
 			
 		//--2 invoke kernel
-#ifdef	PROFILING
+#ifdef PROFILING
 		timer kernel_timer;
 		double kernel_time = 0.0;		
 		kernel_timer.reset();
@@ -169,6 +172,9 @@ void run_bfs_gpu(int no_of_nodes, Node *h_graph_nodes, int edge_list_size, \
 		e_str += msg;
 		throw(e_str);
 	}
+	
+	 end = omp_get_wtime();    
+   		printf("Total : %.8f\n",(end-start));
 	return ;
 }
 void Usage(int argc, char**argv){

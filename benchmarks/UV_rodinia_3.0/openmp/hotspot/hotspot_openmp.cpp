@@ -226,10 +226,15 @@ int main(int argc, char **argv)
 	pfile = argv[6];
 	read_input(temp, grid_rows, grid_cols, tfile);
 	read_input(power, grid_rows, grid_cols, pfile);
+	//timer_start
+	double start = omp_get_wtime();
 
 	printf("Start computing the transient temperature\n");
 	compute_tran_temp(result,sim_time, temp, power, grid_rows, grid_cols);
 	printf("Ending simulation\n");
+	//timer_end
+	double end = omp_get_wtime();
+	printf("%.8f\n",(end-start));
 	/* output results	*/
 #ifdef VERBOSE
 	fprintf(stdout, "Final Temperatures:\n");

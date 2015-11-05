@@ -2,7 +2,7 @@ include ../../common/make.config
 
 # C compiler
 CC = gcc
-CC_FLAGS = -g  -O2
+CC_FLAGS = -g  -O2 -fopenmp -lstdc++ 
 
 # CUDA compiler
 NVCC = $(CUDA_DIR)/bin/nvcc
@@ -10,9 +10,9 @@ NVCC_FLAGS = -I$(CUDA_DIR)/include
 
 # 'make dbg=1' enables NVCC debugging
 ifeq ($(dbg),1)
-	NVCC_FLAGS += -g -O0
+	NVCC_FLAGS += -g 
 else
-	NVCC_FLAGS += -O2
+	NVCC_FLAGS += -O2 
 endif
 
 # 'make emu=1' compiles the CUDA kernels for emulation

@@ -6,7 +6,7 @@ include ../../common/make.config
 
 
 CC = gcc
-CC_FLAGS = -g -O3 -Wall
+CC_FLAGS = -g -O3 -Wall -fopenmp
 
 EXE = hotspot
 

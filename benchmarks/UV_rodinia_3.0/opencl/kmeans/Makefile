@@ -1,7 +1,7 @@
 include ../../common/make.config
 # C compiler
 CC = g++
-CC_FLAGS = -g -O2 
+CC_FLAGS = -g -O2 -fopenmp
 
 kmeans: cluster.o getopt.o read_input.o kmeans_clustering.o rmse.o
 	$(CC) $(KERNEL_DIM) $(CC_FLAGS) -lOpenCL kmeans.cpp cluster.o getopt.o read_input.o kmeans_clustering.o rmse.o -o kmeans -I$(OPENCL_INC) -I$(OPENCL_DIR)/shared/inc/ -L$(OPENCL_LIB)
