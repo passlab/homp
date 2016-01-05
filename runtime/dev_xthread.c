@@ -112,7 +112,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		omp_stream_create(dev, &off->mystream);
 		off->stream = &off->mystream;
 #else
-		off->stream = &dev->devstream;
+		off->stream = &dev->default_stream;
 #endif
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -378,9 +378,10 @@ void helper_thread_main(void * arg) {
 	omp_device_t * dev = (omp_device_t*)arg;
 
 	omp_set_current_device_dev(dev);
-	omp_stream_create(dev, &dev->devstream);
-//	omp_set_num_threads(dev->num_cores);
 	omp_warmup_device(dev);
+	omp_stream_create(dev, &dev->default_stream);
+	omp_stream_sync(&dev->default_stream);
+//	omp_set_num_threads(dev->num_cores);
 	pthread_barrier_wait(&all_dev_sync_barrier);
 //	printf("helper threading (devid: %s) loop ....\n", dev->name);
 	/*************** loop *******************/
@@ -393,5 +394,5 @@ void helper_thread_main(void * arg) {
 		omp_offloading_run(dev);
 	}
 
-	omp_stream_destroy(&dev->devstream);
+	omp_stream_destroy(&dev->default_stream);
 }

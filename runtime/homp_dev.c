@@ -171,8 +171,8 @@ void omp_init_hostcpu_device(omp_device_t *dev, int id, int sysid, int num_cores
     dev->type = OMP_DEVICE_HOSTCPU;
     dev->id = id;
     dev->sysid = sysid;
-    dev->devstream.dev = dev;
-    dev->devstream.systream.myStream = NULL;
+    dev->default_stream.dev = dev;
+    dev->default_stream.systream.myStream = NULL;
     dev->mem_type = OMP_DEVICE_MEM_SHARED_CC_NUMA;
     dev->dev_properties = &dev->helperth; /* make it point to the thread id */
     dev->num_cores = num_cores;
@@ -187,8 +187,8 @@ void *omp_init_thsim_device(omp_device_t *dev, int id, int sysid, int num_cores)
     dev->type = OMP_DEVICE_THSIM;
     dev->id = id;
     dev->sysid = sysid;
-    dev->devstream.dev = dev;
-    dev->devstream.systream.myStream = NULL;
+    dev->default_stream.dev = dev;
+    dev->default_stream.systream.myStream = NULL;
     dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
     dev->dev_properties = &dev->helperth; /* make it point to the thread id */
     dev->num_cores = num_cores;
@@ -205,8 +205,8 @@ void omp_init_nvgpuacc_device(omp_device_t *dev, int id, int sysid) {
     dev->type = OMP_DEVICE_NVGPUACC;
     dev->id = id;
     dev->sysid = sysid;
-    dev->devstream.dev = dev;
-    dev->devstream.systream.myStream = NULL;
+    dev->default_stream.dev = dev;
+    dev->default_stream.systream.myStream = NULL;
     dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
 }
 
@@ -214,8 +214,8 @@ void omp_init_itlgpu_device(omp_device_t *dev, int id, int sysid, int numcores) 
     dev->type = OMP_DEVICE_ITLGPU;
     dev->id = id;
     dev->sysid = sysid;
-    dev->devstream.dev = dev;
-    dev->devstream.systream.myStream = NULL;
+    dev->default_stream.dev = dev;
+    dev->default_stream.systream.myStream = NULL;
     dev->mem_type = OMP_DEVICE_MEM_SHARED;
 
 #if defined (DEVICE_OPENCL_SUPPORT)
@@ -286,8 +286,9 @@ void omp_init_itlgpu_device(omp_device_t *dev, int id, int sysid, int numcores) 
         cl_device_id itlgpu_dev_ids[num_itlgpu];
         err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, num_itlgpu, itlgpu_dev_ids, 0);
         devcall_opencl_assert(err);
-        dev->dev_properties = (cl_device_id*)malloc(sizeof(cl_device_id));
-        memcpy(dev->dev_properties, &itlgpu_dev_ids[sysid], sizeof(cl_device_id));
+        dev->dev_properties = (void*)itlgpu_dev_ids[sysid];
+        //dev->dev_properties = (cl_device_id*)malloc(sizeof(cl_device_id));
+        //memcpy(dev->dev_properties, &itlgpu_dev_ids[sysid], sizeof(cl_device_id));
     }
 #endif
 
@@ -297,8 +298,8 @@ void omp_util_copy_device_object(omp_device_t *newone, omp_device_t *src, int ne
     memcpy(newone, src, sizeof(omp_device_t));
     newone->id = newid;
     newone->sysid = newsysid;
-    newone->devstream.dev = newone;
-    newone->devstream.systream.myStream = NULL;
+    newone->default_stream.dev = newone;
+    newone->default_stream.systream.myStream = NULL;
     newone->dev_properties = &newone->helperth;
 }
 
@@ -528,7 +529,21 @@ int omp_init_devices() {
     if (dev_spec_file != NULL) {
         omp_read_device_spec(dev_spec_file);
     } else {
+#ifdef DEVICE_AUTO_PROBE
+        printf("The device specifications can be provided through system probing:\n");
+        printf("\tTo help system probing and customize configuration, using the following environment variable\n");
+        printf("\t\tOMP_HOSTCPU_AS_DEVICE for enabling hostcpu as devices, e.g. true|TRUE:4|false, default false.\n");
+        printf("\t\t\tTRUE:4, means 4 hostcpu to be used as devices\n");
+        printf("\t\tOMP_NUM_THSIM_DEVICES for selecting a number of THSIM devices (default 0)\n");
+        printf("\t\tOMP_NUM_NVGPUACC_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available).\n");
+        printf("\t\t\tThis variable is overwritten by OMP_NVGPUACC_DEVICES).\n");
+        printf("\t\tOMP_NVGPUACC_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
+        printf("=====================================================================================================================\n");
         omp_probe_devices();
+#else
+        printf("The OMP_DEV_SPEC_FILE variable is needed to set for a device specification file!\n");
+        exit(1);
+#endif
     }
     if (omp_num_devices) {
         default_device_var = 0;
@@ -568,7 +583,7 @@ int omp_init_devices() {
     printf("=====================================================================================================================\n");
     printf("System has total %d devices, %d HOSTCPU (one CPU is one dev), %d NVGPUACC, %d ITLGPU and %d THSIM; default dev: %d.\n",
            omp_num_devices,
-           num_hostcpu_dev, num_nvgpuacc_dev, num_thsim_dev, num_itlgpu_dev, default_device_var);
+           num_hostcpu_dev, num_nvgpuacc_dev, num_itlgpu_dev, num_thsim_dev, default_device_var);
     for (i = 0; i < omp_num_devices; i++) {
         omp_device_t *dev = &omp_devices[i];
         char *mem_type = "SHARED";
@@ -579,7 +594,7 @@ int omp_init_devices() {
                dev->id, dev->sysid, omp_get_device_typename(dev), dev->name, dev->num_cores, mem_type,
                dev->total_real_flopss, dev->bandwidth,
                dev->latency);
-        //printf("\t\tstream dev: %s\n", dev->devstream.dev->name);
+        //printf("\t\tstream dev: %s\n", dev->default_stream.dev->name);
         if (dev->type == OMP_DEVICE_NVGPUACC) {
             if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE) {
 #if defined(DEVICE_NVGPUACC_CUDA_VSHAREDM)
@@ -595,17 +610,6 @@ int omp_init_devices() {
             }
         }
     }
-    printf("The device specifications can be provided by a spec file, or through system probing:\n");
-    printf("\tTo provide dev spec file, use OMP_DEV_SPEC_FILE variable\n");
-    printf("\tTo help system probing and customize configuration, using the following environment variable\n");
-    printf("\t\tOMP_HOSTCPU_AS_DEVICE for enabling hostcpu as devices, e.g. true|TRUE:4|false, default false.\n");
-    printf("\t\t\tTRUE:4, means 4 hostcpu to be used as devices\n");
-    printf("\t\tOMP_NUM_THSIM_DEVICES for selecting a number of THSIM devices (default 0)\n");
-    printf("\t\tOMP_NUM_NVGPUACC_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available).\n");
-    printf("\t\t\tThis variable is overwritten by OMP_NVGPUACC_DEVICES).\n");
-    printf("\t\tOMP_NVGPUACC_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
-    printf("=====================================================================================================================\n");
-
     pthread_barrier_wait(&all_dev_sync_barrier);
     return omp_num_devices;
 }
@@ -628,6 +632,13 @@ void omp_warmup_device(omp_device_t *dev) {
 #endif
     } else if (devtype == OMP_DEVICE_ITLGPU) {
         /* we already init property when read in from the file */
+#if defined (DEVICE_OPENCL_SUPPORT)
+        cl_int err;
+        // Create a context
+        cl_context context;
+        context = clCreateContext(0, 1, (cl_device_id*)&dev->properties, NULL, NULL, &err);
+        dev->default_context = (void*)context;
+#endif
 
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         /* warm up the OpenMP environment */
@@ -643,7 +654,6 @@ void omp_warmup_device(omp_device_t *dev) {
     } else {
         /* abort(); unknow device type */
     }
-    omp_stream_sync(&dev->devstream);
 }
 
 // terminate helper threads
@@ -658,6 +668,11 @@ void omp_fini_devices() {
         if (devtype == OMP_DEVICE_NVGPUACC) {
 #if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 			free(dev->dev_properties);
+#endif
+        } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+            clReleaseCommandQueue(dev->default_stream.systream.clqueue);
+            clReleaseContext((cl_context)dev->default_context);
 #endif
         }
     }
@@ -741,6 +756,7 @@ void omp_unified_free(void *ptr) {
     return;
 }
 
+//void *omp_map_malloc_dev(omp_device_t *dev, long size, void * context, int flags, void *host_ptr) {
 void *omp_map_malloc_dev(omp_device_t *dev, long size) {
     omp_device_type_t devtype = dev->type;
     void *ptr = NULL;
@@ -755,7 +771,8 @@ void *omp_map_malloc_dev(omp_device_t *dev, long size) {
         ptr = malloc(size);
     } else if (devtype == OMP_DEVICE_ITLGPU) {
 #if defined (DEVICE_OPENCL_SUPPORT)
-        ptr = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes, NULL, NULL);
+        ptr = (void*)clCreateBuffer((cl_context)dev->default_context, CL_MEM_READ_WRITE, size, NULL, NULL);
+        clReleaseMemObject(cl_mem(ptr));
 #endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
@@ -775,6 +792,10 @@ void omp_map_free_dev(omp_device_t *dev, void *ptr) {
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         free(ptr);
+    } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        clReleaseMemObject(cl_mem(ptr));
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -791,6 +812,10 @@ void omp_map_memcpy_to(void *dst, omp_device_t *dstdev, const void *src, long si
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         memcpy((void *) dst, (const void *) src, size);
+    } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        cl_int err = clEnqueueWriteBuffer(dstdev->default_stream.systream.clqueue, dst, CL_TRUE, 0, size, src, 0, NULL, NULL);
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -809,6 +834,10 @@ void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, l
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
         memcpy((void *) dst, (const void *) src, size);
+    } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        cl_int err = clEnqueueWriteBuffer(stream->systream.clqueue, dst, CL_FALSE, 0, size, src, 0, NULL, NULL);
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -825,6 +854,10 @@ void omp_map_memcpy_from(void *dst, const void *src, omp_device_t *srcdev, long 
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         memcpy((void *) dst, (const void *) src, size);
+    } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        clEnqueueReadBuffer(srcdev->default_stream.systream.clqueue, src, CL_TRUE, 0, size, dst, 0, NULL, NULL );
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -845,6 +878,10 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
 //		fprintf(stderr, "no async call support, use sync memcpy call\n");
         memcpy((void *) dst, (const void *) src, size);
 //		printf("memcpy from: dest: %X, src: %X, size: %d\n", map->map_buffer, map->map_dev_ptr);
+    } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        clEnqueueReadBuffer(stream->systream.clqueue, src, CL_FALSE, 0, size, dst, 0, NULL, NULL );
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -853,6 +890,10 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
 
 /**
  * this should be calling from src for NGVPU implementation
+ *
+ * return 0: peer2peer is available and enabled
+ *
+ * TODO: OpenCL support
  */
 int omp_map_enable_memcpy_DeviceToDevice(omp_device_t *dstdev, omp_device_t *srcdev) {
     omp_device_type_t dst_devtype = dstdev->type;
@@ -871,14 +912,17 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t *dstdev, omp_device_t *src
 		    } else return 1;
 		} else return 1;
 #endif
+    } else if (dst_devtype == OMP_DEVICE_THSIM || dst_devtype == OMP_DEVICE_HOSTCPU ||
+        src_devtype == OMP_DEVICE_THSIM || src_devtype == OMP_DEVICE_HOSTCPU) {
+        return 0;
     }
-#if defined EXPERIMENT_RELAY_BUFFER_FOR_HALO_EXCHANGE
-	return 0;
-#else
+
     return 1;
-#endif
 }
 
+/**
+ * TODO: OpenCL support
+ */
 void omp_map_memcpy_DeviceToDevice(void *dst, omp_device_t *dstdev, void *src, omp_device_t *srcdev, int size) {
     omp_device_type_t dst_devtype = dstdev->type;
     omp_device_type_t src_devtype = srcdev->type;
@@ -900,6 +944,10 @@ void omp_map_memcpy_DeviceToDevice(void *dst, omp_device_t *dstdev, void *src, o
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice);
 		devcall_nvgpuacc_cuda_assert(result);
 	    return;
+	} else if (dst_devtype == OMP_DEVICE_NVGPUACC && src_devtype == OMP_DEVICE_ITLGPU) {
+
+	} else if (src_devtype == OMP_DEVICE_NVGPUACC && dst_devtype == OMP_DEVICE_ITLGPU) {
+
 	}
 #endif
     if ((dst_devtype == OMP_DEVICE_THSIM || dst_devtype == OMP_DEVICE_HOSTCPU) &&
@@ -913,6 +961,9 @@ void omp_map_memcpy_DeviceToDevice(void *dst, omp_device_t *dstdev, void *src, o
 }
 
 /** it is a push operation, i.e. src push data to dst */
+/**
+ * TODO: OpenCL support
+ */
 void omp_map_memcpy_DeviceToDeviceAsync(void *dst, omp_device_t *dstdev, void *src, omp_device_t *srcdev, int size,
                                         omp_dev_stream_t *srcstream) {
     omp_device_type_t dst_devtype = dstdev->type;
@@ -959,7 +1010,6 @@ void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, vo
 
 void omp_stream_create(omp_device_t *d, omp_dev_stream_t *stream) {
     stream->dev = d;
-    int i;
 
     if (d->type == OMP_DEVICE_NVGPUACC) {
 #if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
@@ -967,6 +1017,14 @@ void omp_stream_create(omp_device_t *d, omp_dev_stream_t *stream) {
 		//stream->systream.cudaStream = 0;
 		result = cudaStreamCreateWithFlags(&stream->systream.cudaStream, cudaStreamNonBlocking);
 		devcall_nvgpuacc_cuda_assert(result);
+#endif
+    } else if (d->type == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        // Create a command queue
+        cl_command_queue queue;           // command queue
+        cl_int err;
+        queue = clCreateCommandQueue(context, (cl_device_id)dev->properties, 0, &err);
+        stream->systream.clqueue = queue;
 #endif
     } else if (d->type == OMP_DEVICE_THSIM || d->type == OMP_DEVICE_HOSTCPU) {
         /* do nothing */
@@ -989,6 +1047,10 @@ void omp_stream_sync(omp_dev_stream_t *st) {
 		devcall_nvgpuacc_cuda_assert(result);
 #else
 #endif
+    } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        clFinish(st->systream.clqueue);
+#endif
     }
 }
 
@@ -1000,6 +1062,10 @@ void omp_stream_destroy(omp_dev_stream_t *st) {
 		result = cudaStreamDestroy(st->systream.cudaStream);
 		devcall_nvgpuacc_cuda_assert(result);
 #else
+#endif
+    } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+        clreleasecommandqueue(st->systream.clqueue);
 #endif
     }
 }
@@ -1025,6 +1091,12 @@ void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_
 #endif
         } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
             /* do nothing */
+        } else if (devtype == OMP_DEVICE_ITLGPU) {
+#if defined (DEVICE_OPENCL_SUPPORT)
+            cl_int err;
+            clCreateUserEvent()
+            clreleasecommandqueue(st->systream.clqueue);
+#endif
         } else {
             fprintf(stderr, "other type of devices are not yet supported to init this event\n");
             abort();

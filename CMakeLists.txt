@@ -31,9 +31,9 @@ set(RADIX_SOURCE_FILES
     benchmarks/radixsort/radix.c)
 
 set(STENCIL2D_SOURCE_FILES
-    benchmarks/stencil2d/stencil2d.h)
-    benchmarks/stencil2d/stencil2d.c)
-    benchmarks/stencil2d/nvgpu_kernels.c)
+    benchmarks/stencil2d/stencil2d.h
+    benchmarks/stencil2d/stencil2d.c
+    benchmarks/stencil2d/nvgpu_kernels.c
     benchmarks/stencil2d/kernel_launcher.c)
 
 set(JACOBI_SOURCE_FILES

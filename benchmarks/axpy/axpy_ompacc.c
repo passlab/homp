@@ -42,7 +42,7 @@ void axpy_mdev_v4(REAL* x, REAL* y,  long n, REAL a) {
 
 #if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu" 
-__global__ void OUT__3__5904__( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y)
+__global__ void axpy_nvgpu_cuda_kernel( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y)
 {
   int _p_i;
   long _dev_lower;
@@ -61,7 +61,12 @@ __global__ void OUT__3__5904__( long start_n,  long length_n,REAL a,REAL *_dev_x
 }
 #endif
 
-struct OUT__3__5904__other_args {
+#if defined(DEVICE_OPENCL_SUPPORT)
+	__global__ void axpy_opencl_kernel( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y) {
+	}
+#endif
+
+struct axpy_dev_kernel_args {
 	REAL a;
 	long n;
 	REAL *x;
@@ -69,8 +74,8 @@ struct OUT__3__5904__other_args {
 };
 
 /* called by the helper thread */
-void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
-    struct OUT__3__5904__other_args * iargs = (struct OUT__3__5904__other_args*) args; 
+void axpy_dev_kernel_launcher(omp_offloading_t *off, void *args) {
+    struct axpy_dev_kernel_args * iargs = (struct axpy_dev_kernel_args*) args;
     long start_n, length_n;
     REAL a = iargs->a;
     REAL n = iargs->n;
@@ -99,7 +104,13 @@ void OUT__3__5904__launcher (omp_offloading_t * off, void *args) {
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);
-        OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,a,x,y);
+        axpy_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,a,x,y);
+	} else
+#endif
+#if defined(DEVICE_OPENCL_SUPPORT)
+	if (devtype == OMP_DEVICE_ITLGPU) {
+		/* call the opencl kernel  of axpy */
+
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
@@ -126,13 +137,13 @@ double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a) {
 	int __num_maps__ = 2; /* XXX: need compiler output */
 
 	/* we use universal args and launcher because axpy can do it */
-	struct OUT__3__5904__other_args args;
+	struct axpy_dev_kernel_args args;
 	args.a = a;
 	args.n = n;
 	args.x = x;
 	args.y = y;
 	omp_offloading_info_t *__off_info__ = omp_offloading_init_info("axpy kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
-																   __num_maps__, OUT__3__5904__launcher, &args, 1);
+																   __num_maps__, axpy_dev_kernel_launcher, &args, 1);
 	omp_offloading_append_profile_per_iteration(__off_info__, 2, 1, 1);
 
 	omp_data_map_info_t *__x_map_info__ = &__off_info__->data_map_info[0];

@@ -126,6 +126,8 @@ struct omp_device {
 	char name[64]; /* a short name for the sake of things */
 	omp_device_type_t type;
 	void * dev_properties; /* a pointer to the device-specific properties object */
+	void * default_context;               // context
+
 	void * software_driver; /* a pointer to the software driver support of this device, e.g. CUDA, OpenCL platform, etc */
 	omp_device_mem_type_t mem_type; /* the mem access pattern relative to the host, e.g. shared or discrete */
 
@@ -157,7 +159,7 @@ struct omp_device {
 	 */
 	int offload_stack_top;
 
-	omp_dev_stream_t devstream; /* per dev stream */
+	omp_dev_stream_t default_stream; /* per dev stream */
 
 	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
 
@@ -192,9 +194,19 @@ typedef struct omp_event {
 	cudaEvent_t stop_event_dev;
 #endif
 #if defined (DEVICE_OPENCL_SUPPORT)
-	cl_event start_event_dev;
-	cl_event stop_event_dev;
+	cl_event cl_start_event_dev;
+	cl_event cl_stop_event_dev;
 #endif
+
+	union {
+#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+		cudaEvent_t cudaStream;
+#endif
+#if defined (DEVICE_OPENCL_SUPPORT)
+		cl_command_queue clqueue;
+#endif
+			void * myStream;
+	} start_event_dev;
 	double start_time_dev;
 	double stop_time_dev;
 	double start_time_host;

@@ -1,8 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="CPP_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
-    <orderEntry type="inheritedJdk" />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/radixsort/radix.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/axpy/axpy.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/axpy/axpy.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/axpy/axpy_ompacc.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/matvec/matvec_ompacc.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/matvec/matvec.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/matvec/matvec.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/jacobi/jacobi_ompacc_mdev.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/benchmarks/matmul/matmul_mdev.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/runtime/dev_xthread.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/runtime/homp.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/runtime/homp.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/runtime/homp_dev.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/util/iniparser.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/util/dictionary.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/util/iniparser.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/util/dictionary.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
+    </content>
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module-library">
+      <library name="Header Search Paths">
+        <CLASSES>
+          <root url="file:///usr/include" />
+          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/4.8/include-fixed" />
+          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/4.8/include" />
+          <root url="file:///usr/local/include" />
+          <root url="file://$MODULE_DIR$/runtime" />
+        </CLASSES>
+        <SOURCES>
+          <root url="file:///usr/include" />
+          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/4.8/include-fixed" />
+          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/4.8/include" />
+          <root url="file:///usr/local/include" />
+          <root url="file://$MODULE_DIR$/runtime" />
+        </SOURCES>
+        <excluded>
+          <root url="file://$MODULE_DIR$/runtime/dev_xthread.c" />
+          <root url="file://$MODULE_DIR$/runtime/homp.h" />
+          <root url="file://$MODULE_DIR$/runtime/homp.c" />
+          <root url="file://$MODULE_DIR$/runtime/homp_dev.c" />
+        </excluded>
+      </library>
+    </orderEntry>
   </component>
 </module>
