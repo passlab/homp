@@ -113,6 +113,11 @@ void axpy_dev_kernel_launcher(omp_offloading_t *off, void *args) {
 
 	} else
 #endif
+#if defined(DEVICE_ITLMIC_SUPPORT)
+	if (devtype == OMP_DEVICE_ITLMIC) {
+		axpy_itlmic_wrapper(start_n, length_n, a, x, y);
+	} else
+#endif
 	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
 		int i;
 //#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i)

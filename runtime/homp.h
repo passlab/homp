@@ -59,7 +59,7 @@ typedef enum omp_device_type {
 	OMP_DEVICE_HOSTCPU, /* the host cpu */
 	OMP_DEVICE_NVGPU, /* NVIDIA GPGPUs accelerator */
 	OMP_DEVICE_ITLGPU, /* Intel integrated GPGPUs */
-	OMP_DEVICE_ITLMICACC, /* Intel MIC */
+	OMP_DEVICE_ITLMIC, /* Intel MIC */
 	OMP_DEVICE_TIDSP, /* TI DSP */
 	OMP_DEVICE_AMDAPU, /* AMD APUs */
 	OMP_DEVICE_REMOTE, /* a remote node */

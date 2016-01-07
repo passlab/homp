@@ -15,6 +15,7 @@ extern "C" {
 /* both the omp version and ompacc version */
 extern void axpy(REAL* x, REAL* y,  long n, REAL a); 
 extern double axpy_ompacc_mdev(REAL* x, REAL* y,  long n, REAL a);
+extern void axpy_itlmic_wrapper( long start_n,  long length_n,REAL a,REAL *x,REAL *y);
 #ifdef __cplusplus
  }
 #endif
