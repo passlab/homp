@@ -105,6 +105,12 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
         OUT__3__5904__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
 	} else
 #endif
+#if defined(DEVICE_ITLMIC_SUPPORT)
+	if (devtype == OMP_DEVICE_ITLMIC) {
+		matvec_itlmic_wrapper(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
+	} else
+#endif
+
     if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         int i, j;
 //#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
