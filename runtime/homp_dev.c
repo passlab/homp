@@ -658,6 +658,7 @@ void omp_warmup_device(omp_device_t *dev) {
         context = clCreateContext(0, 1, (cl_device_id*)&dev->properties, NULL, NULL, &err);
         dev->default_context = (void*)context;
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
 
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         /* warm up the OpenMP environment */
@@ -793,6 +794,7 @@ void *omp_map_malloc_dev(omp_device_t *dev, long size) {
         ptr = (void*)clCreateBuffer((cl_context)dev->default_context, CL_MEM_READ_WRITE, size, NULL, NULL);
         clReleaseMemObject(cl_mem(ptr));
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -1045,6 +1047,8 @@ void omp_stream_create(omp_device_t *d, omp_dev_stream_t *stream) {
         queue = clCreateCommandQueue(context, (cl_device_id)dev->properties, 0, &err);
         stream->systream.clqueue = queue;
 #endif
+    } else if (d->type == OMP_DEVICE_ITLGPU) {
+        /* do nothing since we use offload pragma for data movement */
     } else if (d->type == OMP_DEVICE_THSIM || d->type == OMP_DEVICE_HOSTCPU) {
         /* do nothing */
     } else {
@@ -1070,6 +1074,8 @@ void omp_stream_sync(omp_dev_stream_t *st) {
 #if defined (DEVICE_OPENCL_SUPPORT)
         clFinish(st->systream.clqueue);
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
+    } else {
     }
 }
 
@@ -1086,6 +1092,8 @@ void omp_stream_destroy(omp_dev_stream_t *st) {
 #if defined (DEVICE_OPENCL_SUPPORT)
         clreleasecommandqueue(st->systream.clqueue);
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
+    } else {
     }
 }
 
@@ -1116,6 +1124,7 @@ void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_
             clCreateUserEvent()
             clreleasecommandqueue(st->systream.clqueue);
 #endif
+        } else if (devtype == OMP_DEVICE_ITLMIC) {
         } else {
             fprintf(stderr, "other type of devices are not yet supported to init this event\n");
             abort();
@@ -1157,6 +1166,8 @@ void omp_event_record_start(omp_event_t *ev, omp_dev_stream_t *stream, const cha
 #endif
         } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
             ev->start_time_dev = read_timer_ms();
+        } else if (devtype == OMP_DEVICE_ITLMIC) {
+            //ev->start_time_dev = read_timer_ms();/* we donot time here since we will need to time in the kernel launcher */
         } else {
             fprintf(stderr, "other type of devices are not yet supported to start event recording\n");
         }
@@ -1181,7 +1192,8 @@ void omp_event_record_stop(omp_event_t *ev) {
 #endif
         } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
             ev->stop_time_dev = read_timer_ms();
-
+        } else if (devtype == OMP_DEVICE_ITLMIC) {
+            //ev->stop_time_dev = read_timer_ms(); /* we donot time here since we will need to time in the kernel launcher */
         } else {
             fprintf(stderr, "other type of devices are not yet supported to stop event record\n");
         }
@@ -1210,6 +1222,8 @@ static double omp_event_elapsed_ms_dev(omp_event_t *ev) {
 		//printf("timing difference, callback: %f, event: %f\n", elapsed1, elapsed);
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
+        elapsed = ev->stop_time_dev - ev->start_time_dev;
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
         elapsed = ev->stop_time_dev - ev->start_time_dev;
     } else {
         fprintf(stderr, "other type of devices are not yet supported to calculate elapsed\n");
@@ -1263,6 +1277,8 @@ int omp_get_max_threads_per_team(omp_device_t *dev) {
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         return dev->num_cores;
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
+        return dev->num_cores;
     } else {
     }
     return 0;
@@ -1284,6 +1300,8 @@ int omp_get_max_teams_per_league(omp_device_t *dev) {
 		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxGridSize[0];
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
+        return 1;
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
         return 1;
     } else {
     }

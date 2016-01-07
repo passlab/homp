@@ -115,7 +115,7 @@ void axpy_dev_kernel_launcher(omp_offloading_t *off, void *args) {
 #endif
 #if defined(DEVICE_ITLMIC_SUPPORT)
 	if (devtype == OMP_DEVICE_ITLMIC) {
-		axpy_itlmic_wrapper(start_n, length_n, a, x, y);
+		axpy_itlmic_wrapper(off, start_n, length_n, a, x, y);
 	} else
 #endif
 	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {

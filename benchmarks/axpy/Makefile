@@ -21,8 +21,8 @@ axpy-thsim:
 	gcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 axpy-nvgpu:
-	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_CUDA_SUPPORT=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  axpy_ompacc.cu axpy.c -c
-	icc -c -openmp axpy_itlmic_wrapper.c
+	nvcc $(TEST_INCLUDES) -g -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_ITLMIC_SUPPORT=1 -DDEVICE_NVGPU_CUDA_SUPPORT=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  axpy_ompacc.cu axpy.c -c
+	icc -c -openmp -DDEVICE_ITLMIC_SUPPORT=1 axpy_itlmic_wrapper.c
 	nvcc $(TEST_INCLUDES) -g *.o -o $@ ${TEST_LINK}
 
 axpy-nvgpu-vsharedm:
