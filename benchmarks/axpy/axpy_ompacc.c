@@ -40,7 +40,7 @@ void axpy_mdev_v4(REAL* x, REAL* y,  long n, REAL a) {
  */
 #endif
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu" 
 __global__ void axpy_nvgpu_cuda_kernel( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y)
 {
@@ -100,7 +100,7 @@ void axpy_dev_kernel_launcher(omp_offloading_t *off, void *args) {
 //    printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
     
 	omp_device_type_t devtype = off->dev->type;
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);

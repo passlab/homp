@@ -18,18 +18,6 @@
  * 2. SQUARE-based stencil, coefficient is a square matrix with one dimension of (2*radius+1)
  */
 
-void print_array(char * title, char * name, REAL * A, long n, long m) {
-	printf("%s:\n", title);
-	long i, j;
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < m; j++) {
-            printf("%s[%d][%d]:%f\n", name, i, j, A[i * m + j]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
 void init_array(long N, REAL *A, REAL lower, REAL upper) {
 	long i;
 
@@ -81,13 +69,13 @@ int num_runs = 1;
 int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
-  long k = DEFAULT_DIMSIZE;
+    long k = DEFAULT_DIMSIZE;
 	int radius = 3;
 	int num_its = 5000;
 
     fprintf(stderr,"Usage: jacobi [dist_dim(1|2|3)] [dist_policy(1|2|3)] [<n> <m> <k> <radius> <num_its>]\n");
-	  fprintf(stderr, "\tdist_dim: 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
-	  fprintf(stderr, "\tdist_policy: 1: block_block; 2: block_align; 3: auto_align; default 1\n");
+	fprintf(stderr, "\tdist_dim: 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
+	fprintf(stderr, "\tdist_policy: 1: block_block; 2: block_align; 3: auto_align; default 1\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
     fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
     fprintf(stderr, "\tm - grid dimension in z direction, default: n if provided or %d\n", k);
@@ -107,10 +95,10 @@ int main(int argc, char * argv[]) {
 		dist_policy = 1;
 	}
 
-    if (argc == 4)      { sscanf(argv[3], "%d", &n); m = n; }
-    else if (argc == 5) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); }
-    else if (argc == 6) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &radius); }
-    else if (argc == 7) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &radius); sscanf(argv[6], "%d", &num_its); }
+    if (argc == 4)      { sscanf(argv[3], "%d", &n); m = n; k = n; }
+    else if (argc == 5) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); k = m; }
+    else if (argc == 6) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &k); }
+    else if (argc == 7) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &k); sscanf(argv[6], "%d", &radius); }
     else if (argc == 8) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &k); sscanf(argv[6], "%d", &radius); sscanf(argv[7], "%d", &num_its); }
     else {
     	/* the rest of arg ignored*/
@@ -120,9 +108,9 @@ int main(int argc, char * argv[]) {
 
 	long u_dimX = n+radius+radius;
 	long u_dimY = m+radius+radius;
-  long u_dimZ = k+radius+radius;
+    long u_dimZ = k+radius+radius;
 	long u_volumn = u_dimX*u_dimY*u_dimZ;
-	int coeff_volumn; //NOTE: I did not touch this parameter
+	int coeff_volumn;
 	coeff_volumn = (2*radius+1)*(2*radius+1)*(2*radius+1); /* this is for square. Even the cross stencil that use only 4*radius +1, we will use the same square coeff simply */
 //	coeff_volumn = 4*radius+1;
     REAL * u = (REAL *)malloc(sizeof(REAL)* u_volumn);
@@ -130,6 +118,11 @@ int main(int argc, char * argv[]) {
 	REAL * u_omp_mdev = (REAL *)omp_unified_malloc(sizeof(REAL)* u_volumn);
 	REAL * u_omp_mdev_iterate = (REAL *)omp_unified_malloc(sizeof(REAL)* u_volumn);
 	REAL *coeff = (REAL *) omp_unified_malloc(sizeof(REAL)*coeff_volumn);
+
+	REAL u[n][m][k];
+	REAL u_omp[n][m][k];
+	REAL u_omp_mdev[n][m][k];
+	REAL u_omp_mdev_iterate[n][m][k];
 
 	srand(0);
 	init_array(u_volumn, u, 0.0, 1.0);
@@ -199,7 +192,7 @@ void stencil3d_seq(long n, long m, long k, REAL *u, int radius, REAL *coeff, int
 	int coeff_dimX = 2*radius+1;
 	REAL *uold = (REAL*)malloc(sizeof(REAL)*u_dimX * u_dimY * u_dimZ);
 	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY*u_dimZ);
-	coeff = coeff + (2*radius+1) * radius + radius; /* let coeff point to the center element */
+	coeff = coeff + coeff_dimX*coeff_dimX*radius * radius + (2*radius+1) * radius + radius; /* let coeff point to the center element */
 	REAL * uold_save = uold;
 	REAL * u_save = u;
 	int count = 6*radius+1;
@@ -207,19 +200,13 @@ void stencil3d_seq(long n, long m, long k, REAL *u, int radius, REAL *coeff, int
 	count = coeff_dimX * coeff_dimX * coeff_dimX;
     #endif
 
-	for (it = 0; it < num_its; it++) 
-	{
+	for (it = 0; it < num_its; it++) {
 		int ix, iy, iz, ir;
 
-		for (ix = 0; ix < n; ix++) 
-		{
-		 for (iy = 0; iy < m; iy++) 
-		    {
-             for (iz = 0; iz < k; iz++) 
-		        {
-				   REAL * temp_u = &u[(ix+radius)*u_dimY*u_dimZ+radius+iy+iz];
-				   REAL * temp_uold = &uold[(ix+radius)*u_dimY*u_dimZ+radius+iy+iz]; //because it should have a 1D array for storing 3D elements
-				   REAL result = temp_uold[0] * coeff[0];//the coeff will now provide the supporting lenght
+		for (ix = 0; ix < n; ix++) {
+		 for (iy = 0; iy < m; iy++) {
+             for (iz = 0; iz < k; iz++) {
+				   REAL result = temp_uold[(ix+radius)] * coeff[0];//the coeff will now provide the supporting lenght
 				   /* 2/4 way loop unrolling */ // in 3D the progression on the Z direction is same as that of Y 
 				   for (ir = 1; ir <= radius; ir++) 
 				   {

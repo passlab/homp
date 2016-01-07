@@ -8,7 +8,7 @@
  */
 /**
  * an easy way for defining dev-specific code:
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 
 #elif defined (DEVICE_THSIM)
 
@@ -25,10 +25,10 @@
 #include "homp.h"
 #include "../util/iniparser.h"
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 inline void devcall_nvgpuacc_cuda_errchk(int code, char *file, int line, int ab) {
 	if (code != cudaSuccess) {
-		fprintf(stderr,"NVGPUACC_CUDA assert: %s %s %d\n", cudaGetErrorString(code), file, line);
+		fprintf(stderr,"NVGPU_CUDA assert: %s %s %d\n", cudaGetErrorString(code), file, line);
 		if (ab) { abort();}
 	}
 }
@@ -105,7 +105,7 @@ volatile int omp_printf_turn = 0;
 /* a simple mechanism to allow multiple dev shepherd threads to print in turn so the output do not scramble together */
 omp_device_type_info_t omp_device_types[OMP_NUM_DEVICE_TYPES] = {
         {OMP_DEVICE_HOSTCPU,   "OMP_DEVICE_HOSTCPU",   "HOSTCPU",   1},
-        {OMP_DEVICE_NVGPUACC,  "OMP_DEVICE_NVGPUACC",  "NVGPUACC",  0},
+        {OMP_DEVICE_NVGPU,  "OMP_DEVICE_NVGPU",  "NVGPU",  0},
         {OMP_DEVICE_ITLGPU,    "OMP_DEVICE_ITLGPU",    "ITLGPU",    0},
         {OMP_DEVICE_ITLMICACC, "OMP_DEVICE_ITLMICACC", "ITLMICACC", 0},
         {OMP_DEVICE_TIDSP,     "OMP_DEVICE_TIDSP",     "TIDSP",     0},
@@ -202,7 +202,7 @@ void *omp_init_thsim_device(omp_device_t *dev, int id, int sysid, int num_cores)
 }
 
 void omp_init_nvgpuacc_device(omp_device_t *dev, int id, int sysid) {
-    dev->type = OMP_DEVICE_NVGPUACC;
+    dev->type = OMP_DEVICE_NVGPU;
     dev->id = id;
     dev->sysid = sysid;
     dev->default_stream.dev = dev;
@@ -308,6 +308,7 @@ int num_thsim_dev = 0; /* the thsim actually */
 /* for NVDIA GPU devices */
 int num_nvgpuacc_dev = 0;
 int num_itlgpu_dev = 0;
+int num_itlmic_dev = 0;
 
 /* we allow the same type of device to be specified using a simple form, e.g.
  *
@@ -374,6 +375,9 @@ void omp_read_device_spec(char *dev_spec_file) {
         } else if (strcasecmp(devtype, "itlgpu") == 0) {
             omp_init_itlgpu_device(dev, devid, devsysid, num_cores);
             num_itlgpu_dev += num_devs;
+        } else if (strcasecmp(devtype, "itlmic") == 0) {
+            omp_init_itlmic_device(dev, devid, devsysid, num_cores);
+            num_itlgpu_dev += num_devs;
         } else {
             printf("unknow device type error: %s \n, default to be hostcpu\n", devtype);
             /* unknow device type error */
@@ -412,6 +416,11 @@ void omp_read_device_spec(char *dev_spec_file) {
     iniparser_freedict(ini);
 }
 
+/**
+ * So far, we only probe CPU and NVGPU devices.
+ *
+ * TODO: to probe OpenCL-capable device and Intel MIC
+ */
 void omp_probe_devices() {
     /* query hardware device */
 
@@ -447,7 +456,7 @@ void omp_probe_devices() {
     /* for NVDIA GPU ACC devices */
     int total_nvgpuacc = 0;
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	cudaError_t result = cudaGetDeviceCount(&total_nvgpuacc);
 	devcall_nvgpuacc_cuda_assert(result);
 #endif
@@ -456,9 +465,9 @@ void omp_probe_devices() {
     int i;
     for (i = 0; i < total_nvgpuacc; i++) nvgpuacc_selection[i] = 0;
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	if (total_nvgpuacc > 0) {
-		char * nvgpuacc_dev_str = getenv("OMP_NVGPUACC_DEVICES");
+		char * nvgpuacc_dev_str = getenv("OMP_NVGPU_DEVICES");
 		if (nvgpuacc_dev_str != NULL ) {
 			char * token = strtok(nvgpuacc_dev_str, ",");
 			while(token != NULL) {
@@ -469,7 +478,7 @@ void omp_probe_devices() {
 				token = strtok(NULL, ",");
 			}
 		} else {
-			char * num_nvgpuacc_dev_str = getenv("OMP_NUM_NVGPUACC_DEVICES");
+			char * num_nvgpuacc_dev_str = getenv("OMP_NUM_NVGPU_DEVICES");
 			if (num_nvgpuacc_dev_str != NULL ) {
 				sscanf(num_nvgpuacc_dev_str, "%d", &num_nvgpuacc_dev);
 				if (num_nvgpuacc_dev > total_nvgpuacc || num_nvgpuacc_dev < 0) num_nvgpuacc_dev = total_nvgpuacc;
@@ -478,7 +487,7 @@ void omp_probe_devices() {
 		}
 
 		omp_num_devices += num_nvgpuacc_dev;
-		omp_device_types[OMP_DEVICE_NVGPUACC].num_devs = num_nvgpuacc_dev;
+		omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpuacc_dev;
 	}
 #endif
 
@@ -535,9 +544,9 @@ int omp_init_devices() {
         printf("\t\tOMP_HOSTCPU_AS_DEVICE for enabling hostcpu as devices, e.g. true|TRUE:4|false, default false.\n");
         printf("\t\t\tTRUE:4, means 4 hostcpu to be used as devices\n");
         printf("\t\tOMP_NUM_THSIM_DEVICES for selecting a number of THSIM devices (default 0)\n");
-        printf("\t\tOMP_NUM_NVGPUACC_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available).\n");
-        printf("\t\t\tThis variable is overwritten by OMP_NVGPUACC_DEVICES).\n");
-        printf("\t\tOMP_NVGPUACC_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
+        printf("\t\tOMP_NUM_NVGPU_DEVICES for selecting a number of NVIDIA GPU devices from dev 0 (default, total available).\n");
+        printf("\t\t\tThis variable is overwritten by OMP_NVGPU_DEVICES).\n");
+        printf("\t\tOMP_NVGPU_DEVICES for selecting specific NVGPU devices (e.g., \"0,2,3\",no spaces)\n");
         printf("=====================================================================================================================\n");
         omp_probe_devices();
 #else
@@ -552,7 +561,7 @@ int omp_init_devices() {
     }
     omp_device_types[OMP_DEVICE_HOSTCPU].num_devs = num_hostcpu_dev;
     omp_device_types[OMP_DEVICE_THSIM].num_devs = num_thsim_dev;
-    omp_device_types[OMP_DEVICE_NVGPUACC].num_devs = num_nvgpuacc_dev;
+    omp_device_types[OMP_DEVICE_NVGPU].num_devs = num_nvgpuacc_dev;
     omp_device_types[OMP_DEVICE_ITLGPU].num_devs = num_itlgpu_dev;
 
     /* create the helper thread for each device */
@@ -581,7 +590,7 @@ int omp_init_devices() {
     }
 
     printf("=====================================================================================================================\n");
-    printf("System has total %d devices, %d HOSTCPU (one CPU is one dev), %d NVGPUACC, %d ITLGPU and %d THSIM; default dev: %d.\n",
+    printf("System has total %d devices, %d HOSTCPU (one CPU is one dev), %d NVGPU, %d ITLGPU and %d THSIM; default dev: %d.\n",
            omp_num_devices,
            num_hostcpu_dev, num_nvgpuacc_dev, num_itlgpu_dev, num_thsim_dev, default_device_var);
     for (i = 0; i < omp_num_devices; i++) {
@@ -595,16 +604,16 @@ int omp_init_devices() {
                dev->total_real_flopss, dev->bandwidth,
                dev->latency);
         //printf("\t\tstream dev: %s\n", dev->default_stream.dev->name);
-        if (dev->type == OMP_DEVICE_NVGPUACC) {
+        if (dev->type == OMP_DEVICE_NVGPU) {
             if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE) {
-#if defined(DEVICE_NVGPUACC_CUDA_VSHAREDM)
+#if defined(DEVICE_NVGPU_CUDA_VSHAREDM)
 			printf("\t\tUnified Memory is supported in the runtime, but this device is not set to use it. To use it, enable shared mem in the dev spec(Memory=shared)\n");
 #endif
             }
             if (dev->mem_type == OMP_DEVICE_MEM_SHARED) {
-#if defined(DEVICE_NVGPUACC_CUDA_VSHAREDM)
+#if defined(DEVICE_NVGPU_CUDA_VSHAREDM)
 #else
-                printf("\t\tUnified Memory is NOT supported in the runtime, fall back to discrete memory for this device. To enable shared mem support in runtime, set the DEVICE_NVGPUACC_CUDA_VSHAREDM macro.\n");
+                printf("\t\tUnified Memory is NOT supported in the runtime, fall back to discrete memory for this device. To enable shared mem support in runtime, set the DEVICE_NVGPU_CUDA_VSHAREDM macro.\n");
                 dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
 #endif
             }
@@ -616,8 +625,8 @@ int omp_init_devices() {
 
 void omp_warmup_device(omp_device_t *dev) {
     omp_device_type_t devtype = dev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		dev->dev_properties = (struct cudaDeviceProp*)malloc(sizeof(struct cudaDeviceProp));
 		cudaSetDevice(dev->sysid);
 		cudaGetDeviceProperties(dev->dev_properties, dev->sysid);
@@ -665,8 +674,8 @@ void omp_fini_devices() {
         omp_device_t *dev = &omp_devices[i];
         int rt = pthread_join(dev->helperth, NULL);
         omp_device_type_t devtype = dev->type;
-        if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+        if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 			free(dev->dev_properties);
 #endif
         } else if (devtype == OMP_DEVICE_ITLGPU) {
@@ -683,8 +692,8 @@ void omp_fini_devices() {
 
 int omp_set_current_device_dev(omp_device_t *d) {
     int result;
-    if (d->type == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (d->type == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		result = cudaSetDevice(d->sysid);
 		devcall_nvgpuacc_cuda_assert (result);
 #endif
@@ -725,8 +734,8 @@ void omp_map_mapfrom_async(omp_data_map_t *map, omp_dev_stream_t *stream) {
 
 void *omp_unified_malloc(long size) {
     void *ptr = NULL;
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT) && defined (DEVICE_NVGPUACC_CUDA_VSHAREDM)
-#if defined (DEVICE_NVGPUACC_CUDA_UNIFIEDMEM)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT) && defined (DEVICE_NVGPU_CUDA_VSHAREDM)
+#if defined (DEVICE_NVGPU_CUDA_UNIFIEDMEM)
 	/* this is only for kepler and > 4.0 cuda rt */
 	cudaMallocManaged(&ptr, size, 0);
 #else
@@ -742,8 +751,8 @@ void *omp_unified_malloc(long size) {
 }
 
 void omp_unified_free(void *ptr) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT) && defined (DEVICE_NVGPUACC_CUDA_VSHAREDM)
-#if defined (DEVICE_NVGPUACC_CUDA_UNIFIEDMEM)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT) && defined (DEVICE_NVGPU_CUDA_VSHAREDM)
+#if defined (DEVICE_NVGPU_CUDA_UNIFIEDMEM)
 	/* match cudaMallocManaged */
 	cudaFree(ptr);
 #else
@@ -760,12 +769,12 @@ void omp_unified_free(void *ptr) {
 void *omp_map_malloc_dev(omp_device_t *dev, long size) {
     omp_device_type_t devtype = dev->type;
     void *ptr = NULL;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		if (cudaErrorMemoryAllocation == cudaMalloc(&ptr, size)) {
 			fprintf(stderr, "cudaMalloc error to allocate mem on device\n");
 		}
-#elseif defined (DEVICE_NVGPUACC_OPENCL_SUPPORT)
+#elseif defined (DEVICE_NVGPU_OPENCL_SUPPORT)
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         ptr = malloc(size);
@@ -785,8 +794,8 @@ void *omp_map_malloc_dev(omp_device_t *dev, long size) {
 
 void omp_map_free_dev(omp_device_t *dev, void *ptr) {
     omp_device_type_t devtype = dev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	    cudaError_t result = cudaFree(ptr);
 	    devcall_nvgpuacc_cuda_assert(result);
 #endif
@@ -804,8 +813,8 @@ void omp_map_free_dev(omp_device_t *dev, void *ptr) {
 
 void omp_map_memcpy_to(void *dst, omp_device_t *dstdev, const void *src, long size) {
     omp_device_type_t devtype = dstdev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	    cudaError_t result;
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice);
 	    devcall_nvgpuacc_cuda_assert(result);
@@ -825,8 +834,8 @@ void omp_map_memcpy_to(void *dst, omp_device_t *dstdev, const void *src, long si
 void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, long size, omp_dev_stream_t *stream) {
 //	printf("memcpytoasync: dev: %d, %X->%X\n", dstdev->id, src, dst);
     omp_device_type_t devtype = dstdev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 		result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice, stream->systream.cudaStream);
 		devcall_nvgpuacc_cuda_assert(result);
@@ -846,8 +855,8 @@ void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, l
 
 void omp_map_memcpy_from(void *dst, const void *src, omp_device_t *srcdev, long size) {
     omp_device_type_t devtype = srcdev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost);
 		devcall_nvgpuacc_cuda_assert(result);
@@ -868,8 +877,8 @@ void omp_map_memcpy_from(void *dst, const void *src, omp_device_t *srcdev, long 
  *  device to host, async */
 void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev, long size, omp_dev_stream_t *stream) {
     omp_device_type_t devtype = srcdev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 		result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost, stream->systream.cudaStream);
 		devcall_nvgpuacc_cuda_assert(result);
@@ -899,8 +908,8 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t *dstdev, omp_device_t *src
     omp_device_type_t dst_devtype = dstdev->type;
     omp_device_type_t src_devtype = srcdev->type;
 
-    if (dst_devtype == OMP_DEVICE_NVGPUACC && src_devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		int can_access = 0;
 		cudaError_t result;
 		result = cudaDeviceCanAccessPeer(&can_access, srcdev->sysid, dstdev->sysid);
@@ -927,26 +936,26 @@ void omp_map_memcpy_DeviceToDevice(void *dst, omp_device_t *dstdev, void *src, o
     omp_device_type_t dst_devtype = dstdev->type;
     omp_device_type_t src_devtype = srcdev->type;
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
-	if (dst_devtype == OMP_DEVICE_NVGPUACC && src_devtype == OMP_DEVICE_NVGPUACC) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
+	if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToDevice);
 //		result = cudaMemcpyPeer(dst, dstdev->sysid, src, srcdev->sysid, size);
 		devcall_nvgpuacc_cuda_assert(result);
 	    return;
-	} else if ((dst_devtype == OMP_DEVICE_THSIM || dst_devtype == OMP_DEVICE_HOSTCPU) && src_devtype == OMP_DEVICE_NVGPUACC) {
+	} else if ((dst_devtype == OMP_DEVICE_THSIM || dst_devtype == OMP_DEVICE_HOSTCPU) && src_devtype == OMP_DEVICE_NVGPU) {
 		cudaError_t result;
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost);
 		devcall_nvgpuacc_cuda_assert(result);
 	    return;
-	} else if(dst_devtype == OMP_DEVICE_NVGPUACC && (src_devtype == OMP_DEVICE_THSIM || src_devtype == OMP_DEVICE_HOSTCPU)) {
+	} else if(dst_devtype == OMP_DEVICE_NVGPU && (src_devtype == OMP_DEVICE_THSIM || src_devtype == OMP_DEVICE_HOSTCPU)) {
 		cudaError_t result;
 	    result = cudaMemcpy((void *)dst,(const void *)src,size, cudaMemcpyHostToDevice);
 		devcall_nvgpuacc_cuda_assert(result);
 	    return;
-	} else if (dst_devtype == OMP_DEVICE_NVGPUACC && src_devtype == OMP_DEVICE_ITLGPU) {
+	} else if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_ITLGPU) {
 
-	} else if (src_devtype == OMP_DEVICE_NVGPUACC && dst_devtype == OMP_DEVICE_ITLGPU) {
+	} else if (src_devtype == OMP_DEVICE_NVGPU && dst_devtype == OMP_DEVICE_ITLGPU) {
 
 	}
 #endif
@@ -969,8 +978,8 @@ void omp_map_memcpy_DeviceToDeviceAsync(void *dst, omp_device_t *dstdev, void *s
     omp_device_type_t dst_devtype = dstdev->type;
     omp_device_type_t src_devtype = srcdev->type;
 
-    if (dst_devtype == OMP_DEVICE_NVGPUACC && src_devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 	    result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyDeviceToDevice,srcstream->systream.cudaStream);
 	    //result = cudaMemcpyPeerAsync(dst, dstdev->sysid, src, srcdev->sysid, size, srcstream->systream.cudaStream);
@@ -989,7 +998,7 @@ void omp_map_memcpy_DeviceToDeviceAsync(void *dst, omp_device_t *dstdev, void *s
  * The reason is because CUDA use a driver thread to handle callback, which become not necessnary since we have a dedicated helper thread
  * for each GPU and the helper thread could do this kind of work
  */
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 
 #if 0
 void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void*  userData ) {
@@ -1011,8 +1020,8 @@ void omp_stream_host_timer_callback(cudaStream_t stream,  cudaError_t status, vo
 void omp_stream_create(omp_device_t *d, omp_dev_stream_t *stream) {
     stream->dev = d;
 
-    if (d->type == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (d->type == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 		//stream->systream.cudaStream = 0;
 		result = cudaStreamCreateWithFlags(&stream->systream.cudaStream, cudaStreamNonBlocking);
@@ -1040,8 +1049,8 @@ void omp_stream_create(omp_device_t *d, omp_dev_stream_t *stream) {
  */
 void omp_stream_sync(omp_dev_stream_t *st) {
     omp_device_type_t devtype = st->dev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 		result = cudaStreamSynchronize(st->systream.cudaStream);
 		devcall_nvgpuacc_cuda_assert(result);
@@ -1056,8 +1065,8 @@ void omp_stream_sync(omp_dev_stream_t *st) {
 
 void omp_stream_destroy(omp_dev_stream_t *st) {
     omp_device_type_t devtype = st->dev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 		result = cudaStreamDestroy(st->systream.cudaStream);
 		devcall_nvgpuacc_cuda_assert(result);
@@ -1081,8 +1090,8 @@ void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_
     ev->event_name = NULL;
     ev->event_description[0] = '\0';
     if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
-        if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+        if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 			cudaError_t result;
 			result = cudaEventCreateWithFlags(&ev->start_event_dev, cudaEventBlockingSync);
 			devcall_nvgpuacc_cuda_assert(result);
@@ -1129,8 +1138,8 @@ void omp_event_record_start(omp_event_t *ev, omp_dev_stream_t *stream, const cha
     omp_device_type_t devtype = ev->dev->type;
 
     if (rm == OMP_EVENT_DEV_RECORD || rm == OMP_EVENT_HOST_DEV_RECORD) {
-        if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+        if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 			cudaError_t result;
 			result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->start_time_dev, 0);
 			result = cudaEventRecord(ev->start_event_dev, stream->systream.cudaStream);
@@ -1153,8 +1162,8 @@ void omp_event_record_stop(omp_event_t *ev) {
     omp_event_record_method_t record_method = ev->record_method;
     omp_device_type_t devtype = ev->dev->type;
     if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
-        if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+        if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 			cudaError_t result;
 			result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->stop_time_dev, 0);
 			result = cudaEventRecord(ev->stop_event_dev, stream->systream.cudaStream);
@@ -1178,8 +1187,8 @@ static double omp_event_elapsed_ms_dev(omp_event_t *ev) {
     omp_device_type_t devtype = ev->dev->type;
     float elapsed = -1.0;
     double elapsed1 = -1.0;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		elapsed1 = ev->stop_time_dev - ev->start_time_dev;
 		cudaError_t result;
 		result = cudaEventSynchronize(ev->start_event_dev);
@@ -1238,8 +1247,8 @@ void omp_event_accumulate_elapsed_ms(omp_event_t *ev) {
 
 int omp_get_max_threads_per_team(omp_device_t *dev) {
     omp_device_type_t devtype = dev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxThreadsPerBlock;
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
@@ -1260,8 +1269,8 @@ int omp_get_optimal_threads_per_team(omp_device_t *dev) {
  */
 int omp_get_max_teams_per_league(omp_device_t *dev) {
     omp_device_type_t devtype = dev->type;
-    if (devtype == OMP_DEVICE_NVGPUACC) {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxGridSize[0];
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {

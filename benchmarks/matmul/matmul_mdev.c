@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_b,float *_dev_c)
 {
@@ -355,7 +355,7 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
     }
     //printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
     omp_device_type_t devtype = off->dev->type;
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, i*j);

@@ -14,7 +14,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #define CUDA_API_PER_THREAD_DEFAULT_STREAM 1
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -57,7 +57,7 @@ typedef struct omp_offloading omp_offloading_t;
  */
 typedef enum omp_device_type {
 	OMP_DEVICE_HOSTCPU, /* the host cpu */
-	OMP_DEVICE_NVGPUACC, /* NVIDIA GPGPUs accelerator */
+	OMP_DEVICE_NVGPU, /* NVIDIA GPGPUs accelerator */
 	OMP_DEVICE_ITLGPU, /* Intel integrated GPGPUs */
 	OMP_DEVICE_ITLMICACC, /* Intel MIC */
 	OMP_DEVICE_TIDSP, /* TI DSP */
@@ -84,7 +84,7 @@ extern omp_device_type_info_t omp_device_types[];
 typedef struct omp_dev_stream {
 	omp_device_t * dev;
 	union {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaStream_t cudaStream;
 #endif
 #if defined (DEVICE_OPENCL_SUPPORT)
@@ -189,7 +189,7 @@ typedef struct omp_event {
 	int recorded; /* everytime stop_record is called, this flag is set, and when a elapsed is calculated, this flag is reset */
 
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	cudaEvent_t start_event_dev;
 	cudaEvent_t stop_event_dev;
 #endif
@@ -199,7 +199,7 @@ typedef struct omp_event {
 #endif
 
 	union {
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaEvent_t cudaStream;
 #endif
 #if defined (DEVICE_OPENCL_SUPPORT)
@@ -763,7 +763,7 @@ extern int omp_get_optimal_threads_per_team(omp_device_t * dev);
 extern int omp_get_max_teams_per_league(omp_device_t * dev);
 extern int omp_get_optimal_teams_per_league(omp_device_t * dev, int threads_per_team, int total);
 
-#if defined (DEVICE_NVGPUACC_CUDA_SUPPORT)
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t stream,  cudaError_t status, void* userData );
 #endif
 
