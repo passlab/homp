@@ -836,6 +836,7 @@ void omp_map_memcpy_to(void *dst, omp_device_t *dstdev, const void *src, long si
 #if defined (DEVICE_OPENCL_SUPPORT)
         cl_int err = clEnqueueWriteBuffer(dstdev->default_stream.systream.clqueue, dst, CL_TRUE, 0, size, src, 0, NULL, NULL);
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -858,6 +859,7 @@ void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, l
 #if defined (DEVICE_OPENCL_SUPPORT)
         cl_int err = clEnqueueWriteBuffer(stream->systream.clqueue, dst, CL_FALSE, 0, size, src, 0, NULL, NULL);
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -878,6 +880,7 @@ void omp_map_memcpy_from(void *dst, const void *src, omp_device_t *srcdev, long 
 #if defined (DEVICE_OPENCL_SUPPORT)
         clEnqueueReadBuffer(srcdev->default_stream.systream.clqueue, src, CL_TRUE, 0, size, dst, 0, NULL, NULL );
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -902,6 +905,7 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
 #if defined (DEVICE_OPENCL_SUPPORT)
         clEnqueueReadBuffer(stream->systream.clqueue, src, CL_FALSE, 0, size, dst, 0, NULL, NULL );
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
