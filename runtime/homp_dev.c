@@ -777,7 +777,7 @@ void omp_unified_free(void *ptr) {
 }
 
 //void *omp_map_malloc_dev(omp_device_t *dev, long size, void * context, int flags, void *host_ptr) {
-void *omp_map_malloc_dev(omp_device_t *dev, long size) {
+void *omp_map_malloc_dev(omp_device_t *dev, void *src, long size) {
     omp_device_type_t devtype = dev->type;
     void *ptr = NULL;
     if (devtype == OMP_DEVICE_NVGPU) {
@@ -794,6 +794,11 @@ void *omp_map_malloc_dev(omp_device_t *dev, long size) {
         clReleaseMemObject(cl_mem(ptr));
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+#pragma offload target(mic:dstdev->sysid) nocopy (src:length(size) alloc_if(1) free_if(0))
+        {
+        }
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -803,7 +808,7 @@ void *omp_map_malloc_dev(omp_device_t *dev, long size) {
     return ptr;
 }
 
-void omp_map_free_dev(omp_device_t *dev, void *ptr) {
+void omp_map_free_dev(omp_device_t *dev, void *ptr, int size) {
     omp_device_type_t devtype = dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
@@ -816,6 +821,12 @@ void omp_map_free_dev(omp_device_t *dev, void *ptr) {
 #if defined (DEVICE_OPENCL_SUPPORT)
         clReleaseMemObject(cl_mem(ptr));
 #endif
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+#pragma offload target(mic:dstdev->sysid) nocopy (ptr:length(size) alloc_if(0) free_if(1))
+        {
+        }
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -824,6 +835,7 @@ void omp_map_free_dev(omp_device_t *dev, void *ptr) {
 
 void omp_map_memcpy_to(void *dst, omp_device_t *dstdev, const void *src, long size) {
     omp_device_type_t devtype = dstdev->type;
+
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	    cudaError_t result;
@@ -837,6 +849,11 @@ void omp_map_memcpy_to(void *dst, omp_device_t *dstdev, const void *src, long si
         cl_int err = clEnqueueWriteBuffer(dstdev->default_stream.systream.clqueue, dst, CL_TRUE, 0, size, src, 0, NULL, NULL);
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+#pragma offload target(mic:dstdev->sysid) in (src:length(size) alloc_if(1) free_if(0))
+        {
+        }
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -860,6 +877,11 @@ void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, l
         cl_int err = clEnqueueWriteBuffer(stream->systream.clqueue, dst, CL_FALSE, 0, size, src, 0, NULL, NULL);
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+#pragma offload target(mic:dstdev->sysid) in (src:length(size) alloc_if(0) free_if(0))
+        {
+        }
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -881,6 +903,11 @@ void omp_map_memcpy_from(void *dst, const void *src, omp_device_t *srcdev, long 
         clEnqueueReadBuffer(srcdev->default_stream.systream.clqueue, src, CL_TRUE, 0, size, dst, 0, NULL, NULL );
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+#pragma offload target(mic:dstdev->sysid) out (src:length(size) alloc_if(0) free_if(0))
+        {
+        }
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -906,6 +933,11 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
         clEnqueueReadBuffer(stream->systream.clqueue, src, CL_FALSE, 0, size, dst, 0, NULL, NULL );
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+#pragma offload target(mic:dstdev->sysid) out (src:length(size) alloc_if(0) free_if(0))
+        {
+        }
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -1167,7 +1199,7 @@ void omp_event_record_start(omp_event_t *ev, omp_dev_stream_t *stream, const cha
         } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
             ev->start_time_dev = read_timer_ms();
         } else if (devtype == OMP_DEVICE_ITLMIC) {
-            //ev->start_time_dev = read_timer_ms();/* we donot time here since we will need to time in the kernel launcher */
+            ev->start_time_dev = read_timer_ms();
         } else {
             fprintf(stderr, "other type of devices are not yet supported to start event recording\n");
         }
@@ -1193,7 +1225,7 @@ void omp_event_record_stop(omp_event_t *ev) {
         } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
             ev->stop_time_dev = read_timer_ms();
         } else if (devtype == OMP_DEVICE_ITLMIC) {
-            //ev->stop_time_dev = read_timer_ms(); /* we donot time here since we will need to time in the kernel launcher */
+            ev->stop_time_dev = read_timer_ms();
         } else {
             fprintf(stderr, "other type of devices are not yet supported to stop event record\n");
         }

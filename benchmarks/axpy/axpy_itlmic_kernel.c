@@ -15,9 +15,19 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
     omp_offloading_info_t * off_info = off->off_info;
     int sysid = off->dev->sysid;
 
+
     int i;
     double start_timer = omp_get_wtime();
+    #pragma offload target(mic:sysid) nocopy (x: length(length_n-start_n) alloc_if(0) free_if(0)) \
+                                nocopy (y: length(length_n-start_n) alloc_if(0) free_if(0))
+    #pragma omp parallel for simd
+        for (i = 0; i < length_n-start_n; i++) {
+            y[i] = x[i] * a + y[i];
+        }
 
+
+
+#if 0
     double alloc_time = omp_get_wtime();
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_start(&events[acc_mapto_event_index], stream, "ACC_MAPTO", "Accumulated time for mapto data movement for all array");
@@ -57,13 +67,14 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
     omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
     free_time = omp_get_wtime() - free_time;
+#endif
 
     double walltime = omp_get_wtime() - start_timer;
 
     printf("PASS axpy\n\n");
-    printf("Alloc time = %.2f sec\n\n", alloc_time);
-    printf("Kernel time = %.2f sec\n\n", kernel_time);
-    printf("Free time = %.2f sec\n\n", free_time);
+//    printf("Alloc time = %.2f sec\n\n", alloc_time);
+//    printf("Kernel time = %.2f sec\n\n", kernel_time);
+//    printf("Free time = %.2f sec\n\n", free_time);
     printf("Total time = %.2f sec\n\n", walltime);
 
 }
