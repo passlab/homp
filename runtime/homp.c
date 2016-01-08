@@ -298,7 +298,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		int devid = off->dev->id;
 		int devsysid = off->dev->sysid;
 		char * type = omp_get_device_typename(off->dev);
-		printf("\n-------------- Profiles (ms) for Offloading(%s) on %s dev %d (sysid: %d) ---------------------------\n", info->name,  type, devid, devsysid);
+		printf("\n-------------- Profiles (ms) for Offloading(%s) on %s dev %d (sysid: %d) ---------------\n", info->name,  type, devid, devsysid);
 		printf("-------------- Last TOTAL: %.2f, Last start: %.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
 		omp_event_print_profile_header();
 		for (j=0; j<off->num_events; j++) {

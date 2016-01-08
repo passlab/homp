@@ -599,8 +599,8 @@ int omp_init_devices() {
         }
     }
 
-    printf("=====================================================================================================================\n");
-    printf("System has total %d devices, %d HOSTCPU (one CPU is one dev), %d NVGPU, %d ITLMIC, %d ITLGPU and %d THSIM; default dev: %d.\n",
+    printf("========================================================================================================\n");
+    printf("Total %d devices: %d HOSTCPU, %d NVGPU, %d ITLMIC, %d ITLGPU and %d THSIM; default dev: %d.\n",
            omp_num_devices,
            num_hostcpu_dev, num_nvgpu_dev, num_itlmic_dev, num_itlgpu_dev, num_thsim_dev, default_device_var);
     for (i = 0; i < omp_num_devices; i++) {
@@ -609,7 +609,7 @@ int omp_init_devices() {
         if (dev->mem_type == OMP_DEVICE_MEM_DISCRETE) {
             mem_type = "DISCRETE";
         }
-        printf("\t%d|sysid: %d, type: %s, name: %s, ncores: %d, mem: %s, flops: %0.2fGFLOPS/s, bandwidth: %.2fMB/s, latency: %.2fus\n",
+        printf("  %d|sysid: %d, type: %s, name: %s, ncores: %d, mem: %s, flops: %0.2fGFLOPS/s, bandwidth: %.2fMB/s, latency: %.2fus\n",
                dev->id, dev->sysid, omp_get_device_typename(dev), dev->name, dev->num_cores, mem_type,
                dev->total_real_flopss, dev->bandwidth,
                dev->latency);
