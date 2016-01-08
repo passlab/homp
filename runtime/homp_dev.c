@@ -386,7 +386,7 @@ void omp_read_device_spec(char *dev_spec_file) {
             num_itlgpu_dev += num_devs;
         } else if (strcasecmp(devtype, "itlmic") == 0) {
             omp_init_itlmic_device(dev, devid, devsysid, num_cores);
-            num_itlgpu_dev += num_devs;
+            num_itlmic_dev += num_devs;
         } else {
             printf("unknow device type error: %s \n, default to be hostcpu\n", devtype);
             /* unknow device type error */
