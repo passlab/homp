@@ -120,7 +120,7 @@ typedef enum omp_device_mem_type { /* the mem type related to the host mem */
  */
 struct omp_device {
 	int id; /* the id from omp view */
-	long sysid; /* the handle from the system view, e.g.
+	int sysid; /* the handle from the system view, e.g.
 			 device id for NVGPU cudaSetDevice(sysid), 
 			 or pthread_t for THSIM. Need type casting to become device-specific id */
 	char name[64]; /* a short name for the sake of things */
