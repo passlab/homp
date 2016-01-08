@@ -188,7 +188,6 @@ typedef struct omp_event {
 	int count; /* a counter for accumulating recurring event */
 	int recorded; /* everytime stop_record is called, this flag is set, and when a elapsed is calculated, this flag is reset */
 
-
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	cudaEvent_t start_event_dev;
 	cudaEvent_t stop_event_dev;
@@ -198,6 +197,7 @@ typedef struct omp_event {
 	cl_event cl_stop_event_dev;
 #endif
 
+/** TODO: this could be a union for different devices
 	union {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaEvent_t cudaStream;
@@ -205,8 +205,9 @@ typedef struct omp_event {
 #if defined (DEVICE_OPENCL_SUPPORT)
 		cl_command_queue clqueue;
 #endif
-			void * myStream;
-	} start_event_dev;
+	} start_event_dev, stop_event_dev;
+**/
+
 	double start_time_dev;
 	double stop_time_dev;
 	double start_time_host;

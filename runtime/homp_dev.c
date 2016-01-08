@@ -785,7 +785,6 @@ void *omp_map_malloc_dev(omp_device_t *dev, long size) {
 		if (cudaErrorMemoryAllocation == cudaMalloc(&ptr, size)) {
 			fprintf(stderr, "cudaMalloc error to allocate mem on device\n");
 		}
-#elseif defined (DEVICE_NVGPU_OPENCL_SUPPORT)
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         ptr = malloc(size);
@@ -1120,9 +1119,6 @@ void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_
             /* do nothing */
         } else if (devtype == OMP_DEVICE_ITLGPU) {
 #if defined (DEVICE_OPENCL_SUPPORT)
-            cl_int err;
-            clCreateUserEvent()
-            clreleasecommandqueue(st->systream.clqueue);
 #endif
         } else if (devtype == OMP_DEVICE_ITLMIC) {
         } else {

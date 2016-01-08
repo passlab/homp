@@ -77,14 +77,14 @@ static void axpy_dev_kernel_demux(omp_offloading_t *off, void *args) {
     
 	omp_device_type_t devtype = off->dev->type;
 	if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		axpy_nvgpu_cuda_wrapper(off, start_n, length_n, a, x, y);
-	} else
-	if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
-	} else
-	if (devtype == OMP_DEVICE_ITLMIC) {
+#endif
+	} else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+#if defined(DEVICE_ITLMIC_SUPPORT)
 		axpy_itlmic_wrapper(off, start_n, length_n, a, x, y);
-	} else
-	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
+#endif
+	} else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
 		axpy_cpu_omp_wrapper(off, start_n, length_n, a, x, y);
 	} else {
 		fprintf(stderr, "device type is not supported for this call\n");
