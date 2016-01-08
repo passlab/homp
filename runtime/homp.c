@@ -1123,7 +1123,7 @@ void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
 		map->map_dev_ptr = map->map_source_ptr;
 		map->map_dev_wextra_ptr = map->map_source_wextra_ptr;
 	} else if (map->map_type == OMP_DATA_MAP_COPY) {
-		map->map_dev_wextra_ptr = omp_map_malloc_dev(map->dev, NULL, map->map_source_wextra_ptr);
+		map->map_dev_wextra_ptr = omp_map_malloc_dev(map->dev, map->map_source_wextra_ptr, map->map_wextra_size);
 		map->map_dev_ptr = map->map_dev_wextra_ptr; /* this will be updated if there is halo region */
 	} else {
 		printf("unknown map type at this stage: map: %X, %d\n", map, map->map_type);
