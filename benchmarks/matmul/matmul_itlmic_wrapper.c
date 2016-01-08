@@ -9,9 +9,9 @@ void matmul_itlmic_wrapper(long i, long j,long k,REAL *a,REAL *b,REAL *c)
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_start(&events[acc_mapto_event_index], stream, "ACC_MAPTO", "Accumulated time for mapto data movement for all array");
 #endif
-#pragma offload target(mic) in (a: length(length_n-start_n) alloc_if(1) free_if(0)) \
-                            in (b: length(length_n-start_n) alloc_if(1) free_if(0)) \
-                            in (c: length(length_n-start_n) alloc_if(1) free_if(0))
+#pragma offload target(mic) in (a: length(i*k) alloc_if(1) free_if(0)) \
+                            in (b: length(k*j) alloc_if(1) free_if(0)) \
+                            in (c: length(i*j) alloc_if(1) free_if(0))
     {
     }
 
@@ -20,9 +20,9 @@ void matmul_itlmic_wrapper(long i, long j,long k,REAL *a,REAL *b,REAL *c)
     omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
 #endif
 
-#pragma offload target(mic) nocopy (a: length(length_n-start_n) alloc_if(0) free_if(0)) \
-                            nocopy (b: length(length_n-start_n) alloc_if(0) free_if(0)) \
-                            nocopy (c: length(length_n-start_n) alloc_if(0) free_if(0))
+#pragma offload target(mic) nocopy (a: length(i*k) alloc_if(0) free_if(0)) \
+                            nocopy (b: length(k*j) alloc_if(0) free_if(0)) \
+                            nocopy (c: length(i*j) alloc_if(0) free_if(0))
 #pragma omp parallel for simd
     {
         for (ii = 0; ii < i; ii++) {
@@ -41,9 +41,9 @@ void matmul_itlmic_wrapper(long i, long j,long k,REAL *a,REAL *b,REAL *c)
     omp_event_record_start(&events[acc_mapfrom_event_index], stream,  "ACC_MAPFROM", "Accumulated time for mapfrom data movement for all array");
 #endif
 
-#pragma offload target(mic) nocopy (a: length(length_n-start_n) alloc_if(0) free_if(1)) \
-                            nocopy (b: length(length_n-start_n) alloc_if(0) free_if(1)) \
-                            nocopy (c: length(length_n-start_n) alloc_if(0) free_if(1))
+#pragma offload target(mic) nocopy (a: length(i*k) alloc_if(0) free_if(1)) \
+                            nocopy (b: length(k*j) alloc_if(0) free_if(1)) \
+                            nocopy (c: length(i*j) alloc_if(0) free_if(1))
     {
     }
 #if defined (OMP_BREAKDOWN_TIMING)
