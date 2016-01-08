@@ -47,5 +47,5 @@ cleanobj:
 	rm -rf *.o
 
 clean:
-	rm -rf *.o axpy-* *.plot core
+	rm -rf *.o axpy-* *.plot core core.*
 

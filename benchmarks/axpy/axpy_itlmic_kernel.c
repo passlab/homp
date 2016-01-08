@@ -1,6 +1,10 @@
 //
 // Created by Yonghong Yan on 1/7/16.
 //
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "axpy.h"
 #include <offload.h>
 #include <homp.h>
@@ -41,4 +45,8 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
+
 }
+#ifdef __cplusplus
+}
+#endif
