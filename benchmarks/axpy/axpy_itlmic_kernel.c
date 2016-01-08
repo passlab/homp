@@ -3,7 +3,7 @@
 //
 #include "axpy.h"
 #include <offload.h>
-#include <omp.h>
+#include <homp.h>
 
 void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REAL a,REAL *x,REAL *y) {
     omp_event_t *events = off->events;
@@ -25,7 +25,7 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
                                 nocopy (y: length(length_n-start_n) alloc_if(0) free_if(0))
     #pragma omp parallel for simd
         for (i = 0; i < length_n-start_n; i++) {
-            x[i] = x[i] * a + y[i];
+            y[i] = x[i] * a + y[i];
         }
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_stop(&events[acc_kernel_exe_event_index]);
