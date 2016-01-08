@@ -37,7 +37,7 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
     double kernel_time = omp_get_wtime();
 #pragma offload target(mic:sysid) nocopy (x: length(length_n-start_n) alloc_if(0) free_if(0)) \
                                 nocopy (y: length(length_n-start_n) alloc_if(0) free_if(0))
-    #pragma omp parallel for simd
+    #pragma omp parallel for simd num_threads(240)
         for (i = 0; i < length_n-start_n; i++) {
             y[i] = x[i] * a + y[i];
         }
