@@ -80,7 +80,7 @@ static void axpy_dev_kernel_demux(omp_offloading_t *off, void *args) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		axpy_nvgpu_cuda_wrapper(off, start_n, length_n, a, x, y);
 #endif
-	} else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+	} else if (devtype == OMP_DEVICE_ITLMIC) { /* TODO with OpenCL */
 #if defined(DEVICE_ITLMIC_SUPPORT)
 		axpy_itlmic_wrapper(off, start_n, length_n, a, x, y);
 #endif
