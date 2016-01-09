@@ -50,27 +50,7 @@ long i, j;
  */
 #endif
 
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-#include "xomp_cuda_lib_inlined.cu" 
-__global__ void OUT__3__5904__(long n, long start_n, long length_n,REAL *_dev_a,REAL *_dev_x,REAL *_dev_y)
-{
-  int i,j;
-  long _dev_lower;
-  long  _dev_upper;
-  long _dev_loop_chunk_size;
-  long _dev_loop_sched_index;
-  long _dev_loop_stride;
-  int _dev_thread_num = getCUDABlockThreadCount(1);
-  int _dev_thread_id = getLoopIndexFromCUDAVariables(1);
-  XOMP_static_sched_init(start_n,start_n + length_n - 1,1,1,_dev_thread_num,_dev_thread_id,&_dev_loop_chunk_size,&_dev_loop_sched_index,&_dev_loop_stride);
-  while(XOMP_static_sched_next(&_dev_loop_sched_index,start_n + length_n - 1,1,_dev_loop_stride,_dev_loop_chunk_size,_dev_thread_num,_dev_thread_id,&_dev_lower,&_dev_upper))
-    for (i = _dev_lower; i <= _dev_upper; i += 1) {
-        for (j = 0; j<n; j++)
-         _dev_y[i] += _dev_a[i*n+j] * _dev_x[j];
-//		printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
-    }
-}
-#endif
+
 
 struct OUT__3__5904__other_args {
     REAL *a;
@@ -106,7 +86,7 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
 	} else
 #endif
 #if defined(DEVICE_ITLMIC_SUPPORT)
-	if (devtype == OMP_DEVICE_ITLMIC) {
+	else if (devtype == OMP_DEVICE_ITLMIC) {
 		matvec_itlmic_wrapper(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
 	} else
 #endif
@@ -119,6 +99,26 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
                 y[i] += a[i*n + j] * x[j];
             //printf ("error part!!");
         }
+    } else {
+        fprintf(stderr, "device type is not supported for this call\n");
+        abort();
+    }
+
+
+
+
+
+    omp_device_type_t devtype = off->dev->type;
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
+		matvec_nvgpu_cuda_wrapper(off, n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
+#endif
+    } else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+#if defined(DEVICE_ITLMIC_SUPPORT)
+		matvec_itlmic_wrapper(off, n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
+#endif
+    } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
+        matvec_cpu_omp_wrapper(off, n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
