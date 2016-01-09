@@ -267,6 +267,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+/*
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_b,float *_dev_c)
@@ -310,6 +311,7 @@ __global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_
   } // end while
 }
 #endif
+ */
 
 /* compiler should generate three of and three laucher, for simplicity, we use vx to indicate whether
  * this is for v1, v2 or v3 version of the code
@@ -354,6 +356,8 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
         omp_loop_get_range(off, 0, &start, &j);
     }
     //printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
+
+    /*
     omp_device_type_t devtype = off->dev->type;
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 	if (devtype == OMP_DEVICE_NVGPU) {
@@ -365,7 +369,7 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
 #endif
 #if defined(DEVICE_ITLMIC_SUPPORT)
 	if (devtype == OMP_DEVICE_ITLMIC) {
-		matmul_itlmic_wrapper(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
+		matmul_itlmic_wrapper(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 	} else
 #endif
     if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
@@ -385,6 +389,24 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
     }
+*/
+
+    omp_device_type_t devtype = off->dev->type;
+    if (devtype == OMP_DEVICE_NVGPU) {
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
+		matmul_nvgpu_cuda_wrapper(off, i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
+#endif
+    } else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+#if defined(DEVICE_ITLMIC_SUPPORT)
+		matmul_itlmic_wrapper(off, i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
+#endif
+    } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
+        matmul_cpu_omp_wrapper(off, i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
+    } else {
+        fprintf(stderr, "device type is not supported for this call\n");
+        abort();
+    }
+
 #if CORRECTNESS_CHECK
 	print_array("C in device: ", "Cdev", C, i, j);
 #endif
