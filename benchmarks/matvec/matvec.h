@@ -17,6 +17,9 @@ extern "C" {
 extern void matvec(REAL *a, REAL *x, REAL *y, long n);
 extern double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n);
 
+extern void matvec_cpu_omp_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y);
+extern void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y);
+extern void matvec_nvgpu_cuda_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y);
 #ifdef __cplusplus
  }
 #endif

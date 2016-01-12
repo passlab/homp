@@ -5,6 +5,21 @@
 void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y)
 {
     int i, j;
+
+#pragma offload target(mic) in (x: length(0) alloc_if(0) free_if(0)) \
+                            in (y: length(0) alloc_if(0) free_if(0)) \
+                            in (a: length(0) alloc_if(0) free_if(0))
+    {
+#pragma omp parallel for simd
+//#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
+        for (i = start_n; i < start_n + length_n; i++) {
+            for (j = 0; j < n; j++)
+                y[i] += a[i*n + j] * x[j];
+            //printf ("error part!!");
+        }
+    }
+
+#if 0
     omp_event_t *events = off->events;
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -47,4 +62,6 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
+#endif
+
 }

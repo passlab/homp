@@ -1,7 +1,6 @@
 #include "homp.h"
 #include "axpy.h"
 
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void axpy_nvgpu_cuda_kernel( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y)
 {
@@ -25,4 +24,3 @@ void axpy_nvgpu_cuda_wrapper(omp_offloading_t *off, long start_n,  long length_n
     int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);
     axpy_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,a,x,y);
 }
-#endif

@@ -1,7 +1,6 @@
 #include "matvec.h"
 #include <homp.h>
 
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void matverc_nvgpu_cuda_kernel(long n, long start_n, long length_n,REAL *_dev_a,REAL *_dev_x,REAL *_dev_y)
 {
@@ -28,4 +27,3 @@ int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);
         matverc_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
 }
-#endif

@@ -10,9 +10,9 @@ extern "C" {
 #include <homp.h>
 
 void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REAL a,REAL *x,REAL *y) {
-    omp_event_t *events = off->events;
-    omp_dev_stream_t *stream = off->stream;
-    omp_offloading_info_t * off_info = off->off_info;
+//    omp_event_t *events = off->events;
+//    omp_dev_stream_t *stream = off->stream;
+//    omp_offloading_info_t * off_info = off->off_info;
     int sysid = off->dev->sysid;
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
