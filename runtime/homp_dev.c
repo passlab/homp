@@ -659,7 +659,15 @@ void omp_warmup_device(omp_device_t *dev) {
         dev->default_context = (void*)context;
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
-
+#if defined (DEVICE_ITLMIC_SUPPORT)
+    int SIZE = 1024;
+    char dummy[SIZE];
+    int i;
+    #pragma offload target(mic:dev->sysid) in (dummy:length(SIZE)) out(dummy:length(SIZE))
+    for (i=0; i<SIZE; i++){
+	    dummy[i] = dummy[i] * 7;
+    }
+#endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         /* warm up the OpenMP environment */
         /*
