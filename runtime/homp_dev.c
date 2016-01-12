@@ -664,6 +664,7 @@ void omp_warmup_device(omp_device_t *dev) {
     char dummy[SIZE];
     int i;
     #pragma offload target(mic:dev->sysid) in (dummy:length(SIZE)) out(dummy:length(SIZE))
+    #pragma omp parallel simd
     for (i=0; i<SIZE; i++){
 	    dummy[i] = dummy[i] * 7;
     }
