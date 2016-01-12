@@ -800,7 +800,7 @@ void *omp_map_malloc_dev(omp_device_t *dev, void *src, long size) {
 	 */
 #if defined (DEVICE_ITLMIC_SUPPORT)
 	char * srcchar = (char*)src;
-	printf("malloc: %X for %d\n", srcchar, size);
+//	printf("malloc: %X for %d\n", srcchar, size);
 #pragma offload_transfer target(mic:dev->sysid) nocopy (srcchar:length(size) alloc_if(1) free_if(0))
         
 	ptr = src;
@@ -830,7 +830,7 @@ void omp_map_free_dev(omp_device_t *dev, void *ptr, int size) {
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
 	char * charptr = (char*)ptr;
-	printf("free: %X\n", ptr);
+//	printf("free: %X\n", ptr);
 #pragma offload_transfer target(mic:dev->sysid) nocopy (charptr:length(size) alloc_if(0) free_if(1))
 #endif
     } else {
@@ -884,7 +884,7 @@ void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, l
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
 	char * charsrc = (char*)src;
-	printf("copyto_async: %X for %d bytes\n", charsrc, size);
+//	printf("copyto_async: %X for %d bytes\n", charsrc, size);
 #pragma offload_transfer target(mic:dstdev->sysid) in (charsrc:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
@@ -939,7 +939,7 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
 	char * chardst = (char*)dst;
-	printf("Copyfrom_async: %X\n", chardst);
+//	printf("Copyfrom_async: %X\n", chardst);
 #pragma offload_transfer target(mic:srcdev->sysid) out (chardst:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
