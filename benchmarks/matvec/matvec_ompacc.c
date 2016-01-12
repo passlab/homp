@@ -109,7 +109,7 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		matvec_nvgpu_cuda_wrapper(off, n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
 #endif
-    } else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined(DEVICE_ITLMIC_SUPPORT)
 		matvec_itlmic_wrapper(off, n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
 #endif

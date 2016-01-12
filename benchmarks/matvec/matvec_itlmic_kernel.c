@@ -6,7 +6,7 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
 {
     int i, j;
 
-#pragma offload target(mic) in (x: length(0) alloc_if(0) free_if(0)) \
+#pragma offload target(mic:off->dev->sysid) in (x: length(0) alloc_if(0) free_if(0)) \
                             in (y: length(0) alloc_if(0) free_if(0)) \
                             in (a: length(0) alloc_if(0) free_if(0))
     {
