@@ -1,6 +1,6 @@
 #include "matvec.h"
 #include <offload.h>
-#include <omp.h>
+#include <homp.h>
 
 void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y)
 {

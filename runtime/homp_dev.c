@@ -802,10 +802,16 @@ void *omp_map_malloc_dev(omp_device_t *dev, void *src, long size) {
         clReleaseMemObject(cl_mem(ptr));
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
+	/* 
+	 * For Xeon Phi using Intel compiler, it use host pointer to track the memory address
+	 * on the device. thus we will return the original pointer 
+	 */
 #if defined (DEVICE_ITLMIC_SUPPORT)
-#pragma offload target(mic:dstdev->sysid) nocopy (src:length(size) alloc_if(1) free_if(0))
-        {
-        }
+	char * srcchar = (char*)src;
+//	printf("malloc: %X for %d\n", srcchar, size);
+#pragma offload_transfer target(mic:dev->sysid) nocopy (srcchar:length(size) alloc_if(1) free_if(0))
+        
+	ptr = src;
 #endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
@@ -831,9 +837,9 @@ void omp_map_free_dev(omp_device_t *dev, void *ptr, int size) {
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
-#pragma offload target(mic:dstdev->sysid) nocopy (ptr:length(size) alloc_if(0) free_if(1))
-        {
-        }
+	char * charptr = (char*)ptr;
+//	printf("free: %X\n", ptr);
+#pragma offload_transfer target(mic:dev->sysid) nocopy (charptr:length(size) alloc_if(0) free_if(1))
 #endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
@@ -858,9 +864,8 @@ void omp_map_memcpy_to(void *dst, omp_device_t *dstdev, const void *src, long si
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
-#pragma offload target(mic:dstdev->sysid) in (src:length(size) alloc_if(1) free_if(0))
-        {
-        }
+	char * charsrc = (char*)src;
+#pragma offload_transfer target(mic:dstdev->sysid) in (charsrc:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
@@ -886,9 +891,9 @@ void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, l
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
-#pragma offload target(mic:dstdev->sysid) in (src:length(size) alloc_if(0) free_if(0))
-        {
-        }
+	char * charsrc = (char*)src;
+//	printf("copyto_async: %X for %d bytes\n", charsrc, size);
+#pragma offload_transfer target(mic:dstdev->sysid) in (charsrc:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
@@ -912,9 +917,8 @@ void omp_map_memcpy_from(void *dst, const void *src, omp_device_t *srcdev, long 
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
-#pragma offload target(mic:dstdev->sysid) out (src:length(size) alloc_if(0) free_if(0))
-        {
-        }
+	char * chardst = (char*)dst;
+#pragma offload_transfer target(mic:srcdev->sysid) out (chardst:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
@@ -942,9 +946,9 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
-#pragma offload target(mic:dstdev->sysid) out (src:length(size) alloc_if(0) free_if(0))
-        {
-        }
+	char * chardst = (char*)dst;
+//	printf("Copyfrom_async: %X\n", chardst);
+#pragma offload_transfer target(mic:srcdev->sysid) out (chardst:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
