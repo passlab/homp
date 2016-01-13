@@ -6,6 +6,24 @@ void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,
 {
     long ii, jj, kk;
 
+    int sysid = off->dev->sysid;
+
+#pragma offload target(mic:sysid) in (a: length(0) alloc_if(0) free_if(0)) \
+                            in (b: length(0) alloc_if(0) free_if(0)) \
+                            in (c: length(0) alloc_if(0) free_if(0))
+    {
+        for (ii = 0; ii < i; ii++) {
+            for (jj = 0; jj < j; jj++) {
+                REAL sum = 0.0;
+                for (kk = 0; kk < k; kk++) {
+                    sum += a[ii * k + kk] * b[kk * j + jj];
+                }
+                c[ii * j + jj] = sum;
+            }
+        }
+    }
+
+#if 0
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_start(&events[acc_mapto_event_index], stream, "ACC_MAPTO", "Accumulated time for mapto data movement for all array");
 #endif
@@ -49,4 +67,6 @@ void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
+#endif
+
 }

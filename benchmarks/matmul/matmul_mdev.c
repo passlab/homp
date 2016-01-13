@@ -266,53 +266,6 @@ int main(int argc, char *argv[]) {
     omp_unified_free(A);
     return 0;
 }
-
-/*
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-#include "xomp_cuda_lib_inlined.cu"
-__global__ void OUT__1__11058__(long i, long j,long k,float *_dev_a,float *_dev_b,float *_dev_c)
-{
-  long ij;
-  long  _dev_i, _dev_j, _dev_k;
-  long _dev_lower, _dev_upper;
-  // variables for adjusted loop info considering both original chunk size and step(strip)
-  long _dev_loop_chunk_size;
-  long _dev_loop_sched_index;
-  long _dev_loop_stride;
-
-  // 1-D thread block: 
-  long _dev_thread_num = gridDim.x * blockDim.x;
-  long _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
-
-  //adjust bound to be inclusive later
-  long orig_start =0;
-  long orig_end = i*j-1;
-  long orig_step = 1;
-  long orig_chunk_size = 1;
-
-//  XOMP_accelerator_loop_default (0, MSIZE*MSIZE -1 , 1, &_dev_lower, &_dev_upper);
-  XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
-      & _dev_loop_chunk_size , & _dev_loop_sched_index, & _dev_loop_stride);
-
-  //XOMP_accelerator_loop_default (1, (n-1)*(m-1)-1, 1, &_dev_lower, &_dev_upper);
-  while (XOMP_static_sched_next (&_dev_loop_sched_index, orig_end,orig_step, _dev_loop_stride, _dev_loop_chunk_size, _dev_thread_num, _dev_thread_id, & _dev_lower, & _dev_upper))
-  {
-  for (ij = _dev_lower; ij <= _dev_upper; ij ++) 
-//  for (_dev_i = _dev_lower; _dev_i<= _dev_upper; _dev_i ++) 
-//    for (j = 0; j < MSIZE; j++)
-    {
-      _dev_i = ij/k;
-      _dev_j = ij%k;
-      float c= 0.0;
-      for (_dev_k = 0; _dev_k < k; _dev_k++)
-        c += _dev_a[_dev_i * k + _dev_k] * _dev_b[_dev_k * j + _dev_j];
-      _dev_c[_dev_i * j + _dev_j] = c;
-    }
-  } // end while
-}
-#endif
- */
-
 /* compiler should generate three of and three laucher, for simplicity, we use vx to indicate whether
  * this is for v1, v2 or v3 version of the code
  */
@@ -357,46 +310,12 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
     }
     //printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
 
-    /*
-    omp_device_type_t devtype = off->dev->type;
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-	if (devtype == OMP_DEVICE_NVGPU) {
-		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
-		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, i*j);
-		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
-		OUT__1__11058__<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
-	} else
-#endif
-#if defined(DEVICE_ITLMIC_SUPPORT)
-	if (devtype == OMP_DEVICE_ITLMIC) {
-		matmul_itlmic_wrapper(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
-	} else
-#endif
-    if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
-        long ii, jj, kk;
-        //	omp_set_num_threads(off->dev->num_cores);
-        //printf("%d cores on host\n", off->dev->num_cores);
-//#pragma omp parallel for shared(A, B, C, i,j,k) private(ii, jj, kk)
-        for (ii = 0; ii < i; ii++) {
-            for (jj = 0; jj < j; jj++) {
-                REAL sum = 0.0;
-                for (kk = 0; kk < k; kk++) {
-                    sum += A[ii * k + kk] * B[kk * j + jj];
-                }
-                C[ii * j + jj] = sum;
-            }
-        }
-    } else {
-        fprintf(stderr, "device type is not supported for this call\n");
-    }
-*/
-
     omp_device_type_t devtype = off->dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		matmul_nvgpu_cuda_wrapper(off, i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 #endif
-    } else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined(DEVICE_ITLMIC_SUPPORT)
 		matmul_itlmic_wrapper(off, i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 #endif

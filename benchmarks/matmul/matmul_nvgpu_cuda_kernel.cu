@@ -1,6 +1,5 @@
 #include <homp.h>
 
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void matmul_nvgpu_cuda_kernel(long i, long j,long k,float *_dev_a,float *_dev_b,float *_dev_c)
 {
@@ -50,4 +49,3 @@ int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
 		matmul_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 }
-#endif
