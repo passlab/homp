@@ -1,29 +1,52 @@
-NVGPU_CUDA_PATH=~/../../usr/local/cuda-7.0
-NVGPU_CUDA_PATH=/usr/local/cuda-5.5/
-NVGPU_CUDA_PATH=/APPS/cuda/include
-NVGPU_CUDA_PATH=/opt/NVIDIA/cuda/
+CUDA_PATH=/opt/nvidia/cuda
 
-GNU_GCCLIB_PATH=/usr/lib/gcc/x86_64-linux-gnu/4.8.2
+default: stencil2d-nvgpu-itlmic
+all: stencil2d-cpu stencil2d-nvgpu stencil2d-nvgpu-itlmic
 
-CFLAGS += -I../../runtime -I../../util -I. -w
-LDFLAGS += -L${GNU_GCCLIB_PATH} -lgomp -lm -lrt -lpthread
+BASE_CFLAGS = -I../../runtime -I../../util -I.
+CFLAGS = ${BASE_CFLAGS}
+# To enable breakdown timing and profiling, to disable, comment the following line
+BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1
 
-default: stencil2d-thsim
+# CFLAGS for NVGPU_CUDA support
+NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
+# To enable NVGPU_CUDA virtual shared memory support
+# NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_VSHAREDM=1
 
-all: stencil2d-thsim stencil2d-nvgpu stencil2d-nvgpu-vsharedm
+# To enable ITLMIC support
+ICC_CFLAGS += -DDEVICE_ITLMIC_SUPPORT=1
+# -L/opt/intel/lib/intel64/ -loffload
 
-stencil2d-thsim:
-	gcc $(CFLAGS) -g -O0 -Wall -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 -fopenmp ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c stencil2d.c kernel_launcher.c -c
-	gcc $(CFLAGS) *.o -o $@ ${LDFLAGS}
+#fornax
+LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread
 
-stencil2d-nvgpu:
-	nvcc $(CFLAGS) -g -O0 -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_CUDA_SUPPORT=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  stencil2d.c kernel_launcher.cu nvgpu_kernels.cu -c
-	nvcc $(CFLAGS) *.o -o $@ ${LDFLAGS}
+RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c
 
-stencil2d-nvgpu-vsharedm:
-	nvcc $(CFLAGS) -g -O0 -I${NVGPU_CUDA_PATH}/include -Xcompiler -fopenmp -DDEVICE_NVGPU_CUDA_SUPPORT=1 -DDEVICE_NVGPU_CUDA_VSHAREDM=1 -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1 ../../runtime/homp.c ../../runtime/homp_dev.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c  stencil2d.c kernel_launcher.cu nvgpu_kernels.cu -c
-	nvcc $(CFLAGS) *.o -o $@ ${LDFLAGS}
+stencil2d-nvgpu: cleanobj
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c kernel_launcher.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ../../runtime/homp_dev.c -c
+#	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp stencil2d_cpu_omp_kernel.c -c
+	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp stencil2d_cpu_omp_kernel.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) stencil2d_nvgpu_cuda_kernel.cu -c
+	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
+
+stencil2d-nvgpu-itlmic: cleanobj
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c kernel_launcher.c -c
+	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
+#	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) -Xcompiler -fopenmp stencil2d_cpu_omp_kernel.c -c
+	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp stencil2d_cpu_omp_kernel.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) stencil2d_nvgpu_cuda_kernel.cu -c
+	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS)  -openmp stencil2d_itlmic_kernel.c -c
+	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
+
+stencil2d-cpu: cleanobj
+	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES}  stencil2d.c kernel_launcher.c -c
+	gcc $(BASE_CFLAGS) ../../runtime/homp_dev.c -c
+	gcc $(BASE_CFLAGS) stencil2d_cpu_omp_kernel.c -c
+	gcc *.o -o $@ $(LDFLAGS)
+
+cleanobj:
+	rm -rf *.o
 
 clean:
-	rm -rf *.o stencil2d-* *.plot core
-
+	rm -rf *.o stencil2d-* *.plot core core.*
