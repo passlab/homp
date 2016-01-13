@@ -20,10 +20,12 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
 //    double start_timer = omp_get_wtime();
     #pragma offload target(mic:sysid) in (x: length(0) alloc_if(0) free_if(0)) \
                                 in (y: length(0) alloc_if(0) free_if(0))
-//    #pragma omp parallel for simd
+    {
+        //#pragma omp parallel for simd
         for (i = 0; i < length_n-start_n; i++) {
             y[i] = x[i] * a + y[i];
         }
+    }
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
 #if 0

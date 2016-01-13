@@ -664,9 +664,11 @@ void omp_warmup_device(omp_device_t *dev) {
     char dummy[SIZE];
     int i;
     #pragma offload target(mic:dev->sysid) in (dummy:length(SIZE)) out(dummy:length(SIZE))
-    #pragma omp parallel simd
-    for (i=0; i<SIZE; i++){
+    {
+	#pragma omp parallel for simd
+    	for (i=0; i<SIZE; i++){
 	    dummy[i] = dummy[i] * 7;
+    	}
     }
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
@@ -809,7 +811,7 @@ void *omp_map_malloc_dev(omp_device_t *dev, void *src, long size) {
 	 */
 #if defined (DEVICE_ITLMIC_SUPPORT)
 	char * srcchar = (char*)src;
-//	printf("malloc: %X for %d\n", srcchar, size);
+	printf("malloc: %X for %d\n", srcchar, size);
 #pragma offload_transfer target(mic:dev->sysid) nocopy (srcchar:length(size) alloc_if(1) free_if(0))
         
 	ptr = src;
@@ -893,7 +895,7 @@ void omp_map_memcpy_to_async(void *dst, omp_device_t *dstdev, const void *src, l
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
 	char * charsrc = (char*)src;
-//	printf("copyto_async: %X for %d bytes\n", charsrc, size);
+	printf("copyto_async: %X for %d bytes\n", charsrc, size);
 #pragma offload_transfer target(mic:dstdev->sysid) in (charsrc:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
@@ -948,7 +950,7 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined (DEVICE_ITLMIC_SUPPORT)
 	char * chardst = (char*)dst;
-//	printf("Copyfrom_async: %X\n", chardst);
+	printf("Copyfrom_async: %X\n", chardst);
 #pragma offload_transfer target(mic:srcdev->sysid) out (chardst:length(size) alloc_if(0) free_if(0))
 #endif
     } else {
