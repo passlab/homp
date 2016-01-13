@@ -7,10 +7,9 @@
 #include <math.h>
 #include <string.h>
 
-#define REAL float
-
 #include "homp.h"
 #include "omp.h"
+#include "matmul.h"
 
 void zero(REAL *A, long n) {
     long i, j;

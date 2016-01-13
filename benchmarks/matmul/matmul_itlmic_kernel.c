@@ -1,6 +1,6 @@
 #include <offload.h>
 #include <homp.h>
-#define REAL float
+#include "matmul.h"
 
 void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,REAL *b,REAL *c)
 {

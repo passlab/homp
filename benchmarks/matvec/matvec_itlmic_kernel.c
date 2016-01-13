@@ -6,17 +6,20 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
 {
     int i, j;
 
-#pragma offload target(mic:off->dev->sysid) in (x: length(0) alloc_if(0) free_if(0)) \
-                            in (y: length(0) alloc_if(0) free_if(0)) \
-                            in (a: length(0) alloc_if(0) free_if(0))
+    printf("x:%X, a:%X, y:%X\n", x, a, y);
+#pragma offload target(mic:off->dev->sysid) \
+			    in (a: length(0) alloc_if(0) free_if(0)) \
+			    in (x: length(0) alloc_if(0) free_if(0)) \
+                            in (y: length(0) alloc_if(0) free_if(0))
     {
-#pragma omp parallel for simd
+//#pragma omp parallel for simd
 //#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
         for (i = start_n; i < start_n + length_n; i++) {
             for (j = 0; j < n; j++)
                 y[i] += a[i*n + j] * x[j];
             //printf ("error part!!");
         }
+
     }
 
 #if 0

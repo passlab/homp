@@ -151,6 +151,7 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
     omp_data_map_info_t *__a_map_info__ = &__off_info__->data_map_info[2];
     omp_data_map_init_info("a", __a_map_info__, __off_info__, a, 2, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
     omp_data_map_info_set_dims_2d(__a_map_info__, n, n);
+    printf("x: %X, y: %X, a: %X\n", x, y, a);
 
     if (matvec_mdev_v == 3) { /* version 3 */
         omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
@@ -188,7 +189,7 @@ double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n) {
     /* here we do not need sync start */
     double off_total = read_timer_ms();
     /* here we do not need sync start */
-    int it; int total_its = 20;
+    int it; int total_its = 1;
     for (it=0; it<total_its; it++) omp_offloading_start(__off_info__, it==total_its-1);
     off_total = (read_timer_ms() - off_total)/total_its;
 #if defined (OMP_BREAKDOWN_TIMING)

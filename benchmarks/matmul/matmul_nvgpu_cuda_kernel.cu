@@ -1,7 +1,8 @@
 #include <homp.h>
+#include "matmul.h"
 
 #include "xomp_cuda_lib_inlined.cu"
-__global__ void matmul_nvgpu_cuda_kernel(long i, long j,long k,float *_dev_a,float *_dev_b,float *_dev_c)
+__global__ void matmul_nvgpu_cuda_kernel(long i, long j,long k,REAL *_dev_a,REAL *_dev_b,REAL *_dev_c)
 {
  long ij;
   long  _dev_i, _dev_j, _dev_k;
@@ -34,7 +35,7 @@ __global__ void matmul_nvgpu_cuda_kernel(long i, long j,long k,float *_dev_a,flo
     {
       _dev_i = ij/k;
       _dev_j = ij%k;
-      float c= 0.0;
+      REAL c= 0.0;
       for (_dev_k = 0; _dev_k < k; _dev_k++)
         c += _dev_a[_dev_i * k + _dev_k] * _dev_b[_dev_k * j + _dev_j];
       _dev_c[_dev_i * j + _dev_j] = c;
@@ -42,10 +43,11 @@ __global__ void matmul_nvgpu_cuda_kernel(long i, long j,long k,float *_dev_a,flo
   } // end while
 }
 
-void matmul_nvgpu_cuda_wrapper(omp_offloading_t *off, long i, long j,long k,float *A,float *B,float *C)
+void matmul_nvgpu_cuda_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *A,REAL *B,REAL *C)
 {
 int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, i*j);
 		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
-		matmul_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
+		matmul_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>
+		(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 }

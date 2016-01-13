@@ -1,6 +1,5 @@
-#include "matvec.h"
 #include <homp.h>
-#define REAL float
+#include "matmul.h"
 
 void matmul_cpu_omp_wrapper(omp_offloading_t *off, long i, long j,long k,float *A,float *B,float *C)
 {
