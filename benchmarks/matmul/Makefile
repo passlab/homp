@@ -15,7 +15,12 @@ NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
 # NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_VSHAREDM=1
 
 # To enable ITLMIC support
+# By default, ITLMIC used breakdown offloading, malloc, in, kernel and out are breaked into runtime and wrapper/kernel.
+# To enable combined offloading, set -DITLMIC_COMBINED_OFFLOADING=1 which will use offload pragma in/out thing for
+# offloading, but the breakdown timing will not be correct. To use MKL for combined offloading, append: -DUSE_INTEL_MKL=1 -mkl
 ICC_CFLAGS += -DDEVICE_ITLMIC_SUPPORT=1
+ICC_CFLAGS += -DITLMIC_COMBINED_OFFLOADING=1
+#ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
 # -L/opt/intel/lib/intel64/ -loffload
 
 #fornax
@@ -32,13 +37,13 @@ matmul-nvgpu: cleanobj
 	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 matmul-nvgpu-itlmic: cleanobj
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} matmul_mdev.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -DDEVICE_ITLMIC_SUPPORT=1 ${RUNTIME_SOURCES} matmul_mdev.c -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
 #	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) -Xcompiler -fopenmp matmul_cpu_omp_kernel.c -c
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp matmul_cpu_omp_kernel.c -c
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) matmul_nvgpu_cuda_kernel.cu -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -DDEVICE_ITLMIC_SUPPORT=1 matmul_nvgpu_cuda_kernel.cu -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS)  -openmp matmul_itlmic_kernel.c -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
+	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -mkl
 
 matmul-cpu: cleanobj
 	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES}  matmul_mdev.c -c
