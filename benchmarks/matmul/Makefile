@@ -33,7 +33,7 @@ matmul-nvgpu: cleanobj
 
 matmul-nvgpu-itlmic: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} matmul_mdev.c -c
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
+	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
 #	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) -Xcompiler -fopenmp matmul_cpu_omp_kernel.c -c
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp matmul_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) matmul_nvgpu_cuda_kernel.cu -c

@@ -237,8 +237,8 @@ int main(int argc, char *argv[]) {
 /* sequential run */
     seq_elapsed = read_timer_ms();
     int i;
-    int num_its = 10;
-    for (i=0; i<num_its;i++) iter_matmul(A, B, C_seq, n);
+    int num_its = 1;
+    //for (i=0; i<num_its;i++) iter_matmul(A, B, C_seq, n);
     seq_elapsed = (read_timer_ms() - seq_elapsed)/num_its;
     // print_array("Array C_seq", "C", C_seq, n, n);
 
@@ -427,7 +427,7 @@ double matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int d
     /* here we do not need sync start */
     double off_total = read_timer_ms();
     int it;
-    int total_its = 20;
+    int total_its = 10;
     for (it = 0; it < total_its; it++)
         omp_offloading_start(__off_info__, it == total_its - 1);
     off_total = (read_timer_ms() - off_total) / total_its;

@@ -12,6 +12,8 @@ void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,
                             in (b: length(0) alloc_if(0) free_if(0)) \
                             in (c: length(0) alloc_if(0) free_if(0))
     {
+//#pragma omp parallel shared(i, j, k, a, b, c) private(ii, jj, kk)
+//#pragma omp for
         for (ii = 0; ii < i; ii++) {
             for (jj = 0; jj < j; jj++) {
                 REAL sum = 0.0;
