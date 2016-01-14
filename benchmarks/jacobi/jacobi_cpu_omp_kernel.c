@@ -3,7 +3,8 @@
 
 void jacobi_cpu_omp_wrapper2(omp_offloading_t *off, long n,long m,REAL *u,REAL *uold,long uold_m, int uold_0_offset, int uold_1_offset)
 {
-#pragma omp parallel for private(j,i) shared(m,n,uold,u,uold_0_offset,uold_1_offset)
+    int num_omp_threads = off->dev->num_cores;
+#pragma omp parallel for private(j,i) shared(m,n,uold,u,uold_0_offset,uold_1_offset) num_threads(num_omp_threads)
     for (i=0; i < n; i++)
         for (j=0; j < m; j++) {
             /* since uold has halo region, here we need to adjust index to reflect the new offset */
@@ -14,6 +15,7 @@ void jacobi_cpu_omp_wrapper2(omp_offloading_t *off, long n,long m,REAL *u,REAL *
 
 void jacobi_cpu_omp_wrapper1(omp_offloading_t *off, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_u,REAL *_dev_f, \
  REAL *_dev_uold, long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error) {
+    int num_omp_threads = off->dev->num_cores;
 #if CORRECTNESS_CHECK
 	    BEGIN_SERIALIZED_PRINTF(off->devseqid);
 		printf("udev: dev: %d, %dX%d\n", off->devseqid, n, m);
@@ -27,7 +29,7 @@ void jacobi_cpu_omp_wrapper1(omp_offloading_t *off, long n,long m,REAL omega,REA
 #endif
 
     int i, j;
-#pragma omp parallel for private(resid,j,i) reduction(+:error)
+#pragma omp parallel for private(resid,j,i) reduction(+:error) num_threads(num_omp_threads)
     for (i = i_start; i < n; i++) {
         for (j = j_start; j < m; j++) {
             resid = (ax *

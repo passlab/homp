@@ -5,6 +5,7 @@
 // Add timing support
 #include <sys/time.h>
 #include "homp.h"
+#include "jacobi.h"
 
 /************************************************************
  * program to solve a finite difference
@@ -34,7 +35,6 @@
  *************************************************************/
 
 // flexible between REAL and double
-#define REAL float
 #define DEFAULT_DIMSIZE 256
 
 void print_array(char * title, char * name, REAL * A, long n, long m) {
@@ -282,139 +282,6 @@ void jacobi_seq(long n, long m, REAL dx, REAL dy, REAL alpha, REAL omega, REAL *
 	printf("Residual: %.15g\n", error);
 }
 
-//#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-//#include "xomp_cuda_lib_inlined.cu"
-//
-//#define LOOP_COLLAPSE 1
-//#if !LOOP_COLLAPSE
-//__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold,long uold_m, int uold_0_offset, int uold_1_offset)
-//{
-//  long _p_j;
-//  long _dev_i ;
-//  long _dev_lower, _dev_upper;
-//  XOMP_accelerator_loop_default (0, n-1, 1, &_dev_lower, &_dev_upper);
-//  for (_dev_i = _dev_lower ; _dev_i <= _dev_upper; _dev_i++) {
-//    for (_p_j = 0; _p_j < m; _p_j++)
-//      _dev_uold[(_dev_i+uold_0_offset) * uold_m + _p_j+uold_1_offset] = _dev_u[_dev_i * m + _p_j];
-//  }
-//}
-//
-//__global__ void OUT__1__10550__(long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_u,REAL *_dev_f, REAL *_dev_uold,
-//		long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error)
-//
-//{
-//	long _p_j;
-//  REAL _p_error;
-//  _p_error = 0;
-//  REAL _p_resid;
-//  long _dev_lower, _dev_upper;
-//  XOMP_accelerator_loop_default (start_i, n-1, 1, &_dev_lower, &_dev_upper);
-//  long _dev_i;
-//  for (_dev_i = _dev_lower; _dev_i<= _dev_upper; _dev_i ++) {
-//    for (_p_j = 1; _p_j < (m - 1); _p_j++) { /* this only works for dist=1 partition */
-//      _p_resid = (((((ax * (_dev_uold[(_dev_i - 1 + uold_0_offset) * uold_m + _p_j+uold_1_offset] + _dev_uold[(_dev_i + 1+uold_0_offset) * uold_m + _p_j+uold_1_offset])) +
-//    		  (ay * (_dev_uold[(_dev_i+uold_0_offset) * uold_m + (_p_j - 1+uold_1_offset)] + _dev_uold[(_dev_i + uold_0_offset) * uold_m + (_p_j + 1+uold_1_offset)]))) + (b * _dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset])) -
-//    		  _dev_f[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset]) / b);
-//      _dev_u[_dev_i * uold_m + _p_j] = (_dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j + uold_1_offset] - (omega * _p_resid));
-//      _p_error = (_p_error + (_p_resid * _p_resid));
-//    }
-//  }
-//  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
-//}
-//#else
-//__global__ void OUT__2__10550__(long n,long m,REAL *_dev_u,REAL *_dev_uold,long uold_m, int uold_0_offset, int uold_1_offset)
-//{
-//	long _p_j;
-//	long ij;
-//	long _dev_lower, _dev_upper;
-//
-//	long _dev_i ;
-//
-// // variables for adjusted loop info considering both original chunk size and step(strip)
-//	long _dev_loop_chunk_size;
-//	long _dev_loop_sched_index;
-//	long _dev_loop_stride;
-//
-//// 1-D thread block:
-//	long _dev_thread_num = gridDim.x * blockDim.x;
-//	long _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
-//
-//	long orig_start =0;
-//	long orig_end = n*m-1; // inclusive upper bound
-//	long orig_step = 1;
-//	long orig_chunk_size = 1;
-//
-// XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
-//                         & _dev_loop_chunk_size , & _dev_loop_sched_index, & _dev_loop_stride);
-//
-// //XOMP_accelerator_loop_default (1, (n-1)*(m-1)-1, 1, &_dev_lower, &_dev_upper);
-// while (XOMP_static_sched_next (&_dev_loop_sched_index, orig_end, orig_step,_dev_loop_stride, _dev_loop_chunk_size, _dev_thread_num, _dev_thread_id, & _dev_lower
-//, & _dev_upper))
-// {
-//   for (ij = _dev_lower ; ij <= _dev_upper; ij ++) {
-//     //  for (_dev_i = _dev_lower ; _dev_i <= _dev_upper; _dev_i++) {
-//     //    for (_p_j = 0; _p_j < m; _p_j++)
-//     _dev_i = ij/m;
-//     _p_j = ij%m;
-//     _dev_uold[(_dev_i+uold_0_offset) * uold_m + _p_j+uold_1_offset] = _dev_u[_dev_i * m + _p_j];
-//
-//   }
-//  }
-// }
-//
-//__global__ void OUT__1__10550__(long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_u,REAL *_dev_f, REAL *_dev_uold,
-//		long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error)
-//{
-//	long _dev_i;
-//	long ij;
-//	long _p_j;
-//	long _dev_lower, _dev_upper;
-//
-//  REAL _p_error;
-//  _p_error = 0;
-//  REAL _p_resid;
-//
-//  // variables for adjusted loop info considering both original chunk size and step(strip)
-//  long _dev_loop_chunk_size;
-//  long _dev_loop_sched_index;
-//  long _dev_loop_stride;
-//
-//  // 1-D thread block:
-//  long _dev_thread_num = gridDim.x * blockDim.x;
-//  long _dev_thread_id = blockDim.x * blockIdx.x + threadIdx.x;
-//
-//  //TODO: adjust bound to be inclusive later
-//  long orig_start =start_i*m;
-//  long orig_end = (n - start_i)*m-1; /* Linearized iteration space */
-//  long orig_step = 1;
-//  long orig_chunk_size = 1;
-//
-//  XOMP_static_sched_init (orig_start, orig_end, orig_step, orig_chunk_size, _dev_thread_num, _dev_thread_id, \
-//      & _dev_loop_chunk_size , & _dev_loop_sched_index, & _dev_loop_stride);
-//
-//  //XOMP_accelerator_loop_default (1, (n-1)*(m-1)-1, 1, &_dev_lower, &_dev_upper);
-//  while (XOMP_static_sched_next (&_dev_loop_sched_index, orig_end,orig_step, _dev_loop_stride, _dev_loop_chunk_size, _dev_thread_num, _dev_thread_id, & _dev_lower, & _dev_upper))
-//  {
-//    for (ij = _dev_lower; ij <= _dev_upper; ij ++) {
-//      _dev_i = ij/(m-1);
-//      _p_j = ij%(m-1);
-//
-//      if (_dev_i>=start_i && _dev_i< (n) && _p_j>=1 && _p_j< (m-1)) // must preserve the original boudary conditions here!!
-//      {
-//    	  _p_resid = (((((ax * (_dev_uold[(_dev_i - 1 + uold_0_offset) * uold_m + _p_j+uold_1_offset] + _dev_uold[(_dev_i + 1+uold_0_offset) * uold_m + _p_j+uold_1_offset])) +
-//	    		  (ay * (_dev_uold[(_dev_i+uold_0_offset) * uold_m + (_p_j - 1+uold_1_offset)] + _dev_uold[(_dev_i + uold_0_offset) * uold_m + (_p_j + 1+uold_1_offset)]))) + (b * _dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset])) -
-//	    		  _dev_f[(_dev_i + uold_0_offset) * uold_m + _p_j+uold_1_offset]) / b);
-//	      _dev_u[_dev_i * uold_m + _p_j] = (_dev_uold[(_dev_i + uold_0_offset) * uold_m + _p_j + uold_1_offset] - (omega * _p_resid));
-//	      _p_error = (_p_error + (_p_resid * _p_resid));
-//      }
-//    }
-//  }
-//
-//  xomp_inner_block_reduction_float(_p_error,_dev_per_block_error,6);
-//}
-//#endif /* LOOP_CLAPSE */
-//#endif /* NVGPU support */
-
 struct OUT__2__10550__args {
 	long n;
 	long m;
@@ -477,40 +344,14 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	END_SERIALIZED_PRINTF();
 #endif
 
-    /*
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
-
-	omp_device_type_t devtype = off->dev->type;
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-	if (devtype == OMP_DEVICE_NVGPU) {
-		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
-		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);
-		OUT__2__10550__<<<teams_per_league, threads_per_team, 0,off->stream->systream.cudaStream>>>(n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
-	} else
-#endif
-#if defined(DEVICE_ITLMIC_SUPPORT)
-	if (devtype == OMP_DEVICE_ITLMIC) {
-		jacobi_itlmic_wrapper(n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
-	} else
-#endif
-	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
-#pragma omp parallel for private(j,i) shared(m,n,uold,u,uold_0_offset,uold_1_offset)
-		for (i=0; i < n; i++)
-			for (j=0; j < m; j++) {
-				// since uold has halo region, here we need to adjust index to reflect the new offset
-				uold[i+uold_0_offset][j+uold_1_offset] = u[i][j];
-			}
-	} else {
-		fprintf(stderr, "device type is not supported for this call\n");
-	}
-*/
 
     omp_device_type_t devtype = off->dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		jacobi_nvgpu_cuda_wrapper2(off, n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
 #endif
-    } else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined(DEVICE_ITLMIC_SUPPORT)
 		jacobi_itlmic_wrapper2(off, n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
 #endif
@@ -624,42 +465,6 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 
 //	printf("dist: %d, dev: %d, n: %d, m: %d\n", dist, off->devseqid, n,m);
 
-//	omp_device_type_t devtype = off->dev->type;
-//#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-//	if (devtype == OMP_DEVICE_NVGPU) {
-//    jacobi_nvgpu_cuda_wrapper1(off, n, m,
-//				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error)
-//	} else
-//#endif
-//	if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
-//#if CORRECTNESS_CHECK
-//	    BEGIN_SERIALIZED_PRINTF(off->devseqid);
-//		printf("udev: dev: %d, %dX%d\n", off->devseqid, n, m);
-//		print_array_dev("udev", off->devseqid, "u",(REAL*)u, n, m);
-//		printf("uolddev: dev: %d, %dX%d\n", off->devseqid, uold_0_length, uold_1_length);
-//		print_array_dev("uolddev", off->devseqid, "uold",(REAL*)uold, uold_0_length, uold_1_length);
-//		printf("i_start: %d, j_start: %d, n: %d, m: %d, uold_0_offset: %d, uold_1_offset: %d\n", i_start, j_start, n, m, uold_0_offset, uold_1_offset);
-//		print_array_dev("f", off->devseqid, "f",(REAL*)f, map_f->map_dim[0], map_f->map_dim[1]);
-//
-//		END_SERIALIZED_PRINTF();
-//#endif
-//
-//		int i, j;
-//#pragma omp parallel for private(resid,j,i) reduction(+:error)
-//		for (i=i_start; i <n; i++) {
-//			for (j=j_start; j <m; j++) {
-//				resid = (ax * (uold[i - 1 + uold_0_offset][j + uold_1_offset] + uold[i + 1 + uold_0_offset][j+uold_1_offset]) + ay * (uold[i+uold_0_offset][j - 1+uold_1_offset] + uold[i+uold_0_offset][j + 1+uold_1_offset]) + b * uold[i+uold_0_offset][j+uold_1_offset] - f[i][j]) / b;
-//
-//				u[i][j] = uold[i+uold_0_offset][j+uold_1_offset] - omega * resid;
-//				error = error + resid * resid;
-//			}
-//		}
-//		iargs->error[off->devseqid] = error;
-//
-//	} else {
-//		fprintf(stderr, "device type is not supported for this call\n");
-//	}
-
     omp_device_type_t devtype = off->dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
@@ -667,7 +472,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
 				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error)
 	}
 #endif
-    } else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+    } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined(DEVICE_ITLMIC_SUPPORT)
 		jacobi_itlmic_wrapper1(off, n, m,
 				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error, resid);

@@ -1,6 +1,6 @@
 #include <homp.h>
+#include "jacobi.h"
 
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include "xomp_cuda_lib_inlined.cu"
 
 #define LOOP_COLLAPSE 1
@@ -132,11 +132,7 @@ __global__ void jacobi_nvgpu_cuda_kernel1(long n,long m,REAL omega,REAL ax,REAL 
 }
 #endif /* LOOP_CLAPSE */
 
-
-
-
-void jacobi_nvgpu_cuda_wrapper2(omp_offloading_t *off, long n,long m,REAL *u,REAL *uold,long uold_m, int uold_0_offset, int uold_1_offset)
-{
+void jacobi_nvgpu_cuda_wrapper2(omp_offloading_t *off, long n,long m,REAL *u,REAL *uold,long uold_m, int uold_0_offset, int uold_1_offset) {
 int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);
 		jacobi_nvgpu_cuda_kernel2<<<teams_per_league, threads_per_team, 0,off->stream->systream.cudaStream>>>(n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
@@ -144,8 +140,7 @@ int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 
 
 void jacobi_nvgpu_cuda_wrapper1(omp_offloading_t *off, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_u,REAL *_dev_f, \
- REAL *_dev_uold, long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error)
-{
+ REAL *_dev_uold, long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error) {
 		int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, n*m);
 
@@ -169,5 +164,3 @@ void jacobi_nvgpu_cuda_wrapper1(omp_offloading_t *off, long n,long m,REAL omega,
 		//cudaStreamAddCallback(__dev_stream__[__i__].systream.cudaStream, xomp_beyond_block_reduction_float_stream_callback, args, 0);
 		omp_map_free_dev(off->dev, _dev_per_block_error);
 }
-
-#endif

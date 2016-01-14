@@ -1,1 +1,0 @@
-jacobi_ompacc_mdev.c

@@ -9,15 +9,20 @@ extern "C" {
 #include <offload.h>
 #include <homp.h>
 
+#ifdef USE_INTEL_MKL
+#include <mkl.h>
+#endif
+
 void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REAL a,REAL *x,REAL *y) {
 //    omp_event_t *events = off->events;
 //    omp_dev_stream_t *stream = off->stream;
 //    omp_offloading_info_t * off_info = off->off_info;
     int sysid = off->dev->sysid;
+    int i;
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
-    int i;
-//    double start_timer = omp_get_wtime();
+
+#ifndef ITLMIC_COMBINED_OFFLOADING
     #pragma offload target(mic:sysid) in (x: length(0) alloc_if(0) free_if(0)) \
                                 in (y: length(0) alloc_if(0) free_if(0))
     {
@@ -26,6 +31,20 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
             y[i] = x[i] * a + y[i];
         }
     }
+#else
+#ifdef USE_INTEL_MKL
+     cblas_saxpy(n, a, x, 1, y, 1);
+#else
+//    double start_timer = omp_get_wtime();
+#pragma offload target(mic:sysid) in (x: length(sizeof(REAL)*length_n) alloc_if(1) free_if(1)) \
+                                inout (y: length(sizeof(REAL)*length_n) alloc_if(1) free_if(1))
+        //#pragma omp parallel for simd
+        for (i = 0; i < length_n-start_n; i++) {
+            y[i] = x[i] * a + y[i];
+        }
+    }
+#endif
+#endif
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
 #if 0
