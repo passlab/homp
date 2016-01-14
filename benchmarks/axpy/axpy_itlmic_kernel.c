@@ -33,16 +33,14 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
     }
 #else
 #ifdef USE_INTEL_MKL
-     cblas_saxpy(n, a, x, 1, y, 1);
+     cblas_saxpy(length_n, a, x, 1, y, 1);
 #else
-//    double start_timer = omp_get_wtime();
-#pragma offload target(mic:sysid) in (x: length(sizeof(REAL)*length_n) alloc_if(1) free_if(1)) \
-                                inout (y: length(sizeof(REAL)*length_n) alloc_if(1) free_if(1))
+#pragma offload target(mic:sysid) in (x: length(sizeof(REAL)*length_n))  \
+                                inout (y: length(sizeof(REAL)*length_n))
         //#pragma omp parallel for simd
         for (i = 0; i < length_n-start_n; i++) {
             y[i] = x[i] * a + y[i];
         }
-    }
 #endif
 #endif
 
