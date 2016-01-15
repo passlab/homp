@@ -12,7 +12,7 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
 #ifdef USE_INTEL_MKL
     REAL alpha = 1;
     REAL beta = 0;
-    mkl_mic_enable();
+    //mkl_mic_enable();
 #endif
 
 #ifndef ITLMIC_COMBINED_OFFLOADING
@@ -29,7 +29,7 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
         //#pragma omp simd
 #ifdef USE_INTEL_MKL
      cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                i, 1, j, alpha, a, j, x, 1, beta, y, 1);
+                length_n - start_n, 1, n, alpha, a, length_n - start_n, x, 1, beta, y, 1);
 #else
         #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
         //#pragma omp simd
