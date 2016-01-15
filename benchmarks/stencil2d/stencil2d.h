@@ -22,9 +22,12 @@ struct stencil2d_off_args {
 
 extern int dist_dim;
 extern int dist_policy;
+extern double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coeff, int num_its);
+extern double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int num_its);
 
-extern void stencil2d_omp_mdev_off_launcher(omp_offloading_t *off, void *args);
-extern void stencil2d_omp_mdev_iterate_off_launcher(omp_offloading_t *off, void *args);
+extern void stencil2d_cpu_omp_wrapper(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff);
+extern void stencil2d_nvgpu_cuda_wrapper(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff);
+extern void stencil2d_itlmic_wrapper(omp_offloading_t *off, int start, int len, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff);
 
 #ifdef __cplusplus
  }

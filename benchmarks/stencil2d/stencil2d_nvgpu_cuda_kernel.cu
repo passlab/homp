@@ -101,11 +101,11 @@ __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, i
 #endif /* LOOP_CLAPSE */
 
 
-void stencil2d_nvgpu_cuda_wrapper(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int coeff_dimX, REAL *coeff) {
+void stencil2d_nvgpu_cuda_wrapper(omp_offloading_t *off, int start, int len, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
     dim3 threads_per_team(16, 16);
     dim3 teams_per_league((len + threads_per_team.x - 1) / threads_per_team.x,
                           (m + threads_per_team.y - 1) / threads_per_team.y); /* we assume dividable */
-    stencil2d_nvgpu_kernel<<<keams_per_league, threads_per_team, 0, off->stream->systream.cudaStream>>>
+    stencil2d_nvgpu_kernel<<<teams_per_league, threads_per_team, 0, off->stream->systream.cudaStream>>>
                                                                        (start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
 }
 

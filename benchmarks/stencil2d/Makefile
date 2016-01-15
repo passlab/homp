@@ -23,14 +23,14 @@ LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread
 RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c
 
 stencil2d-nvgpu: cleanobj
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c kernel_launcher.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c stencil2d_mdev.c stencil2d_mdev_iteration.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ../../runtime/homp_dev.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp stencil2d_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) stencil2d_nvgpu_cuda_kernel.cu -c
 	nvcc ${LDFLAGS} -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 stencil2d-nvgpu-itlmic: cleanobj
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c kernel_launcher.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c stencil2d_mdev.c stencil2d_mdev_iteration.c -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
 #	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) -Xcompiler -fopenmp stencil2d_cpu_omp_kernel.c -c
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp stencil2d_cpu_omp_kernel.c -c
@@ -39,7 +39,7 @@ stencil2d-nvgpu-itlmic: cleanobj
 	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 stencil2d-cpu: cleanobj
-	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES}  stencil2d.c kernel_launcher.c -c
+	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES}  stencil2d.c stencil2d_mdev.c stencil2d_mdev_iteration.c -c
 	gcc $(BASE_CFLAGS) ../../runtime/homp_dev.c -c
 	gcc $(BASE_CFLAGS) stencil2d_cpu_omp_kernel.c -c
 	gcc *.o -o $@ $(LDFLAGS)

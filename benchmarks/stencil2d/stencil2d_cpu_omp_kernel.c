@@ -1,7 +1,7 @@
 #include <homp.h>
 #include "stencil2d.h"
 
-void stencil2d_cpu_omp_wrapper(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int coeff_dimX, REAL *coeff)
+void stencil2d_cpu_omp_wrapper(omp_offloading_t *off, int start, int len, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff)
 {
 #if CORRECTNESS_CHECK
 	    	BEGIN_SERIALIZED_PRINTF(off->devseqid);
@@ -12,11 +12,17 @@ void stencil2d_cpu_omp_wrapper(omp_offloading_t *off, int start_n, int len_n, lo
 			printf("i_start: %d, j_start: %d, n: %d, m: %d, uold_0_offset: %d, uold_1_offset: %d\n", i_start, j_start, n, m, uold_0_offset, uold_1_offset);
 			END_SERIALIZED_PRINTF();
 #endif
-//#pragma omp for private(ix, iy, ir)
+    int count = 4*radius+1;
+#ifdef SQUARE_SETNCIL
+	count = coeff_dimX * coeff_dimX;
+#endif
+
     int ix, iy, ir;
+#pragma omp parallel for private(ix, iy, ir)
     for (ix = start; ix < start+len; ix++) {
         REAL * temp_u = &u[(ix+radius)*u_dimY+radius];
         REAL * temp_uold = &uold[(ix+radius)*u_dimY+radius];
+        #pragma simd
         for (iy = 0; iy < m; iy++) {
 //                    if (off->devseqid == 0)printf("dev: %d, [%d][%d]:%f\n", off->devseqid, ix, iy, temp_u[0]);
             REAL result = temp_uold[0] * coeff[0];
