@@ -814,7 +814,7 @@ void *omp_map_malloc_dev(omp_device_t *dev, void *src, long size) {
 #ifndef ITLMIC_COMBINED_OFFLOADING
 	char * srcchar = (char*)src;
 	//printf("malloc: %X for %d\n", srcchar, size);
-#pragma offload_transfer target(mic:dev->sysid) nocopy (srcchar:length(size) alloc_if(1) free_if(0))
+#pragma offload_transfer target(mic:dev->sysid) nocopy (srcchar:length(size) alloc_if(1) free_if(0) align(64))
         
 	ptr = src;
 #endif
