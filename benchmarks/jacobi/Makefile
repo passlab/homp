@@ -25,10 +25,9 @@ RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/in
 jacobi-nvgpu: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc_mdev.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ../../runtime/homp_dev.c -c
-#	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp jacobi_cpu_omp_kernel.c -c
-	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp jacobi_cpu_omp_kernel.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp jacobi_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) jacobi_nvgpu_cuda_kernel.cu -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
+	nvcc -g *.o -o $@ ${LDFLAGS} -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 jacobi-nvgpu-itlmic: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc_mdev.c  -c

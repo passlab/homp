@@ -316,7 +316,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
 	 * */
 	long i, j;
     REAL * u_p = (REAL *)map_u->map_dev_ptr;
-    REAL (*u)[m] = (REAL(*)[m])u_p;
+    //REAL (*u)[m] = (REAL(*)[m])u_p;
 
     /* we need to adjust index offset for those who has halo region because of we use attached halo region memory management */
     REAL * uold_p = (REAL *)map_uold->map_dev_ptr;
@@ -336,7 +336,7 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
     long uold_0_length = map_uold->map_dist[0].length;
     long uold_1_length = map_uold->map_dist[1].length;
 
-    REAL (*uold)[uold_1_length] = (REAL(*)[uold_1_length])uold_p; /** cast a pointer to a 2-D array */
+    //REAL (*uold)[uold_1_length] = (REAL(*)[uold_1_length])uold_p; /** cast a pointer to a 2-D array */
 
 #if CORRECTNESS_CHECK
     BEGIN_SERIALIZED_PRINTF((off->devseqid));
@@ -349,14 +349,14 @@ void OUT__2__10550__launcher(omp_offloading_t * off, void *args) {
     omp_device_type_t devtype = off->dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-		jacobi_nvgpu_cuda_wrapper2(off, n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
+		jacobi_nvgpu_cuda_wrapper2(off, n, m, (REAL*)u_p, (REAL*)uold_p, uold_0_length, uold_1_length, uold_0_offset, uold_1_offset);
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined(DEVICE_ITLMIC_SUPPORT)
-		jacobi_itlmic_wrapper2(off, n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
+		jacobi_itlmic_wrapper2(off, n, m, (REAL*)u_p, (REAL*)uold_p, uold_0_length, uold_1_length, uold_0_offset, uold_1_offset);
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
-        jacobi_cpu_omp_wrapper2(off, n, m,(REAL*)u,(REAL*)uold, uold_1_length,uold_0_offset, uold_1_offset);
+        jacobi_cpu_omp_wrapper2(off, n, m, (REAL*)u_p, (REAL*)uold_p, uold_0_length, uold_1_length, uold_0_offset, uold_1_offset);
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
@@ -400,7 +400,7 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
     REAL ay = iargs->ay;
     REAL b = iargs->b;
     REAL omega = iargs->omega;
-	REAL error = iargs->error[off->devseqid];
+	REAL error;
 	REAL resid = iargs->resid;
 
     omp_data_map_t * map_f = omp_map_get_map(off, iargs->f, -1); /* 0 is for the map f, here we use -1 so it will search the offloading stack */
@@ -469,21 +469,20 @@ void OUT__1__10550__launcher(omp_offloading_t * off, void *args) {
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		jacobi_nvgpu_cuda_wrapper1(off, n, m,
-				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error)
-	}
+				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, &error);
 #endif
     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined(DEVICE_ITLMIC_SUPPORT)
 		jacobi_itlmic_wrapper1(off, n, m,
-				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error, resid);
+				omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, &error);
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
-        jacobi_cpu_omp_wrapper1(off, n, m,
-                                omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, _dev_per_block_error, resid);
+        jacobi_cpu_omp_wrapper1(off, n, m, omega, ax, ay, b, (REAL*)u, (REAL*)f, (REAL*)uold,uold_1_length, uold_0_offset, uold_1_offset, i_start, j_start, &error);
     } else {
         fprintf(stderr, "device type is not supported for this call\n");
         abort();
     }
+	iargs->error[off->devseqid] = error;
 
 }
 

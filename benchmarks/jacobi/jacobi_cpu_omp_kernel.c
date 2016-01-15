@@ -1,20 +1,27 @@
 #include <homp.h>
 #define REAL float
 
-void jacobi_cpu_omp_wrapper2(omp_offloading_t *off, long n,long m,REAL *u,REAL *uold,long uold_m, int uold_0_offset, int uold_1_offset)
+void jacobi_cpu_omp_wrapper2(omp_offloading_t *off, long n,long m,REAL *u,REAL *uold,long uold_n, long uold_m, int uold_0_offset, int uold_1_offset)
 {
+    int i, j;
     int num_omp_threads = off->dev->num_cores;
-#pragma omp parallel for private(j,i) shared(m,n,uold,u,uold_0_offset,uold_1_offset) num_threads(num_omp_threads)
-    for (i=0; i < n; i++)
-        for (j=0; j < m; j++) {
-            /* since uold has halo region, here we need to adjust index to reflect the new offset */
-            uold[i+uold_0_offset][j+uold_1_offset] = u[i][j];
+#pragma omp parallel for private(j,i) shared(m,n,uold,u,uold_0_offset,uold_1_offset, uold_m) num_threads(num_omp_threads)
+    for (i=0; i < n; i++) {
+        /* since uold has halo region, here we need to adjust index to reflect the new offset */
+        REAL * tmp_uold = &uold[(i + uold_0_offset) * uold_m + uold_1_offset];
+        REAL * tmp_u = &u[i*m];
+        #pragma omp simd
+        for (j = 0; j < m; j++) {
+            *tmp_uold = *tmp_u;
+            tmp_uold ++;
+            tmp_u++;
         }
+    }
 }
 
 
-void jacobi_cpu_omp_wrapper1(omp_offloading_t *off, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *_dev_u,REAL *_dev_f, \
- REAL *_dev_uold, long uold_m, int uold_0_offset, int uold_1_offset, int start_i, int start_j, REAL *_dev_per_block_error) {
+void jacobi_cpu_omp_wrapper1(omp_offloading_t *off, long n,long m,REAL omega,REAL ax,REAL ay,REAL b,REAL *u,REAL *f, \
+ REAL *uold, long uold_m, int uold_0_offset, int uold_1_offset, int i_start, int j_start, REAL *error) {
     int num_omp_threads = off->dev->num_cores;
 #if CORRECTNESS_CHECK
 	    BEGIN_SERIALIZED_PRINTF(off->devseqid);
@@ -29,18 +36,24 @@ void jacobi_cpu_omp_wrapper1(omp_offloading_t *off, long n,long m,REAL omega,REA
 #endif
 
     int i, j;
-#pragma omp parallel for private(resid,j,i) reduction(+:error) num_threads(num_omp_threads)
+    REAL er = 0.0;
+#pragma omp parallel for private(j,i) reduction(+:er) num_threads(num_omp_threads)
     for (i = i_start; i < n; i++) {
+        REAL * tmp_uold = &uold[(i + uold_0_offset)* uold_m + uold_1_offset+j_start];
+        REAL * tmp_f = &f[i*m+j_start];
+        REAL * tmp_u = &u[i*m+j_start];
+        #pragma omp simd
         for (j = j_start; j < m; j++) {
-            resid = (ax *
-                     (uold[i - 1 + uold_0_offset][j + uold_1_offset] + uold[i + 1 + uold_0_offset][j + uold_1_offset]) +
-                     ay *
-                     (uold[i + uold_0_offset][j - 1 + uold_1_offset] + uold[i + uold_0_offset][j + 1 + uold_1_offset]) +
-                     b * uold[i + uold_0_offset][j + uold_1_offset] - f[i][j]) / b;
+            REAL resid = (ax * (tmp_uold[uold_m] + tmp_uold[-uold_m]) + ay * (tmp_uold[-1] * tmp_uold[1]) + b * tmp_uold[0] - *tmp_f)/b;
 
-            u[i][j] = uold[i + uold_0_offset][j + uold_1_offset] - omega * resid;
-            error = error + resid * resid;
+            *tmp_u = *tmp_uold = omega * resid;
+            er = er + resid * resid;
+
+            tmp_uold++;
+            tmp_f++;
+            tmp_u++;
         }
     }
-    iargs->error[off->devseqid] = error;
+
+    *error = er;
 }
