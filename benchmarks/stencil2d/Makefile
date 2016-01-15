@@ -25,10 +25,9 @@ RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/in
 stencil2d-nvgpu: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c kernel_launcher.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ../../runtime/homp_dev.c -c
-#	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp stencil2d_cpu_omp_kernel.c -c
-	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp stencil2d_cpu_omp_kernel.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp stencil2d_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) stencil2d_nvgpu_cuda_kernel.cu -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
+	nvcc ${LDFLAGS} -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 stencil2d-nvgpu-itlmic: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} stencil2d.c kernel_launcher.c -c
