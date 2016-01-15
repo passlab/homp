@@ -1,44 +1,34 @@
 #include <offload.h>
 #include <homp.h>
 #include "matmul.h"
-#include "mkl.h"
+#include <mkl.h>
 
 void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,REAL *b,REAL *c)
 {
     long ii, jj, kk;
 
     int sysid = off->dev->sysid;
+
 #ifndef ITLMIC_COMBINED_OFFLOADING
 #pragma offload target(mic:sysid) in (a: length(0) alloc_if(0) free_if(0)) \
-                            in (b: length(0) alloc_if(0) free_if(0)) \
-                            in (c: length(0) alloc_if(0) free_if(0))
-    {
-#pragma omp parallel shared(i, j, k, a, b, c) private(ii, jj, kk)
-#pragma omp for simd
-        for (ii = 0; ii < i; ii++) {
-            for (jj = 0; jj < j; jj++) {
-                REAL sum = 0.0;
-                for (kk = 0; kk < k; kk++) {
-                    sum += a[ii * k + kk] * b[kk * j + jj];
-                }
-                c[ii * j + jj] = sum;
-            }
-        }
-    }
-
+                                in (b: length(0) alloc_if(0) free_if(0)) \
+                                in (c: length(0) alloc_if(0) free_if(0))
 #else
+#pragma offload target(mic:sysid) in (a: length(i*k) align(64)) \
+                                  in (b: length(k*j) align(64))  \
+                                inout (c: length(i*j) align(64))
+#endif
+    {
+        //#pragma omp parallel for simd
+        //#pragma omp simd
 #ifdef USE_INTEL_MKL
-REAL alpha = 1;
-REAL beta = 0;
+     REAL alpha = 1;
+     REAL beta = 0;
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 i, j, k, alpha, a, k, b, j, beta, c, j);
 #else
-#pragma offload target(mic:sysid) in (a: length(sizeof(REAL)*i*k)) \
-                                  in (b: length(sizeof(REAL)*k*j))  \
-                                inout (c: length(sizeof(REAL)*i*j))
-        {
-//#pragma omp parallel shared(i, j, k, a, b, c) private(ii, jj, kk)
-#pragma omp simd
+        #pragma omp parallel for shared(i, j, k, a, b, c) private(ii, jj, kk)
+        //#pragma omp simd
         for (ii = 0; ii < i; ii++) {
             for (jj = 0; jj < j; jj++) {
                 REAL sum = 0.0;
@@ -48,9 +38,8 @@ REAL beta = 0;
                 c[ii * j + jj] = sum;
             }
         }
+#endif
     }
-#endif
-#endif
 
 #if 0
 #if defined (OMP_BREAKDOWN_TIMING)

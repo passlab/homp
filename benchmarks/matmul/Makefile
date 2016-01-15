@@ -19,8 +19,8 @@ NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
 # To enable combined offloading, set -DITLMIC_COMBINED_OFFLOADING=1 which will use offload pragma in/out thing for
 # offloading, but the breakdown timing will not be correct. To use MKL for combined offloading, append: -DUSE_INTEL_MKL=1 -mkl
 ICC_CFLAGS += -DDEVICE_ITLMIC_SUPPORT=1
-ICC_CFLAGS += -DITLMIC_COMBINED_OFFLOADING=1
-#ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
+ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
+#ICC_CFLAGS += -DITLMIC_COMBINED_OFFLOADING=1
 # -L/opt/intel/lib/intel64/ -loffload
 
 #fornax
