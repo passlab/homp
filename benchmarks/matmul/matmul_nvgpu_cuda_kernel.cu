@@ -1,5 +1,8 @@
 #include <homp.h>
 #include "matmul.h"
+#include <cuda_runtime.h>
+#include <cublas_v2.h>
+
 
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void matmul_nvgpu_cuda_kernel(long i, long j,long k,REAL *_dev_a,REAL *_dev_b,REAL *_dev_c)
@@ -48,6 +51,12 @@ void matmul_nvgpu_cuda_wrapper(omp_offloading_t *off, long i, long j,long k,REAL
 int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, i*j);
 		//	printf("device: %d, range: %d:%d\n", __i__, start_i, length_i);
-		matmul_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>
-		(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    const float alpha = 1.0f;
+    const float beta  = 0.0f;
+    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, i, j, k, &alpha, A, i, B, k, &beta, C, i);
+    cublasDestroy(handle);
+		//matmul_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>
+		//(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
 }

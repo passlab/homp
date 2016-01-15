@@ -43,13 +43,13 @@ matmul-nvgpu-itlmic: cleanobj
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp matmul_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -DDEVICE_ITLMIC_SUPPORT=1 matmul_nvgpu_cuda_kernel.cu -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS)  -openmp matmul_itlmic_kernel.c -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -mkl
+	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -mkl -lcublas
 
 matmul-cpu: cleanobj
 	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES}  matmul_mdev.c -c
 	gcc $(BASE_CFLAGS) ../../runtime/homp_dev.c -c
-	gcc $(BASE_CFLAGS) matmul_cpu_omp_kernel.c -c
-	gcc *.o -o $@ $(LDFLAGS)
+	icc $(BASE_CFLAGS) matmul_cpu_omp_kernel.c -c
+	icc *.o -o $@ $(LDFLAGS) -mkl
 
 cleanobj:
 	rm -rf *.o
