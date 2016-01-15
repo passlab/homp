@@ -1,11 +1,19 @@
 #include "matvec.h"
 #include <offload.h>
 #include <homp.h>
+#ifdef USE_INTEL_MKL
 #include <mkl.h>
+#endif
+
 void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y)
 {
     int i, j;
     int sysid = off->dev->sysid;
+#ifdef USE_INTEL_MKL
+    REAL alpha = 1;
+    REAL beta = 0;
+    mkl_mic_enable();
+#endif
 
 #ifndef ITLMIC_COMBINED_OFFLOADING
 #pragma offload target(mic:sysid) in (a: length(0) alloc_if(0) free_if(0)) \
@@ -20,9 +28,6 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
         //#pragma omp parallel for simd
         //#pragma omp simd
 #ifdef USE_INTEL_MKL
-     REAL alpha = 1;
-     REAL beta = 0;
-
      cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 i, 1, j, alpha, a, j, x, 1, beta, y, 1);
 #else

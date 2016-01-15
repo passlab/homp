@@ -19,7 +19,7 @@ NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
 # To enable combined offloading, set -DITLMIC_COMBINED_OFFLOADING=1 which will use offload pragma in/out thing for
 # offloading, but the breakdown timing will not be correct. To use MKL for combined offloading, append: -DUSE_INTEL_MKL=1 -mkl
 ICC_CFLAGS += -DDEVICE_ITLMIC_SUPPORT=1
-#ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
+ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
 #ICC_CFLAGS += -DITLMIC_COMBINED_OFFLOADING=1
 # -L/opt/intel/lib/intel64/ -loffload
 
@@ -48,8 +48,8 @@ matvec-nvgpu-itlmic: cleanobj
 matvec-cpu: cleanobj
 	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES} matvec_ompacc.c matvec.c -c
 	gcc $(BASE_CFLAGS) ../../runtime/homp_dev.c -c
-	gcc $(BASE_CFLAGS) matvec_cpu_omp_kernel.c -c
-	gcc *.o -o $@ $(LDFLAGS)
+	icc $(BASE_CFLAGS) matvec_cpu_omp_kernel.c -c
+	icc *.o -o $@ $(LDFLAGS) -mkl
 
 cleanobj:
 	rm -rf *.o
