@@ -23,7 +23,7 @@ LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread
 RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c
 
 jacobi-nvgpu: cleanobj
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc_mdev.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ../../runtime/homp_dev.c -c
 #	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp jacobi_cpu_omp_kernel.c -c
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp jacobi_cpu_omp_kernel.c -c
@@ -31,8 +31,8 @@ jacobi-nvgpu: cleanobj
 	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 jacobi-nvgpu-itlmic: cleanobj
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc.c  -c
-	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc_mdev.c  -c
+	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
 #	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) -Xcompiler -fopenmp jacobi_cpu_omp_kernel.c -c
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp jacobi_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) jacobi_nvgpu_cuda_kernel.cu -c
@@ -40,7 +40,7 @@ jacobi-nvgpu-itlmic: cleanobj
 	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 jacobi-cpu: cleanobj
-	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc.c -c
+	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES} jacobi_ompacc_mdev.c -c
 	gcc $(BASE_CFLAGS) ../../runtime/homp_dev.c -c
 	gcc $(BASE_CFLAGS) jacobi_cpu_omp_kernel.c -c
 	gcc *.o -o $@ $(LDFLAGS)
