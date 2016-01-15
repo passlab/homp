@@ -5,35 +5,36 @@
 void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y)
 {
     int i, j;
+    int sysid = off->dev->sysid;
+
 #ifndef ITLMIC_COMBINED_OFFLOADING
-#pragma offload target(mic:off->dev->sysid) \
-			    in (a: length(0) alloc_if(0) free_if(0)) \
-			    in (x: length(0) alloc_if(0) free_if(0)) \
-                            in (y: length(0) alloc_if(0) free_if(0))
-    {
-//#pragma omp simd
-//#pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
-        for (i = start_n; i < start_n + length_n; i++) {
-            for (j = 0; j < n; j++)
-                y[i] += a[i*n + j] * x[j];
-        }
-    }
+#pragma offload target(mic:sysid) in (a: length(0) alloc_if(0) free_if(0)) \
+                                in (x: length(0) alloc_if(0) free_if(0)) \
+                                in (y: length(0) alloc_if(0) free_if(0))
 #else
+#pragma offload target(mic:sysid) in (a: length(length_n*n)) \
+                                  in (x: length(length_n))  \
+                                inout (y: length(length_n))
+#endif
+    {
+        //#pragma omp parallel for simd
+        //#pragma omp simd
 #ifdef USE_INTEL_MKL
-REAL alpha = 1;
-REAL beta = 0;
-             cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+     REAL alpha = 1;
+     REAL beta = 0;
+
+     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 i, 1, j, alpha, a, j, x, 1, beta, y, 1);
 #else
-#pragma offload target(mic:off->dev->sysid) in (a: length(length_n*n*sizeof(REAL))) \
-                                  in (x: length(length_n*sizeof(REAL)))  \
-                                inout (y: length(length_n*sizeof(REAL)))
+        #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
+        //#pragma omp simd
         for (i = start_n; i < start_n + length_n; i++) {
             for (j = 0; j < n; j++)
                 y[i] += a[i*n + j] * x[j];
         }
 #endif
-#endif
+    }
+
 
 #if 0
     omp_dev_stream_t *stream = off->stream;
