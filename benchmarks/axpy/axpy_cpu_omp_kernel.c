@@ -19,7 +19,7 @@ mkl_mic_disable();
     #pragma omp parallel shared(y, x, a, start_n, length_n) private(i) num_threads(num_omp_threads)
     cblas_saxpy(length_n-start_n, a, x, 1, y, 1);
 
-    mkl_mic_enable();
+    //mkl_mic_enable();
 #else
     #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i) num_threads(num_omp_threads)
     for (i=start_n; i<start_n + length_n; i++) {
