@@ -1,13 +1,21 @@
 #include <offload.h>
 #include <homp.h>
 #include "matmul.h"
+#ifdef USE_INTEL_MKL
 #include <mkl.h>
+#endif
 
 void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,REAL *b,REAL *c)
 {
     long ii, jj, kk;
 
     int sysid = off->dev->sysid;
+
+#ifdef USE_INTEL_MKL
+    REAL alpha = 1;
+    REAL beta = 0;
+    //mkl_mic_enable();
+#endif
 
 #ifndef ITLMIC_COMBINED_OFFLOADING
 #pragma offload target(mic:sysid) in (a: length(0) alloc_if(0) free_if(0)) \
@@ -22,8 +30,6 @@ void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,
         //#pragma omp parallel for simd
         //#pragma omp simd
 #ifdef USE_INTEL_MKL
-     REAL alpha = 1;
-     REAL beta = 0;
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 i, j, k, alpha, a, k, b, j, beta, c, j);
 #else

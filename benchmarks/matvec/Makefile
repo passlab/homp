@@ -10,7 +10,7 @@ BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING
 # BASE_CFLAGS += -DPROFILE_PLOT=1
 
 # CFLAGS for NVGPU_CUDA support
-NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
+NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include -lcublas
 # To enable NVGPU_CUDA virtual shared memory support
 # NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_VSHAREDM=1
 
@@ -24,7 +24,7 @@ ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
 # -L/opt/intel/lib/intel64/ -loffload
 
 #fornax
-LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread
+LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread 
 
 RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c
 
@@ -43,7 +43,7 @@ matvec-nvgpu-itlmic: cleanobj
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp matvec_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -DDEVICE_ITLMIC_SUPPORT=1 matvec_nvgpu_cuda_kernel.cu -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS)  -openmp matvec_itlmic_kernel.c -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -mkl
+	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -mkl -lcublas
 
 matvec-cpu: cleanobj
 	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES} matvec_ompacc.c matvec.c -c
