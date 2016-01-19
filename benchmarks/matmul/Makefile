@@ -31,10 +31,10 @@ RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/in
 matmul-nvgpu: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ${RUNTIME_SOURCES} matmul_mdev.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) ../../runtime/homp_dev.c -c
-#	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp matmul_cpu_omp_kernel.c -c
-	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp matmul_cpu_omp_kernel.c -c
+	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -Xcompiler -fopenmp matmul_cpu_omp_kernel.c -c
+#	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp matmul_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) matmul_nvgpu_cuda_kernel.cu -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
+	nvcc ${LDFLAGS} -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
 
 matmul-nvgpu-itlmic: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -DDEVICE_ITLMIC_SUPPORT=1 ${RUNTIME_SOURCES} matmul_mdev.c -c
