@@ -59,7 +59,7 @@ REAL check_accdiff(const REAL *output, const REAL *reference, const long dimx, c
 				// Check the error is within the tolerance
 				//printf("Data at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
 				if (error > tolerance) {
-					if (count++<16)	printf("Data error at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
+	//				if (count++<16)	printf("Data error at point (%d,%d)\t%f instead of %f\n", ix, iy, *output, *reference);
 				}
 			}
 			++output;
@@ -138,14 +138,14 @@ int main(int argc, char * argv[]) {
 
 	printf("serial execution\n");
 	REAL base_elapsed = read_timer_ms();
-	stencil2d_seq(n, m, u, radius, coeff, num_its);
+//	stencil2d_seq(n, m, u, radius, coeff, num_its);
 	base_elapsed = read_timer_ms() - base_elapsed;
 	//print_array("after stencil", "us", u, u_dimX, u_dimY);
 
 	printf("OMP execution\n");
 	REAL omp_elapsed = read_timer_ms();
 	int i;
-	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
+//	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
 	omp_elapsed = (read_timer_ms() - omp_elapsed)/num_runs;
 
 	omp_init_devices();

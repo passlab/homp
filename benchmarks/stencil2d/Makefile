@@ -6,7 +6,8 @@ all: stencil2d-cpu stencil2d-nvgpu stencil2d-nvgpu-itlmic
 BASE_CFLAGS = -I../../runtime -I../../util -I.
 CFLAGS = ${BASE_CFLAGS}
 # To enable breakdown timing and profiling, to disable, comment the following line
-BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING -DPROFILE_PLOT=1
+BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING 
+# BASE_CFLAGS += DPROFILE_PLOT=1
 
 # CFLAGS for NVGPU_CUDA support
 NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
@@ -36,7 +37,7 @@ stencil2d-nvgpu-itlmic: cleanobj
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp stencil2d_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) stencil2d_nvgpu_cuda_kernel.cu -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS)  -openmp stencil2d_itlmic_kernel.c -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread
+	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -lcublas
 
 stencil2d-cpu: cleanobj
 	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES}  stencil2d.c stencil2d_mdev.c stencil2d_mdev_iteration.c -c
