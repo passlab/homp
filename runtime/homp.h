@@ -18,6 +18,7 @@ extern "C" {
 #define CUDA_API_PER_THREAD_DEFAULT_STREAM 1
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 #endif
 
 #if defined (DEVICE_OPENCL_SUPPORT)
@@ -146,7 +147,9 @@ struct omp_device {
 
 	double total_real_flopss; /* the sustained flops/s after testing, GFLOPs/s */
 	double flopss_percore; /* per core performance GFLOPs/s */
-
+#if defined(DEVICE_NVGPU_CUDA_SUPPORT)
+	cublasHandle_t cublas_handle;
+#endif
 	int status;
 	volatile omp_offloading_info_t * offload_request; /* this is the notification flag that the helper thread will pick up the offloading request */
 
