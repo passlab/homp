@@ -2,7 +2,7 @@
 #include "matmul.h"
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
-
+#include <omp.h>
 
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void matmul_nvgpu_cuda_kernel(long i, long j,long k,REAL *_dev_a,REAL *_dev_b,REAL *_dev_c)
@@ -55,7 +55,10 @@ int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
     cublasCreate(&handle);
     const float alpha = 1.0f;
     const float beta  = 0.0f;
+    double timer = omp_get_wtime();
     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, i, j, k, &alpha, A, i, B, k, &beta, C, i);
+    timer = omp_get_wtime() - timer;
+    printf("\nKernel time:%.8f\n",timer);
     cublasDestroy(handle);
 		//matmul_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>
 		//(i, j, k, (REAL *)A, (REAL *)B, (REAL *)C);
