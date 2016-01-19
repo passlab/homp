@@ -1373,7 +1373,7 @@ int omp_get_max_threads_per_team(omp_device_t *dev) {
 int omp_get_optimal_threads_per_team(omp_device_t *dev) {
     int max = omp_get_max_threads_per_team(dev);
     if (max == 1) return 1;
-    else return max / 4;
+    else return max / 2;
 }
 
 /**
@@ -1383,7 +1383,7 @@ int omp_get_max_teams_per_league(omp_device_t *dev) {
     omp_device_type_t devtype = dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxGridSize[0];
+		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxGridSize[0]/2;
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         return 1;
