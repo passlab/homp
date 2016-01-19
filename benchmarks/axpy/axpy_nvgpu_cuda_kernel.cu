@@ -1,5 +1,6 @@
 #include "homp.h"
 #include "axpy.h"
+#include <cublas_v2.h>
 
 #include "xomp_cuda_lib_inlined.cu"
 __global__ void axpy_nvgpu_cuda_kernel( long start_n,  long length_n,REAL a,REAL *_dev_x,REAL *_dev_y)
@@ -20,7 +21,9 @@ __global__ void axpy_nvgpu_cuda_kernel( long start_n,  long length_n,REAL a,REAL
     }
 }
 void axpy_nvgpu_cuda_wrapper(omp_offloading_t *off, long start_n,  long length_n,REAL a,REAL *x,REAL *y) {
-    int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
-    int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);
-    axpy_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,a,x,y);
+    //int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
+    //int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);
+    const float alpha = a;
+    cublasSaxpy((cublasHandle_t)off->dev->cublas_handle,length_n-start_n,&alpha,x,1,y,1);
+    //axpy_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,a,x,y);
 }
