@@ -24,6 +24,7 @@
 #include <math.h>
 #include "homp.h"
 #include "../util/iniparser.h"
+#include <cublas_v2.h>
 
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 inline void devcall_nvgpu_cuda_errchk(int code, char *file, int line, int ab) {
