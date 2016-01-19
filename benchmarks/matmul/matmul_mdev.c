@@ -197,6 +197,7 @@ int main(int argc, char *argv[]) {
     float *B;
     float *C_seq;
     float *C_ompacc;
+    float *C_itlmkl_cpumic;
     double seq_elapsed;
     double ompacc_elapsed;
     if (argc < 2) {
@@ -224,6 +225,7 @@ int main(int argc, char *argv[]) {
     B = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
     C_seq = ((float *) (malloc(((n * n) * sizeof(float)))));
     C_ompacc = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
+    C_itlmkl_cpumic = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
     srand48((1 << 12));
     init(A, n);
     init(B, n);
@@ -241,6 +243,11 @@ int main(int argc, char *argv[]) {
     //for (i=0; i<num_its;i++) iter_matmul(A, B, C_seq, n);
     seq_elapsed = (read_timer_ms() - seq_elapsed)/num_its;
     // print_array("Array C_seq", "C", C_seq, n, n);
+
+
+    double itlmkl_cpumic = read_timer_ms();
+    sgemm(A, B, C_itlmkl_cpumic); /* this should to use all CPUs and all MICs */
+    itlmkl_cpumic = read_timer_ms() - itlmkl_cpumic;
 
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 /* openmp acc version */
