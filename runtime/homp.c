@@ -1167,8 +1167,14 @@ void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
 		if (halo_mem->left_dev_seqid >= 0) {
 			omp_device_t *leftdev = &omp_devices[top->idmap[halo_mem->left_dev_seqid]];
 			if (!omp_map_enable_memcpy_DeviceToDevice(leftdev, map->dev)) { /* no peer2peer access available, use host relay */
+#define USE_HOSTMEM_AS_RELAY 1
+#ifndef USE_HOSTMEM_AS_RELAY
 				/** FIXME, mem leak here and we have not thought where to free */
 				halo_mem->left_in_host_relay_ptr = (char *) malloc(halo_mem->left_in_size);
+#else
+				/* we can use the host memory for the halo region as the relay buffer */
+				halo_mem->left_in_host_relay_ptr = map->map_source_wextra_ptr;
+#endif
 				halo_mem->left_in_data_in_relay_pushed = 0;
 				halo_mem->left_in_data_in_relay_pulled = 0;
 
@@ -1188,8 +1194,13 @@ void omp_map_malloc(omp_data_map_t *map, omp_offloading_t *off) {
 		if (halo_mem->right_dev_seqid >= 0) {
 			omp_device_t *rightdev = &omp_devices[top->idmap[halo_mem->right_dev_seqid]];
 			if (!omp_map_enable_memcpy_DeviceToDevice(rightdev, map->dev)) { /* no peer2peer access available, use host relay */
+#ifndef USE_HOSTMEM_AS_RELAY
 				/** FIXME, mem leak here and we have not thought where to free */
 				halo_mem->right_in_host_relay_ptr = (char *) malloc(halo_mem->right_in_size);
+#else
+				/* we can use the host memory for the halo region as the relay buffer */
+				halo_mem->right_in_host_relay_ptr = &((char *) map->map_source_ptr)[map->map_size];
+#endif
 				halo_mem->right_in_data_in_relay_pushed = 0;
 				halo_mem->right_in_data_in_relay_pulled = 0;
 

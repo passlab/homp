@@ -976,7 +976,8 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
 /**
  * this should be calling from src for NGVPU implementation
  *
- * return 0: peer2peer is available and enabled
+ * return 1: peer2peer is available and enabled
+ * 0: no peer2peer
  *
  * TODO: OpenCL support
  */
@@ -1004,14 +1005,14 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t *dstdev, omp_device_t *src
             (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_ITLMIC)  ) {
         return 0;
     } else if ((src_devtype == OMP_DEVICE_ITLMIC && dst_devtype == OMP_DEVICE_ITLMIC)) {
-	return 0;
+	    return 0;
     } else if ((src_devtype == OMP_DEVICE_ITLMIC && dst_devtype == OMP_DEVICE_HOSTCPU)) {
-	return 0;
+	    return 1;
     } else if ((src_devtype == OMP_DEVICE_HOSTCPU && dst_devtype == OMP_DEVICE_ITLMIC)) {
-	return 0;
+	    return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 /**
@@ -1048,6 +1049,18 @@ void omp_map_memcpy_DeviceToDevice(void *dst, omp_device_t *dstdev, void *src, o
         (src_devtype == OMP_DEVICE_THSIM || src_devtype ==
                                             OMP_DEVICE_HOSTCPU)) {
         memcpy((void *) dst, (const void *) src, size);
+    } else if ((src_devtype == OMP_DEVICE_ITLMIC && dst_devtype == OMP_DEVICE_HOSTCPU)) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+	char * charsrc = (char*)src;
+	//printf("copyto_async: %X for %d bytes\n", charsrc, size);
+#pragma offload_transfer target(mic:srcdev->sysid) out (charsrc:length(size) alloc_if(0) free_if(0))
+#endif
+    } else if ((src_devtype == OMP_DEVICE_HOSTCPU && dst_devtype == OMP_DEVICE_ITLMIC)) {
+#if defined (DEVICE_ITLMIC_SUPPORT)
+	char * charsrc = (char*)src;
+	//printf("copyto_async: %X for %d bytes\n", charsrc, size);
+#pragma offload_transfer target(mic:dstdev->sysid) in (charsrc:length(size) alloc_if(0) free_if(0))
+#endif
     } else {
         fprintf(stderr, "device type is not supported for this call: %s:%d\n", __FILE__, __LINE__);
         abort();
