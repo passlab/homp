@@ -52,7 +52,7 @@ void stencil2d_omp_mdev_launcher(omp_offloading_t * off, void *args) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		stencil2d_nvgpu_cuda_wrapper(off, start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
 #endif
-     } else if (devtype == OMP_DEVICE_ITLGPU) { /* TODO with OpenCL */
+     } else if (devtype == OMP_DEVICE_ITLMIC) {
 #if defined(DEVICE_ITLMIC_SUPPORT)
 		stencil2d_itlmic_wrapper(off, start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
 #endif

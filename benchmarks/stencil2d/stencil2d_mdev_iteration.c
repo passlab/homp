@@ -63,15 +63,16 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
     //printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
     for (it = 0; it < num_its; it++) {
-        stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
+        if (it % 2 == 0) {
+            stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
+            pthread_barrier_wait(&off->off_info->inter_dev_barrier);
+            omp_halo_region_pull(map_u, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
+        } else {
+            stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, uold, u, radius, coeff_dimX, coeff);
+            pthread_barrier_wait(&off->off_info->inter_dev_barrier);
+            omp_halo_region_pull(map_uold, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
+        }
     }
-        pthread_barrier_wait(&off->off_info->inter_dev_barrier);
-        if (it % 2 == 0) omp_halo_region_pull(map_u, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
-        else omp_halo_region_pull(map_uold, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
-
-        REAL * tmp = uold;
-        uold = u;
-        u = tmp;
 }
 
 double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
