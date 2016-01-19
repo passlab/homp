@@ -149,9 +149,9 @@ int main(int argc, char * argv[]) {
 	omp_elapsed = (read_timer_ms() - omp_elapsed)/num_runs;
 
 	omp_init_devices();
-	printf("OMP mdev execution\n");
-	REAL mdev_elapsed = 0.0;
-	mdev_elapsed = stencil2d_omp_mdev(n, m, u_omp_mdev, radius, coeff, num_its);
+//	printf("OMP mdev execution\n");
+//	REAL mdev_elapsed = 0.0;
+//	mdev_elapsed = stencil2d_omp_mdev(n, m, u_omp_mdev, radius, coeff, num_its);
 
 	printf("OMP mdev iterate execution\n");
 	REAL mdev_iterate_elapsed = 0.0;
@@ -171,7 +171,7 @@ int main(int argc, char * argv[]) {
 	printf("------------------------------------------------------------------------------------------------------\n");
 	printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
 	printf("omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
-	printf("omp_mdev: \t%4f\t%4f \t\t%g\n", mdev_elapsed, flops / (1.0e-3 * mdev_elapsed), check_accdiff(u, u_omp_mdev, n, m, radius, 0.00001f));
+//	printf("omp_mdev: \t%4f\t%4f \t\t%g\n", mdev_elapsed, flops / (1.0e-3 * mdev_elapsed), check_accdiff(u, u_omp_mdev, n, m, radius, 0.00001f));
 	printf("omp_mdev_it: \t%4f\t%4f \t\t%g\n", mdev_iterate_elapsed, flops / (1.0e-3 * mdev_iterate_elapsed), check_accdiff(u, u_omp_mdev_iterate, n, m, radius, 0.00001f));
 
 	free(u);
