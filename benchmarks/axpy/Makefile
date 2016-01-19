@@ -42,7 +42,7 @@ axpy-nvgpu-itlmic: cleanobj
 	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp axpy_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) -DDEVICE_ITLMIC_SUPPORT=1 axpy_nvgpu_cuda_kernel.cu -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS)  -openmp axpy_itlmic_kernel.c -c
-	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -mkl
+	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -mkl -lcublas
 
 axpy-cpu: cleanobj
 	gcc $(BASE_CFLAGS) ${RUNTIME_SOURCES} axpy_ompacc.c axpy.c -c
