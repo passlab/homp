@@ -637,6 +637,7 @@ void omp_warmup_device(omp_device_t *dev) {
     omp_device_type_t devtype = dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
+        cublasCreate(&dev->cublas_handle);
 		dev->dev_properties = (struct cudaDeviceProp*)malloc(sizeof(struct cudaDeviceProp));
 		cudaSetDevice(dev->sysid);
 		cudaGetDeviceProperties(dev->dev_properties, dev->sysid);
@@ -699,6 +700,7 @@ void omp_fini_devices() {
         if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 			free(dev->dev_properties);
+			cublasDestroy(handle);
 #endif
         } else if (devtype == OMP_DEVICE_ITLGPU) {
 #if defined (DEVICE_OPENCL_SUPPORT)

@@ -64,6 +64,7 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
     for (it = 0; it < num_its; it++) {
         if (it % 2 == 0) {
+            x_halos[0].map_info = __u_map_info__;
             stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
             pthread_barrier_wait(&off->off_info->inter_dev_barrier);
             omp_halo_region_pull(map_u, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
@@ -163,6 +164,21 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
         omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
         omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 1);
     }
+
+#if 0
+    /* halo exchange offloading */
+    omp_data_map_halo_exchange_info_t x_halos[1];
+    x_halos[0].map_info = __u_map_info__; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* u and uold*/
+    if (dist_dim == 1) {
+        x_halos[0].x_dim = 0;
+    } else if (dist_dim == 2) {
+        x_halos[0].x_dim = 1;
+    } else {
+        x_halos[0].x_dim = -1; /* means all the dimension */
+    }
+    omp_offloading_append_data_exchange_info(__off_info__, x_halos, 1);
+#endif
+
     /************************************************************************************************/
     off_init_time = read_timer_ms() - off_init_time;
     /*********** NOW notifying helper thread to work on this offload ******************/
