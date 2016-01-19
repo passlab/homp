@@ -8,6 +8,7 @@ extern "C" {
 #endif
 // flexible between REAL and double
 #define REAL float
+#include "homp.h"
 
 /* this should go to a compiler generated header file and to be included in the souce files (launcher, off pragma call, etc)*/
 struct stencil2d_off_args {

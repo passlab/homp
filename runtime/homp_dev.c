@@ -1000,6 +1000,15 @@ int omp_map_enable_memcpy_DeviceToDevice(omp_device_t *dstdev, omp_device_t *src
     } else if (dst_devtype == OMP_DEVICE_THSIM || dst_devtype == OMP_DEVICE_HOSTCPU ||
         src_devtype == OMP_DEVICE_THSIM || src_devtype == OMP_DEVICE_HOSTCPU) {
         return 0;
+    } else if ((src_devtype == OMP_DEVICE_NVGPU && dst_devtype == OMP_DEVICE_ITLMIC) ||
+            (dst_devtype == OMP_DEVICE_NVGPU && src_devtype == OMP_DEVICE_ITLMIC)  ) {
+        return 0;
+    } else if ((src_devtype == OMP_DEVICE_ITLMIC && dst_devtype == OMP_DEVICE_ITLMIC)) {
+	return 0;
+    } else if ((src_devtype == OMP_DEVICE_ITLMIC && dst_devtype == OMP_DEVICE_HOSTCPU)) {
+	return 0;
+    } else if ((src_devtype == OMP_DEVICE_HOSTCPU && dst_devtype == OMP_DEVICE_ITLMIC)) {
+	return 0;
     }
 
     return 1;
