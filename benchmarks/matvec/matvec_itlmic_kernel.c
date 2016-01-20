@@ -28,7 +28,7 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
         //#pragma omp parallel for simd
         //#pragma omp simd
 #ifdef USE_INTEL_MKL
-     cblas_sgemv(CblasRowMajor, CblasNoTrans, length_n , n, alpha, a, length_n, x, 1, beta, y, 1);
+     cblas_sgemv(CblasColMajor, CblasNoTrans, length_n , n, alpha, a, length_n, x, 1, beta, y, 1);
 
 #else
         #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
