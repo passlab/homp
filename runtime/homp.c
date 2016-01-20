@@ -211,6 +211,17 @@ void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * fi
 	filename[filename_length] = '\0';
 }
 
+
+double omp_event_get_elapsed(omp_event_t *ev) {
+	omp_event_record_method_t record_method = ev->record_method;
+	if (record_method == OMP_EVENT_HOST_RECORD) {
+		return ev->elapsed_host;
+	} else if (record_method == OMP_EVENT_DEV_RECORD) {
+		return ev->elapsed_dev;
+	}
+	return 0.0;
+}
+
 #if defined(PROFILE_PLOT)
 char *colors[] = {
 		"#FFFFFF", /* white */
@@ -323,16 +334,42 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #endif
 	}
 
-	printf("---------------Accumulated total time (ms) (MAPTO, KERN, MAPFROM, EXCHANGE) on each device: ------------------\n");
+	printf("\n=========== Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) on each device:=================\n");
+	printf("\tDEVICE\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\n");
+	printf("-------------------------------------------------------------------------------------------------------------\n");
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		int devid = off->dev->id;
 		int devsysid = off->dev->sysid;
 		char * type = omp_get_device_typename(off->dev);
-		omp_event_t * ev = &off->events[total_event_accumulated_index];
-		printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, ev->elapsed_host/ev->count);
+
+		/* mapto */
+		omp_event_t * ev = &off->events[acc_mapto_event_index];
+		int mapto_count = ev->count;
+		double mapto_time_ms = (mapto_count != 0) ? omp_event_get_elapsed(ev)/mapto_count: 0;
+
+		/* kern */
+		ev = &off->events[acc_kernel_exe_event_index];
+		int kernel_count = ev->count;
+		double kern_time_ms = (kernel_count != 0) ? omp_event_get_elapsed(ev)/kernel_count: 0;
+
+		/* mapfrom */
+		ev = &off->events[acc_mapfrom_event_index];
+		int mapfrom_count = ev->count;
+		double mapfrom_time_ms = (mapfrom_count != 0) ? omp_event_get_elapsed(ev)/mapfrom_count: 0;
+
+		/* data exchange */
+		ev = &off->events[acc_ex_event_index];
+		int ex_count = ev->count;
+		double ex_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev)/ex_count: 0;
+
+		double accu_total_ms = mapto_time_ms + kern_time_ms + mapfrom_time_ms + ex_time_ms;
+
+	//	events = &events[total_event_accumulated_index];
+	//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
+		printf("%s dev %d (sysid: %d):\t%.4f\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\n", type, devid, devsysid, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
 	}
-	printf("---------------End Accumulated total time report. -----------------------------------------------\n\n");
+	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
 
 #if defined(PROFILE_PLOT)
 	fprintf(plotscript_file, "plot 0\n");
