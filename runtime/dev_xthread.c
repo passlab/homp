@@ -358,7 +358,7 @@ omp_offloading_sync_cleanup: ;
 	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
 	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_mapfrom_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[acc_ex_pre_barrier_event_index], 0);
-	omp_event_accumulate_elapsed_ms(&events[acc_ex_event_index], 0);
+	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_ex_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[acc_ex_post_barrier_event_index], 0);
 	for (i=misc_event_index_start; i<num_events; i++) {
 		omp_event_accumulate_elapsed_ms(&events[i], 0);

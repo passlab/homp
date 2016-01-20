@@ -322,6 +322,18 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		fprintf(plotscript_file, "set arrow from  0,%d to %f,%d nohead\n", i * yoffset_per_entry, xrange, i * yoffset_per_entry);
 #endif
 	}
+
+	printf("---------------Accumulated total time (ms) (MAPTO, KERN, MAPFROM, EXCHANGE) on each device: ------------------\n");
+	for (i=0; i<info->top->nnodes; i++) {
+		omp_offloading_t * off = &info->offloadings[i];
+		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char * type = omp_get_device_typename(off->dev);
+		omp_event_t * ev = &off->events[total_event_accumulated_index];
+		printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, ev->elapsed_host/ev->count);
+	}
+	printf("---------------End Accumulated total time report. -----------------------------------------------\n\n");
+
 #if defined(PROFILE_PLOT)
 	fprintf(plotscript_file, "plot 0\n");
 	fclose(plotscript_file);
