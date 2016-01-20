@@ -31,6 +31,6 @@ int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
         //cublasCreate(&handle);
         //const float alpha = 1.0f;
         //const float beta  = 0.0f;
-        //cublasSgemv((cublasHandle_t)off->dev->cublas_handle, CUBLAS_OP_N, length_n - start_n, n,  &alpha, a, n, x, 1, &beta, y, 1);
+        //cublasSgemv((cublasHandle_t)off->dev->cublas_handle, CUBLAS_OP_N, length_n, n,  &alpha, a, length_n, x, 1, &beta, y, 1);
         //cublasDestroy(handle);
 }

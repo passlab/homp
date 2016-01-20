@@ -15,7 +15,7 @@ void matvec_cpu_omp_wrapper(omp_offloading_t *off, long n, long start_n, long le
 
 #ifdef USE_INTEL_MKL
 #pragma omp parallel shared(y, x, a, start_n, length_n) private(i,j) num_threads(num_omp_threads)
-     cblas_sgemv(CblasRowMajor, CblasNoTrans, length_n , n, alpha, a, n, x, 1, beta, y, 1);
+     cblas_sgemv(CblasRowMajor, CblasNoTrans, length_n , n, alpha, a, length_n, x, 1, beta, y, 1);
     //mkl_mic_enable();
 #else
 #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j) num_threads(num_omp_threads)
