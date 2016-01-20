@@ -62,18 +62,47 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
     }
     //printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
 //#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
+    omp_event_t *events = off->events;
+    omp_dev_stream_t *stream = off->stream;
+    omp_offloading_info_t * off_info = off->off_info;
+    omp_event_record_stop(&events[acc_kernel_exe_event_index]); /* match the runtime start */
+    omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index]);
     for (it = 0; it < num_its; it++) {
+        omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
+        REAL * uu;
+        REAL ** uuold;
+        omp_data_map_t * halo_map;
         if (it % 2 == 0) {
-            x_halos[0].map_info = __u_map_info__;
-            stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
-            pthread_barrier_wait(&off->off_info->inter_dev_barrier);
-            omp_halo_region_pull(map_u, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
+            uu = u;
+            uuold = uold;
+            halo_map = map_u;
         } else {
-            stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, uold, u, radius, coeff_dimX, coeff);
-            pthread_barrier_wait(&off->off_info->inter_dev_barrier);
-            omp_halo_region_pull(map_uold, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
+            uu = uold;
+            uuold = u;
+            halo_map = map_uold;
         }
+        stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, uu, uuold, radius, coeff_dimX, coeff);
+        omp_event_record_stop(&events[acc_kernel_exe_event_index]);
+        omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index]);
+
+        omp_event_record_start(&events[acc_ex_pre_barrier_event_index], NULL, "PRE_BAR_X", "Time for barrier sync before data exchange between devices");
+        pthread_barrier_wait(&off->off_info->inter_dev_barrier);
+        omp_event_record_stop(&events[acc_ex_pre_barrier_event_index]);
+
+        omp_event_record_start(&events[acc_ex_event_index], NULL, "DATA_X", "Time for data exchange between devices");
+        omp_halo_region_pull(halo_map, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
+        omp_event_record_stop(&events[acc_ex_event_index]);
+
+        omp_event_record_start(&events[acc_ex_post_barrier_event_index], NULL, "POST_BAR_X", "Time for barrier sync after data exchange between devices");
+        pthread_barrier_wait(&off->off_info->inter_dev_barrier);
+        omp_event_record_stop(&events[acc_ex_post_barrier_event_index]);
+
+        omp_event_accumulate_elapsed_ms(&events[acc_ex_pre_barrier_event_index]);
+        omp_event_accumulate_elapsed_ms(&events[acc_ex_event_index]);
+        omp_event_accumulate_elapsed_ms(&events[acc_ex_post_barrier_event_index]);
     }
+    /* match the runtime stop */
+    omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
 }
 
 double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
