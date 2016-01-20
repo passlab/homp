@@ -334,7 +334,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #endif
 	}
 
-	printf("\n=========== Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) on each device:=================\n");
+	printf("\n============ Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) shown as average ==============\n");
 	printf("\tDEVICE\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\n");
 	printf("-------------------------------------------------------------------------------------------------------------\n");
 	for (i=0; i<info->top->nnodes; i++) {
