@@ -883,7 +883,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 					num_aligned_maps++;
 					num_aligned_dims++;
 					if (num_aligned_dims == 2) {
-						printf("we only handle one-dimension alignment of array with loops iterations\n");
+					//	printf("we only handle one-dimension alignment of array with loops iterations\n");
 					}
 				}
 			}
@@ -1291,7 +1291,7 @@ void omp_halo_region_pull(omp_data_map_t * map, int dim, omp_data_map_exchange_d
 	omp_data_map_info_t * info = map->info;
 	/*FIXME: let us only handle 2-D array now */
 	if (dim != 0 || map->mem_noncontiguous) {
-		fprintf(stderr, "we only handle noncontiguous distribution and halo at dimension 0 so far!\n");
+		//fprintf(stderr, "we only handle noncontiguous distribution and halo at dimension 0 so far!\n");
 		omp_print_map_info(map->info);
 		return;
 	}

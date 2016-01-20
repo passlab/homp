@@ -10,6 +10,7 @@
 #include "homp.h"
 #include "omp.h"
 #include "matmul.h"
+#include <mkl.h>
 
 void zero(REAL *A, long n) {
     long i, j;
@@ -197,6 +198,7 @@ int main(int argc, char *argv[]) {
     float *B;
     float *C_seq;
     float *C_ompacc;
+    float *C_itlmkl_cpumic;
     double seq_elapsed;
     double ompacc_elapsed;
     if (argc < 2) {
@@ -224,6 +226,7 @@ int main(int argc, char *argv[]) {
     B = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
     C_seq = ((float *) (malloc(((n * n) * sizeof(float)))));
     C_ompacc = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
+    C_itlmkl_cpumic = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
     srand48((1 << 12));
     init(A, n);
     init(B, n);
@@ -233,14 +236,22 @@ int main(int argc, char *argv[]) {
 
     zero(C_seq, n);
     zero(C_ompacc, n);
-
+    zero(C_itlmkl_cpumic,n);
 /* sequential run */
     seq_elapsed = read_timer_ms();
     int i;
-    int num_its = 1;
+    int num_its = 10;
     //for (i=0; i<num_its;i++) iter_matmul(A, B, C_seq, n);
     seq_elapsed = (read_timer_ms() - seq_elapsed)/num_its;
     // print_array("Array C_seq", "C", C_seq, n, n);
+
+    REAL alpha = 1;
+    REAL beta = 0;
+    mkl_mic_enable();
+    double itlmkl_cpumic = read_timer_ms();
+    for (i=0; i<num_its;i++) cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,n, n, n, alpha, A, n, B, n, beta, C_itlmkl_cpumic, n);
+    itlmkl_cpumic = (read_timer_ms() - itlmkl_cpumic)/num_its;
+    mkl_mic_disable();    
 
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 /* openmp acc version */
@@ -259,8 +270,10 @@ int main(int argc, char *argv[]) {
     printf("Performance:\t\tRuntime (ms)\t MFLOPS\n");
     printf("Sequential:\t\t%4f\t%4f\n", seq_elapsed, ((((2.0 * n) * n) * n) / (1.0e3 * seq_elapsed)));
     printf("OMPACC mdev:\t\t%4f\t%4f\n", ompacc_elapsed, ((((2.0 * n) * n) * n) / (1.0e3 * ompacc_elapsed)));
+    printf("Itlmkl_cpumic:\t\t%4f\t%4f\n", itlmkl_cpumic, ((((2.0 * n) * n) * n) / (1.0e3 * itlmkl_cpumic)));
     omp_unified_free(C_ompacc);
     free(C_seq);
+    free(C_itlmkl_cpumic);
     omp_unified_free(B);
     omp_unified_free(A);
     return 0;

@@ -34,10 +34,10 @@ void matmul_itlmic_wrapper(omp_offloading_t *off, long i, long j,long k,REAL *a,
                 i, j, k, alpha, a, k, b, j, beta, c, j);
 #else
         #pragma omp parallel for shared(i, j, k, a, b, c) private(ii, jj, kk)
-        //#pragma omp simd
         for (ii = 0; ii < i; ii++) {
             for (jj = 0; jj < j; jj++) {
                 REAL sum = 0.0;
+        #pragma omp simd
                 for (kk = 0; kk < k; kk++) {
                     sum += a[ii * k + kk] * b[kk * j + jj];
                 }
