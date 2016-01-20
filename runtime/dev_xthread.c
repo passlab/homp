@@ -40,25 +40,6 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_comple
 #endif
 }
 
-#if defined (OMP_BREAKDOWN_TIMING)
-/* making it global so other can use those values */
-int total_event_index = 0;       		/* host event */
-int timing_init_event_index = 1; 		/* host event */
-int map_init_event_index = 2;  			/* host event */
-
-int acc_mapto_event_index = 3; 			/* dev event */
-int acc_kernel_exe_event_index = 4;		/* dev event */
-int acc_ex_pre_barrier_event_index = 5; /* host event */
-int acc_ex_event_index = 6;  			/* host event for data exchange such as halo xchange */
-int acc_ex_post_barrier_event_index = 7;/* host event */
-int acc_mapfrom_event_index = 8;		/* dev event */
-
-int sync_cleanup_event_index = 9;		/* host event */
-int barrier_wait_event_index = 10;		/* host event */
-
-int misc_event_index_start = 11;        /* other events, e.g. mapto/from for each array, start with 9*/
-#endif
-
 /**
  * called by the shepherd thread
  */
@@ -118,7 +99,7 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_init(&events[timing_init_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_record_start(&events[timing_init_event_index], NULL, "INIT_0", "Time for initialization of stream and event", devid);
-
+		omp_event_init(&events[total_event_accumulated_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[map_init_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[sync_cleanup_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD);
@@ -134,6 +115,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		}
 
 		omp_event_record_stop(&events[timing_init_event_index]);
+
 #endif
 
 	    //case OMP_OFFLOADING_MAPMEM:
@@ -141,7 +123,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		/* init data map and dev memory allocation */
 		/***************** for each mapped variable has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[map_init_event_index], NULL, "INIT_1", "Time for init map, data dist, buffer allocation, and data marshalling");
+		omp_event_record_start(&events[map_init_event_index], NULL, "INIT_1", "Time for init map, data dist, memory allocation, and data marshalling");
 #endif
 		if (off_info->type == OMP_OFFLOADING_CODE || off_info->type == OMP_OFFLOADING_DATA_CODE) {
 			omp_loop_iteration_dist(off);
@@ -366,9 +348,24 @@ omp_offloading_sync_cleanup: ;
 	/* print out the timing info */
 #if defined (OMP_BREAKDOWN_TIMING)
 	/* do timing accumulation if this is a recurring kernel */
-	for (i=0; i<num_events; i++) {
-		omp_event_accumulate_elapsed_ms(&events[i]);
+	double accu_time = 0.0;
+	omp_event_accumulate_elapsed_ms(&events[total_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[timing_init_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[map_init_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[sync_cleanup_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[barrier_wait_event_index], 0);
+	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_mapto_event_index], 0);
+	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
+	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_mapfrom_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[acc_ex_pre_barrier_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[acc_ex_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[acc_ex_post_barrier_event_index], 0);
+	for (i=misc_event_index_start; i<num_events; i++) {
+		omp_event_accumulate_elapsed_ms(&events[i], 0);
 	}
+	omp_event_record_start(&events[total_event_accumulated_index], NULL, "ACCU_TOTAL", "Total ACCUMULATED time on dev: %d", devid);
+	omp_event_record_stop(&events[total_event_accumulated_index]);
+	omp_event_accumulate_elapsed_ms(&events[total_event_accumulated_index], accu_time);
 	pthread_barrier_wait(&off_info->barrier);
 #endif
 }

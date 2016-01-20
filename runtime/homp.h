@@ -244,22 +244,25 @@ typedef struct omp_event {
  */
 //#define OMP_BREAKDOWN_TIMING 1
 #if defined (OMP_BREAKDOWN_TIMING)
+enum event_index {
+	total_event_index = 0,       		/* host event */
+	total_event_accumulated_index,   /* host event */
+	timing_init_event_index, 		/* host event */
+	map_init_event_index,  			/* host event */
 
-extern int total_event_index;       		/* host event */
-extern int timing_init_event_index; 		/* host event */
-extern int map_init_event_index;  			/* host event */
+	acc_mapto_event_index, 			/* dev event */
+	acc_kernel_exe_event_index,		/* dev event */
+	acc_ex_pre_barrier_event_index, 	/* host event */
+	acc_ex_event_index,  			/* host event for data exchange such as halo xchange */
+	acc_ex_post_barrier_event_index,	/* host event */
+	acc_mapfrom_event_index,			/* dev event */
 
-extern int acc_mapto_event_index; 			/* dev event */
-extern int acc_kernel_exe_event_index;		/* dev event */
-extern int acc_ex_pre_barrier_event_index; 	/* host event */
-extern int acc_ex_event_index;  			/* host event for data exchange such as halo xchange */
-extern int acc_ex_post_barrier_event_index;	/* host event */
-extern int acc_mapfrom_event_index;			/* dev event */
+	sync_cleanup_event_index,		/* host event */
+	barrier_wait_event_index,		/* host event */
 
-extern int sync_cleanup_event_index;		/* host event */
-extern int barrier_wait_event_index;		/* host event */
+	misc_event_index_start,      	/* other events, e.g. mapto/from for each array, start with 9*/
+};
 
-extern int misc_event_index_start;      	/* other events, e.g. mapto/from for each array, start with 9*/
 extern void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time);
 
 #endif
@@ -691,8 +694,8 @@ extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, 
 extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_print_profile_header();
 extern void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed);
-extern void omp_event_elapsed_ms(omp_event_t * ev);
-extern void omp_event_accumulate_elapsed_ms(omp_event_t * ev);
+extern double omp_event_elapsed_ms(omp_event_t *ev);
+extern double omp_event_accumulate_elapsed_ms(omp_event_t *ev, double offset);
 extern void omp_offloading_clear_report_info(omp_offloading_info_t * info);
 
 extern omp_grid_topology_t * omp_grid_topology_init_simple(int nnodes, int ndims);

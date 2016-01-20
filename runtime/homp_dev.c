@@ -24,9 +24,9 @@
 #include <math.h>
 #include "homp.h"
 #include "../util/iniparser.h"
+#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 #include <cublas_v2.h>
 
-#if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 inline void devcall_nvgpu_cuda_errchk(int code, char *file, int line, int ab) {
 	if (code != cudaSuccess) {
 		fprintf(stderr,"NVGPU_CUDA assert: %s %s %d\n", cudaGetErrorString(code), file, line);
@@ -819,8 +819,8 @@ void *omp_map_malloc_dev(omp_device_t *dev, void *src, long size) {
 	//printf("malloc: %X for %d\n", srcchar, size);
 #pragma offload_transfer target(mic:dev->sysid) nocopy (srcchar:length(size) alloc_if(1) free_if(0) align(64))
         
-	ptr = src;
 #endif
+	ptr = src;
 #endif
 
     } else {
@@ -1328,31 +1328,39 @@ static double omp_event_elapsed_ms_host(omp_event_t *ev) {
 /**
  * Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds).
  */
-void omp_event_elapsed_ms(omp_event_t *ev) {
-    if (!ev->recorded) return;
+double omp_event_elapsed_ms(omp_event_t *ev) {
+    double rt = 0.0;
+    if (!ev->recorded) return rt;
     omp_event_record_method_t record_method = ev->record_method;
     omp_device_type_t devtype = ev->dev->type;
     if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
         ev->elapsed_dev = omp_event_elapsed_ms_dev(ev);
+        rt = ev->elapsed_dev;
     }
     if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
         ev->elapsed_host = omp_event_elapsed_ms_host(ev);
+        rt = ev->elapsed_host;
     }
     ev->recorded = 0;
+    return rt;
 }
 
-void omp_event_accumulate_elapsed_ms(omp_event_t *ev) {
-    if (!ev->recorded) return;
+double omp_event_accumulate_elapsed_ms(omp_event_t *ev, double offset) {
+    double rt = 0.0;
+    if (!ev->recorded) return rt;
     omp_event_record_method_t record_method = ev->record_method;
     omp_device_type_t devtype = ev->dev->type;
     if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
-        ev->elapsed_dev += omp_event_elapsed_ms_dev(ev);
+        rt = omp_event_elapsed_ms_dev(ev);
+        ev->elapsed_dev += rt + offset;
     }
     if (record_method == OMP_EVENT_HOST_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
-        ev->elapsed_host += omp_event_elapsed_ms_host(ev);
+        rt = omp_event_elapsed_ms_host(ev);
+        ev->elapsed_host += rt + offset;
     }
     ev->count++;
     ev->recorded = 0;
+    return rt;
 }
 
 int omp_get_max_threads_per_team(omp_device_t *dev) {
