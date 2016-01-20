@@ -20,16 +20,15 @@ void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long len
                                 in (x: length(0) alloc_if(0) free_if(0)) \
                                 in (y: length(0) alloc_if(0) free_if(0))
 #else
-#pragma offload target(mic:sysid) in (a: length(length_n*n)) \
-                                  in (x: length(length_n))  \
-                                inout (y: length(length_n))
+#pragma offload target(mic:sysid) in (a: length((length_n+start_n)*n)) \
+                                  in (x: length(n))  \
+                                inout (y: length(start_n+length_n))
 #endif
     {
         //#pragma omp parallel for simd
         //#pragma omp simd
 #ifdef USE_INTEL_MKL
-     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                length_n - start_n, 1, n, alpha, a, length_n - start_n, x, 1, beta, y, 1);
+     cblas_sgemv(CblasRowMajor, CblasNoTrans, start_n+length_n , n, alpha, a, n, x, 1, beta, y, 1);
 #else
         #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i,j)
         //#pragma omp simd

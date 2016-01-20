@@ -26,11 +26,11 @@ void matvec_nvgpu_cuda_wrapper(omp_offloading_t *off, long n, long start_n, long
 {
 int threads_per_team = omp_get_optimal_threads_per_team(off->dev);
 		int teams_per_league = omp_get_optimal_teams_per_league(off->dev, threads_per_team, length_n);
-       // matverc_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
+        matverc_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(n, start_n, length_n,(REAL *)a,(REAL *)x,(REAL *)y);
         //cublasHandle_t handle;
         //cublasCreate(&handle);
-        const float alpha = 1.0f;
-        const float beta  = 0.0f;
-        cublasSgemv((cublasHandle_t)off->dev->cublas_handle, CUBLAS_OP_N, length_n - start_n, n,  &alpha, a, n, x, 1, &beta, y, 1);
+        //const float alpha = 1.0f;
+        //const float beta  = 0.0f;
+        //cublasSgemv((cublasHandle_t)off->dev->cublas_handle, CUBLAS_OP_N, length_n - start_n, n,  &alpha, a, n, x, 1, &beta, y, 1);
         //cublasDestroy(handle);
 }

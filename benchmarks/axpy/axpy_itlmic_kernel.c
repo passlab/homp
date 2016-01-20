@@ -22,23 +22,23 @@ void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REA
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
 
-#ifndef ITLMIC_COMBINED_OFFLOADING
+//#ifndef ITLMIC_COMBINED_OFFLOADING
     #pragma offload target(mic:sysid) in (x: length(0) alloc_if(0) free_if(0)) \
                                 in (y: length(0) alloc_if(0) free_if(0))
-#else
-#pragma offload target(mic:sysid) in (x: length(length_n-start_n) align(64))  \
+//#else
+//#pragma offload target(mic:sysid) in (x: length(length_n-start_n) align(64))  \
                                 inout (y: length(length_n-start_n) align(64))
-#endif
+//#endif
     {
         //#pragma omp parallel for simd
         //#pragma omp simd
-#ifdef USE_INTEL_MKL
-     cblas_saxpy(length_n-start_n, a, x, 1, y, 1);
-#else
+//#ifdef USE_INTEL_MKL
+//     cblas_saxpy(length_n-start_n, a, x, 1, y, 1);
+//#else
         for (i = 0; i < length_n-start_n; i++) {
             y[i] = x[i] * a + y[i];
         }
-#endif
+//#endif
     }
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
