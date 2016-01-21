@@ -211,22 +211,24 @@ void omp_init_nvgpu_device(omp_device_t *dev, int id, int sysid) {
     dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
 }
 
-void omp_init_itlmic_device(omp_device_t *dev, int id, int sysid, int numcores) {
+void omp_init_itlmic_device(omp_device_t *dev, int id, int sysid, int num_cores) {
     dev->type = OMP_DEVICE_ITLMIC;
     dev->id = id;
     dev->sysid = sysid;
     dev->default_stream.dev = dev;
     dev->default_stream.systream.myStream = NULL;
     dev->mem_type = OMP_DEVICE_MEM_DISCRETE;
+    dev->num_cores = num_cores;
 }
 
-void omp_init_itlgpu_device(omp_device_t *dev, int id, int sysid, int numcores) {
+void omp_init_itlgpu_device(omp_device_t *dev, int id, int sysid, int num_cores) {
     dev->type = OMP_DEVICE_ITLGPU;
     dev->id = id;
     dev->sysid = sysid;
     dev->default_stream.dev = dev;
     dev->default_stream.systream.myStream = NULL;
     dev->mem_type = OMP_DEVICE_MEM_SHARED;
+    dev->num_cores = num_cores;
 
 #if defined (DEVICE_OPENCL_SUPPORT)
     // Default substring for platform name
