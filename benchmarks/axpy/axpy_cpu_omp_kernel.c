@@ -21,7 +21,7 @@ mkl_mic_disable();
 
     //mkl_mic_enable();
 #else
-    #pragma omp parallel for shared(y, x, a, start_n, length_n) private(i) num_threads(num_omp_threads)
+    #pragma omp parallel for simd shared(y, x, a, start_n, length_n) private(i) num_threads(num_omp_threads)
     for (i=start_n; i<start_n + length_n; i++) {
         y[i] += a*x[i];
 //			printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);

@@ -14,35 +14,35 @@ extern "C" {
 #endif
 
 void axpy_itlmic_wrapper(omp_offloading_t *off, long start_n,  long length_n,REAL a,REAL *x,REAL *y) {
-//    omp_event_t *events = off->events;
-//    omp_dev_stream_t *stream = off->stream;
-//    omp_offloading_info_t * off_info = off->off_info;
     int sysid = off->dev->sysid;
+    int num_cores = off->dev->num_cores;
     int i;
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
 
-//#ifndef ITLMIC_COMBINED_OFFLOADING
+#ifndef ITLMIC_COMBINED_OFFLOADING
     #pragma offload target(mic:sysid) in (x: length(0) alloc_if(0) free_if(0)) \
                                 in (y: length(0) alloc_if(0) free_if(0))
-//#else
-//#pragma offload target(mic:sysid) in (x: length(length_n-start_n) align(64))  \
-                                inout (y: length(length_n-start_n) align(64))
-//#endif
+#else
+#pragma offload target(mic:sysid) in (x: length(length_n-start_n) align(64))  \
+                               inout (y: length(length_n-start_n) align(64))
+#endif
     {
-        //#pragma omp parallel for simd
-        //#pragma omp simd
-//#ifdef USE_INTEL_MKL
-//     cblas_saxpy(length_n-start_n, a, x, 1, y, 1);
-//#else
+#ifdef USE_INTEL_MKL
+     cblas_saxpy(length_n-start_n, a, x, 1, y, 1);
+#else
+        #pragma omp parallel for simd private(i) num_threads(num_cores)
         for (i = 0; i < length_n-start_n; i++) {
             y[i] = x[i] * a + y[i];
         }
-//#endif
+#endif
     }
 
 //    printf("x: %X, y: %X: %d\n", x, y, (length_n - start_n)*sizeof(REAL));
 #if 0
+//    omp_event_t *events = off->events;
+//    omp_dev_stream_t *stream = off->stream;
+//    omp_offloading_info_t * off_info = off->off_info;
     double alloc_time = omp_get_wtime();
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_event_record_start(&events[acc_mapto_event_index], stream, "ACC_MAPTO", "Accumulated time for mapto data movement for all array");
