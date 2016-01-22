@@ -50,8 +50,7 @@ int main(int argc, char *argv[]) {
     REAL a = 123.456;
 //  n = 1024*1024*1024; // too large for tux268
     n = 500000;
-    printf("usage: axpy [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n",
-           n);
+    printf("usage: axpy [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n", n);
     if (argc >= 2)
         n = atoi(argv[1]);
     if (argc >= 3)
@@ -75,10 +74,9 @@ int main(int argc, char *argv[]) {
     double ompacc_time;
 
     /* one HOSTCPU */
-    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 4);
-    targets[1] = 3; targets[2] = 5; targets[3] = 7;
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
-#if 0
+    
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
@@ -133,7 +131,6 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
-#endif
 
 #if 0
     /* run on all devices */
@@ -150,5 +147,6 @@ int main(int argc, char *argv[]) {
     omp_unified_free(x);
     // I got 1.093e-09
     //assert (cksm< 1.0e-07);
+    printf("usage: axpy [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n", n);
     return 0;
 }
