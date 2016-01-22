@@ -134,9 +134,13 @@ int omp_get_num_itlgpu_dev_ids(omp_device_type_t type) { /* current omp has omp_
     return omp_device_types[type].num_devs;
 }
 
+int omp_get_num_devices_of_type(omp_device_type_t type) {
+    return omp_device_types[type].num_devs;
+}
+
 /*
  * return the first ndev device IDs of the specified type, the function returns the actual number of devices
- * in the array (devnum_array)
+ * in the array (devnum_array), it is <= to the total number of devices of the specified type
  *
  * before calling this function, the caller should allocate the devnum_array[ndev]
  */
@@ -145,9 +149,10 @@ int omp_get_devices(omp_device_type_t type, int *devnum_array,
     int i;
     int num = 0;
     for (i = 0; i < omp_num_devices; i++)
-        if (omp_devices[i].type == type && num <= ndev) {
+        if (omp_devices[i].type == type) {
             devnum_array[num] = omp_devices[i].id;
             num++;
+            if (num == ndev) break;
         }
     return num;
 }

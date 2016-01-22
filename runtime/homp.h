@@ -698,7 +698,8 @@ extern double omp_event_elapsed_ms(omp_event_t *ev);
 extern double omp_event_accumulate_elapsed_ms(omp_event_t *ev, double offset);
 extern void omp_offloading_clear_report_info(omp_offloading_info_t * info);
 
-extern omp_grid_topology_t * omp_grid_topology_init_simple(int nnodes, int ndims);
+extern omp_grid_topology_t * omp_grid_topology_init_simple(int ndevs, int ndims);
+extern omp_grid_topology_t * omp_grid_topology_init(int ndevs, int *devs, int ndims);
 /*  factor input n into dims number of numbers (store into factor[]) whose multiplication equals to n */
 extern void omp_grid_topology_fini(omp_grid_topology_t * top);
 extern void omp_factor(int n, int factor[], int dims);

@@ -91,12 +91,10 @@ static void axpy_dev_kernel_demux(omp_offloading_t *off, void *args) {
 	}
 }
 int axpy_mdev_v = 2;
-double axpy_ompacc_mdev(REAL *x, REAL *y,  long n,REAL a) {
+double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL a) {
 	double ompacc_init_time = read_timer_ms();
 
-	/* use all the devices */
-	int __num_targets__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
-	omp_grid_topology_t * __top__ = omp_grid_topology_init_simple(__num_targets__, 1);
+	omp_grid_topology_t * __top__ = omp_grid_topology_init(ndevs, targets, 1);
 	/* init other infos (dims, periodic, idmaps) of top if needed */
 
 	int __num_maps__ = 2; /* XXX: need compiler output */

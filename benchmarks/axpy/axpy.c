@@ -66,8 +66,20 @@ int main(int argc, char *argv[]) {
     REAL omp_time = read_timer_ms();
 // reference serial execution for error checking  
     axpy(x, y, n, a);
+
+    /* run only on NVGPU */
+    int num_active_devs = omp_get_num_active_devices();
+    int targets[num_active_devs];
+    int num_targets = 1;
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, num_active_devs);
+#if 0
+    /* run on all devices */
+    num_targets = num_active_devs;
+    int i;
+    for (i=0;i<num_active_devs;i++) targets[i] = i;
+#endif
     omp_time = (read_timer_ms() - omp_time);
-    double ompacc_time = axpy_ompacc_mdev(x, y_ompacc, n, a);
+    double ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
     omp_fini_devices();
     REAL cksm = check(y, y_ompacc, n);
     printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n", n, cksm, omp_get_num_active_devices());

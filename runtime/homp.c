@@ -1638,20 +1638,40 @@ int omp_grid_topology_get_seqid(omp_grid_topology_t * top, int devid) {
 /**
  * simple and common topology setup, i.e. devid is from 0 to nnodes-1
  */
-omp_grid_topology_t * omp_grid_topology_init_simple(int nnodes, int ndims) {
+omp_grid_topology_t * omp_grid_topology_init_simple(int ndevs, int ndims) {
 	/* idmaps array is right after the object in mem */
-	omp_grid_topology_t * top = (omp_grid_topology_t*) malloc(sizeof(omp_grid_topology_t)+ sizeof(int)*nnodes);
-	top->nnodes = nnodes;
+	omp_grid_topology_t * top = (omp_grid_topology_t*) malloc(sizeof(omp_grid_topology_t)+ sizeof(int)* ndevs);
+	top->nnodes = ndevs;
 	top->ndims = ndims;
 	top->idmap = (int*)&top[1];
-	omp_factor(nnodes, top->dims, ndims);
+	omp_factor(ndevs, top->dims, ndims);
 	int i;
 	for (i=0; i<ndims; i++) {
 		top->periodic[i] = 0;
 	}
 
-	for (i=0; i<nnodes; i++) {
+	for (i=0; i< ndevs; i++) {
 		top->idmap[i] = omp_devices[i].id;
+	}
+	return top;
+}
+
+/**
+ * Init a topology of devices froma a list of devices identified in the array @devs of @ndevs devices
+ */
+omp_grid_topology_t * omp_grid_topology_init(int ndevs, int *devs, int ndims) {
+	omp_grid_topology_t * top = (omp_grid_topology_t*) malloc(sizeof(omp_grid_topology_t)+ sizeof(int)*ndevs);
+	top->nnodes = ndevs;
+	top->ndims = ndims;
+	top->idmap = (int*)&top[1];
+	omp_factor(ndevs, top->dims, ndims);
+	int i;
+	for (i=0; i<ndims; i++) {
+		top->periodic[i] = 0;
+	}
+
+	for (i=0; i<ndevs; i++) {
+		top->idmap[i] = devs[i];
 	}
 	return top;
 }
