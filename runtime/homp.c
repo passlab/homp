@@ -375,7 +375,10 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	char report_cvs_filename[128];
 	sprintf(report_cvs_filename, "%s.csv\0", info->name);
 	FILE * report_cvs_file = fopen(report_cvs_filename, "a+");
-	fprintf(report_cvs_file, "%s on %d devices: size: %d\n", info->name, info->top->nnodes, info->loop_dist_info[0].length);
+	char time_buff[100];
+	time_t now = time (0);
+	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
+	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, info->loop_dist_info[0].length, time_buff);
 	int events_to_print[misc_event_index_start];
 	int num_events_to_print = 5;
 	events_to_print[0] = total_event_accumulated_index;
@@ -455,7 +458,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	}
 	fprintf(report_cvs_file, "\n");
 
-	fprintf(report_cvs_file, "---------------------------------------------------------\n");
+	fprintf(report_cvs_file, "-------------------------------------------------------------------------------------------------\n\n");
 	fclose(report_cvs_file);
 
 #if defined(PROFILE_PLOT)
