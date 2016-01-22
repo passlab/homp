@@ -371,6 +371,93 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	}
 	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
 
+	/* write the report to a CSV file */
+	char report_cvs_filename[128];
+	sprintf(report_cvs_filename, "%s.csv\0", info->name);
+	FILE * report_cvs_file = fopen(report_cvs_filename, "a+");
+	fprintf(report_cvs_file, "%s on %d devices: size: %d\n", info->name, info->top->nnodes, info->loop_dist_info[0].length);
+	int events_to_print[misc_event_index_start];
+	int num_events_to_print = 5;
+	events_to_print[0] = total_event_accumulated_index;
+	events_to_print[1] = acc_mapto_event_index;
+	events_to_print[2] = acc_kernel_exe_event_index;
+	events_to_print[3] = acc_mapfrom_event_index;
+	events_to_print[4] = total_event_index;
+
+	for (i=0; i<omp_num_devices; i++) {
+		omp_device_t * dev = &omp_devices[i];
+		int devid = dev->id;
+		int devsysid = dev->sysid;
+		char * type = omp_get_device_typename(dev);
+		fprintf(report_cvs_file, ",%s:%d(sysid:%d)", type, devid, devsysid);
+	}
+	fprintf(report_cvs_file, "\n");
+	int lastdevid = 0;
+	for (i=0; i<num_events_to_print; i++) {
+		int j;
+		lastdevid = 0;
+		for (j=0; j<info->top->nnodes; j++) {
+			omp_offloading_t *off = &info->offloadings[j];
+			int devid = off->dev->id;
+			omp_event_t * ev = &off->events[events_to_print[i]];
+			int count = ev->count;
+			double time_ms = (count != 0) ? omp_event_get_elapsed(ev)/count: 0;
+			if (j == 0) fprintf(report_cvs_file, "%s", ev->event_name);
+			while(lastdevid <= devid) {
+				fprintf(report_cvs_file, ",\t");
+				lastdevid++;
+			}
+			fprintf(report_cvs_file, "%.4f", time_ms);
+		}
+		fprintf(report_cvs_file, "\n");
+	}
+
+	lastdevid = 0;
+	for (j=0; j<info->top->nnodes; j++) {
+		omp_offloading_t *off = &info->offloadings[j];
+
+		info->loop_dist_info[0].length;
+		int devid = off->dev->id;
+		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", info->loop_dist_info[0].length);
+		while(lastdevid <= devid) {
+			fprintf(report_cvs_file, ",\t");
+			lastdevid++;
+		}
+		fprintf(report_cvs_file, "%d", off->loop_dist[0].length);
+	}
+	fprintf(report_cvs_file, "\n");
+	lastdevid = 0;
+	for (j=0; j<info->top->nnodes; j++) {
+		omp_offloading_t *off = &info->offloadings[j];
+
+		info->loop_dist_info[0].length;
+		int devid = off->dev->id;
+		if (j == 0) fprintf(report_cvs_file, "DIST(\%)");
+		while(lastdevid <= devid) {
+			fprintf(report_cvs_file, ",\t");
+			lastdevid++;
+		}
+//		printf("%d:%d,", off->loop_dist[0].length, info->loop_dist_info[0].length);
+		float percentage = 100*((float)off->loop_dist[0].length/(float)info->loop_dist_info[0].length);
+		fprintf(report_cvs_file, "%.1f\%", percentage);
+	}
+	fprintf(report_cvs_file, "\n");
+	lastdevid = 0;
+	for (j=0; j<info->top->nnodes; j++) {
+		omp_offloading_t *off = &info->offloadings[j];
+		int devid = off->dev->id;
+		if (j == 0) fprintf(report_cvs_file, "DEVMFLOPS");
+		while(lastdevid <= devid) {
+			fprintf(report_cvs_file, ",\t");
+			lastdevid++;
+		}
+		fprintf(report_cvs_file, "%.1f", off->dev->total_real_flopss);
+	}
+	fprintf(report_cvs_file, "\n");
+
+	fprintf(report_cvs_file, "---------------------------------------------------------\n");
+	fclose(report_cvs_file);
+
 #if defined(PROFILE_PLOT)
 	fprintf(plotscript_file, "plot 0\n");
 	fclose(plotscript_file);
