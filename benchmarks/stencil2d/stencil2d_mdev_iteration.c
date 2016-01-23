@@ -45,7 +45,8 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
     }
 
     omp_device_type_t devtype = off->dev->type;
-    void (*stencil2d_kernel_wrapper)(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff);
+    void (*stencil2d_kernel_wrapper)(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u,
+                                     REAL *uold, int radius, int coeff_dimX, REAL *coeff);
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		stencil2d_kernel_wrapper = stencil2d_nvgpu_cuda_wrapper;
@@ -66,7 +67,7 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
     omp_dev_stream_t *stream = off->stream;
     omp_offloading_info_t * off_info = off->off_info;
     omp_event_record_stop(&events[acc_kernel_exe_event_index]); /* match the runtime start */
-    omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index]);
+    omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
     for (it = 0; it < num_its; it++) {
         omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
         REAL * uu;
@@ -83,7 +84,7 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
         }
         stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, uu, uuold, radius, coeff_dimX, coeff);
         omp_event_record_stop(&events[acc_kernel_exe_event_index]);
-        omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index]);
+        omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
 
         omp_event_record_start(&events[acc_ex_pre_barrier_event_index], NULL, "PRE_BAR_X", "Time for barrier sync before data exchange between devices");
         pthread_barrier_wait(&off->off_info->inter_dev_barrier);
@@ -97,15 +98,16 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
         pthread_barrier_wait(&off->off_info->inter_dev_barrier);
         omp_event_record_stop(&events[acc_ex_post_barrier_event_index]);
 
-        omp_event_accumulate_elapsed_ms(&events[acc_ex_pre_barrier_event_index]);
-        omp_event_accumulate_elapsed_ms(&events[acc_ex_event_index]);
-        omp_event_accumulate_elapsed_ms(&events[acc_ex_post_barrier_event_index]);
+        omp_event_accumulate_elapsed_ms(&events[acc_ex_pre_barrier_event_index], 0);
+        omp_event_accumulate_elapsed_ms(&events[acc_ex_event_index], 0);
+        omp_event_accumulate_elapsed_ms(&events[acc_ex_post_barrier_event_index], 0);
     }
     /* match the runtime stop */
     omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
 }
 
-double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
+double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL *u, int radius, REAL *coeff,
+                                  int num_its) {
     long u_dimX = n + 2 * radius;
     long u_dimY = m + 2 * radius;
     int coeff_dimX = 2*radius+1;
@@ -121,9 +123,8 @@ double stencil2d_omp_mdev_iterate(long n, long m, REAL *u, int radius, REAL *coe
     if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
     else /* dist == 3 */__top_ndims__ = 2;
     /************************************************************************************************/
-    /* use all the devices */
-    int __num_targets__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
-    omp_grid_topology_t * __top__ = omp_grid_topology_init_simple(__num_targets__, __top_ndims__);
+
+    omp_grid_topology_t * __top__ = omp_grid_topology_init(ndevs, targets, __top_ndims__);
     /* init other infos (dims, periodic, idmaps) of top if needed */
 
     int __num_maps__ = 3; /* u, uold and the coeff */ /* XXX: need compiler output */

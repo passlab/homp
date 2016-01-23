@@ -1,6 +1,9 @@
 #include "matvec.h"
 #include <homp.h>
+
+#ifdef USE_INTEL_MKL
 #include <mkl.h>
+#endif
 
 void matvec_cpu_omp_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y)
 {

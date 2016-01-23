@@ -192,7 +192,7 @@ void ompacc_matmul_mdev_v3(REAL *A, REAL *B, REAL *C, long n)
  * dist = 2: B/C column dist,
  * dist = 3: A-row, B-column dist
  */
-double matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy);
+double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy);
 
 int main(int argc, char *argv[]) {
     long n;
@@ -261,9 +261,78 @@ int main(int argc, char *argv[]) {
 /* we currently cannot do the OpenMP acc and OpenACC run in once */
 /* openmp acc version */
     omp_init_devices();
-    ompacc_elapsed = matmul_ompacc_mdev(A, B, C_ompacc, n, dist_dim, dist_policy);
-    //print_array("Array C_ompacc", "C", C_ompacc, n, n);
 
+    int num_active_devs = omp_get_num_active_devices();
+    int targets[num_active_devs];
+    int num_targets = 1;
+
+    /* one HOSTCPU */
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one HOSTCPU and one NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one HOSTCPU and one ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one NVGPU and one ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one HOSTCPU and two NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one HOSTCPU and two ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* two NVGPU and two ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* four NVGPU and two ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one CPU, two NVGPU and two ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* one CPU, two NVGPU and two ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+#if 0
+    /* run on all devices */
+    num_targets = num_active_devs;
+    int i;
+    for (i=0;i<num_active_devs;i++) targets[i] = i;
+#endif
+
+    //print_array("Array C_ompacc", "C", C_ompacc, n, n);
     omp_fini_devices();
 
     printf("======================================================================================================\n");
@@ -352,7 +421,7 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
 #endif
 }
 
-double matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy) {
+double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy) {
     double ompacc_init_time = read_timer_ms();
     /* get number of target devices specified by the programmers */
     int __top_ndims__;
@@ -360,9 +429,8 @@ double matmul_ompacc_mdev(REAL *A, REAL *B, REAL *C, long n, int dist_dim, int d
     if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
     else /* dist == 3 */__top_ndims__ = 2;
     /************************************************************************************************/
-    /* use all the devices */
-    int __num_targets__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
-    omp_grid_topology_t * __top__ = omp_grid_topology_init_simple(__num_targets__, __top_ndims__);
+
+    omp_grid_topology_t * __top__ = omp_grid_topology_init(ndevs, targets, __top_ndims__);
     /* init other infos (dims, periodic, idmaps) of top if needed */
 
     int __num_maps__ = 3; /* XXX: need compiler output */

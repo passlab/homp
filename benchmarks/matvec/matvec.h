@@ -15,7 +15,7 @@ extern "C" {
 
 /* both the omp version and ompacc version */
 extern void matvec(REAL *a, REAL *x, REAL *y, long n);
-extern double matvec_ompacc_mdev(REAL *a, REAL *x, REAL *y, long n);
+extern double matvec_ompacc_mdev(int ndevs, int *targets, REAL *a, REAL *x, REAL *y, long n);
 
 extern void matvec_cpu_omp_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y);
 extern void matvec_itlmic_wrapper(omp_offloading_t *off, long n, long start_n, long length_n,REAL *a,REAL *x,REAL *y);

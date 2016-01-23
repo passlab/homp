@@ -71,8 +71,6 @@ REAL check_accdiff(const REAL *output, const REAL *reference, const long dimx, c
 
 void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *filter, int num_its);
 void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its);
-double stencil2d_omp_mdev(long u_dimX, long u_dimY, REAL *u, int radius, REAL *coeff, int num_its);
-double stencil2d_omp_mdev_iterate(long u_dimX, long u_dimY, REAL *u, int radius, REAL *coeff, int num_its);
 
 int dist_dim;
 int dist_policy;
@@ -155,7 +153,76 @@ int main(int argc, char * argv[]) {
 
 	printf("OMP mdev iterate execution\n");
 	REAL mdev_iterate_elapsed = 0.0;
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	int num_active_devs = omp_get_num_active_devices();
+	int targets[num_active_devs];
+	int num_targets = 1;
+
+	/* one HOSTCPU */
+	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one NVGPU */
+	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one HOSTCPU and one NVGPU */
+	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one HOSTCPU and one ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one NVGPU and one ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
+	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one HOSTCPU and two NVGPU */
+	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one HOSTCPU and two ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* two NVGPU and two ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
+	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* four NVGPU and two ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
+	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one CPU, two NVGPU and two ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
+	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* one CPU, two NVGPU and two ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
+	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+#if 0
+    /* run on all devices */
+    num_targets = num_active_devs;
+    int i;
+    for (i=0;i<num_active_devs;i++) targets[i] = i;
+#endif
 
 	long flops = n*m*radius;
 #ifdef SQUARE_SETNCIL
