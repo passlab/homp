@@ -335,7 +335,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	}
 
 	printf("\n============ Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) shown as average ==============\n");
-	printf("\tDEVICE\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\n");
+	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\n", info->loop_dist_info[0].length);
 	printf("-------------------------------------------------------------------------------------------------------------\n");
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
@@ -367,7 +367,9 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 
 	//	events = &events[total_event_accumulated_index];
 	//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
-		printf("%s dev %d (sysid: %d):\t%.4f\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\n", type, devid, devsysid, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
+		printf("%s dev %d (sysid: %d, %.1f MFLOPS):\t%.4f\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
+		float percentage = 100*((float)off->loop_dist[0].length/(float)info->loop_dist_info[0].length);
+		printf("\t%d\t\t%.1f\%\n", off->loop_dist[0].length, percentage);
 	}
 	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
 
