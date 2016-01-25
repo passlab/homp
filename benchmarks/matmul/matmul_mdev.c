@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
 
-    /* one CPU, two NVGPU and two ITLMIC */
+    /* one CPU, four NVGPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
