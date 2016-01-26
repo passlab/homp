@@ -365,15 +365,19 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 
 		double accu_total_ms = mapto_time_ms + kern_time_ms + mapfrom_time_ms + ex_time_ms;
 
-		ev = &off->events[runtime_dist_modeling_index];
-		int modeling_count = ev->count;
-		double modeling_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev)/modeling_count: 0;
-
 	//	events = &events[total_event_accumulated_index];
 	//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
 		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.4f\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
 		float percentage = 100*((float)off->loop_dist[0].length/(float)info->loop_dist_info[0].length);
-		printf("\t%d\t\t%.1f%%\t\t%.1f(%d) %.1f%%\n", off->loop_dist[0].length, percentage, modeling_time_ms, modeling_count, (modeling_time_ms/accu_total_ms)*100.0);
+		printf("\t%d\t\t%.1f%%", off->loop_dist[0].length, percentage);
+
+		ev = &off->events[runtime_dist_modeling_index];
+		if (ev->event_name != NULL) {
+			int modeling_count = ev->count;
+			double modeling_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev) / modeling_count : 0;
+			printf("\t%.1f(%d) %.1f%%\n", modeling_time_ms, modeling_count, (modeling_time_ms/accu_total_ms)*100.0);
+		}
+		printf("\n");
 	}
 	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
 
@@ -410,6 +414,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 			omp_offloading_t *off = &info->offloadings[j];
 			int devid = off->dev->id;
 			omp_event_t * ev = &off->events[events_to_print[i]];
+			if (ev->event_name == NULL) continue;
 			int count = ev->count;
 			double time_ms = (count != 0) ? omp_event_get_elapsed(ev)/count: 0;
 			if (j == 0) fprintf(report_cvs_file, "%s", ev->event_name);
