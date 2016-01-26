@@ -869,7 +869,22 @@ void omp_dist_block(long start, long full_length, long position, int dim, long *
 	*length = len;
 }
 
+#if !defined(LINEAR_MODEL_1) && !defined(LINEAR_MODEL_2)
 #define LINEAR_MODEL_2 1
+#endif
+
+#if defined(LINEAR_MODEL_1) && defined(LINEAR_MODEL_2)
+#undef LINEAR_MODEL_1
+#define LINEAR_MODEL_2 1
+#endif
+
+#if defined (LINEAR_MODEL_1)
+#warning "LINEAR_MODEL_1 is defined"
+#endif
+
+#if defined (LINEAR_MODEL_2)
+#warning "LINEAR_MODEL_2 is defined"
+#endif
 /**
  * The general dist algorithm that applies to both data distribution and iteration distribution
  */
@@ -951,12 +966,12 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		/* compute the total capability */
 		double total_flops = 0.0;
 		for (i =0; i <off_info->top->nnodes; i++) {
-			double flops = off_info->targets[i]->total_real_flopss;
+			double flops = off_info->offloadings[i].dev->total_real_flopss;
 			total_flops += flops;
 		}
 
 		for (i =0; i <off_info->top->nnodes; i++) {
-			double flops = off_info->targets[i]->total_real_flopss;
+			double flops = off_info->offloadings[i].dev->total_real_flopss;
 			long length = (flops/total_flops) * dist_info->length + 0.5; /* +0.5 is for rounding, so 3.4->4, and 3.5->4 */
 			if (i == off_info->top->nnodes-1 && offset + length != dist_info->length) { /* fix rounding error */
 				length = dist_info->length - offset;

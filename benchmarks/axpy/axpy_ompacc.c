@@ -107,7 +107,7 @@ double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL 
 	args.y = y;
 	omp_offloading_info_t *__off_info__ = omp_offloading_init_info("axpy kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
 																   __num_maps__, axpy_dev_kernel_demux, &args, 1);
-	omp_offloading_append_profile_per_iteration(__off_info__, 2, 1, 1);
+	omp_offloading_append_profile_per_iteration(__off_info__, 2, 2, 1);
 
 	omp_data_map_info_t *__x_map_info__ = &__off_info__->data_map_info[0];
 	omp_data_map_init_info("x", __x_map_info__, __off_info__, x, 1, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
@@ -143,7 +143,7 @@ double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL 
 	//  printf("init time: %fs\n", ompacc_init_time);
 	/* here we do not need sync start */
 	double off_total = read_timer_ms();
-	int it; int total_its = 1;
+	int it; int total_its = 10;
 	for (it=0; it<total_its; it++) {
 		omp_offloading_start(__off_info__, it==total_its-1);
 	}
