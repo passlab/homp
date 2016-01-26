@@ -148,6 +148,7 @@ int main(int argc, char *argv[]) {
     printf("matvec(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n", n, cksm,
            omp_get_num_active_devices());
     printf("\t\t\t\t\t\t%4f\t%4f\n", omp_time, ompacc_time);
+    printf("usage: matvec [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n", n);
     free(y);
     omp_unified_free(y_ompacc);
     omp_unified_free(x);

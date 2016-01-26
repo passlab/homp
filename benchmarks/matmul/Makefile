@@ -12,8 +12,8 @@ BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING
 ## Turn on one of the following to use one of the two models for distribution
 # LINEAR_MODEL_1: dist according to flops
 # # LINEAR_MODEL_2: dist according to both flops and data movement
-# BASE_CFLAGS += -DLINEAR_MODEL_1=1
-BASE_CFLAGS += -DLINEAR_MODEL_2=1
+BASE_CFLAGS += -DLINEAR_MODEL_1=1
+#BASE_CFLAGS += -DLINEAR_MODEL_2=1
 
 # CFLAGS for NVGPU_CUDA support
 NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
@@ -27,7 +27,7 @@ NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
 # To enable combined offloading, set -DITLMIC_COMBINED_OFFLOADING=1 which will use offload pragma in/out thing for
 # offloading, but the breakdown timing will not be correct. To use MKL for combined offloading, append: -DUSE_INTEL_MKL=1 -mkl
 ICC_CFLAGS += -DDEVICE_ITLMIC_SUPPORT=1
-ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
+#ICC_CFLAGS += -DUSE_INTEL_MKL=1 -mkl
 #ICC_CFLAGS += -DITLMIC_COMBINED_OFFLOADING=1
 # -L/opt/intel/lib/intel64/ -loffload
 
