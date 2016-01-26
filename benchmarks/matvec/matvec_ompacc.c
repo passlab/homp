@@ -108,7 +108,7 @@ double matvec_ompacc_mdev(int ndevs, int *targets, REAL *a, REAL *x, REAL *y, lo
 
     omp_offloading_info_t *__off_info__ = omp_offloading_init_info("matvec_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
                                                                    __num_maps__, OUT__3__5904__launcher, &args, 1);
-    omp_offloading_append_profile_per_iteration(__off_info__, n * n, 1, 1);
+    omp_offloading_append_profile_per_iteration(__off_info__, 2 * n, 2*n, 1);
 
     omp_data_map_info_t *__x_map_info__ = &__off_info__->data_map_info[0];
     omp_data_map_init_info("x", __x_map_info__, __off_info__, x, 1, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
