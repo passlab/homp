@@ -249,6 +249,7 @@ enum event_index {
 	total_event_accumulated_index,   /* host event */
 	timing_init_event_index, 		/* host event */
 	map_init_event_index,  			/* host event */
+	runtime_dist_modeling_index,    /* host event for measuring the runtime modeling overhead */
 
 	acc_mapto_event_index, 			/* dev event */
 	acc_kernel_exe_event_index,		/* dev event */

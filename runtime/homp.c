@@ -879,11 +879,11 @@ void omp_dist_block(long start, long full_length, long position, int dim, long *
 #endif
 
 #if defined (LINEAR_MODEL_1)
-#warning "LINEAR_MODEL_1 is defined"
+#warning "LINEAR_MODEL_1 is used"
 #endif
 
 #if defined (LINEAR_MODEL_2)
-#warning "LINEAR_MODEL_2 is defined"
+#warning "LINEAR_MODEL_2 is used"
 #endif
 /**
  * The general dist algorithm that applies to both data distribution and iteration distribution
@@ -960,6 +960,10 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		}
 		omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
 		omp_offloading_t * off = &off_info->offloadings[seqid];
+		omp_event_t *events = off->events;
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_start(&events[runtime_dist_modeling_index], NULL, "MODELING", "Runtime modeling cost");
+#endif
 		long offset = 0;
 		int i;
 #ifdef LINEAR_MODEL_1
@@ -1104,6 +1108,9 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 				align_dist->offset = dist->offset;
 			}
 		}
+#endif
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_stop(&events[runtime_dist_modeling_index]);
 #endif
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n",

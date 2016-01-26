@@ -71,7 +71,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	int num_events;
 	omp_event_t *events;
 	if (off_info->count <= 1) { /* the first time of recurring offloading or a non-recurring offloading */
-		num_events = off_info->num_mapped_vars * 2 + 11; /* the max posibble # of events to be used */
+		num_events = off_info->num_mapped_vars * 2 + misc_event_index_start; /* the max posibble # of events to be used */
 		events = (omp_event_t *) malloc(sizeof(omp_event_t) * num_events); /**TODO: free this memory somewhere later */
 		off->num_events = num_events;
 		off->events = events;
@@ -101,6 +101,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		omp_event_record_start(&events[timing_init_event_index], NULL, "INIT_0", "Time for initialization of stream and event", devid);
 		omp_event_init(&events[total_event_accumulated_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[map_init_event_index], dev, OMP_EVENT_HOST_RECORD);
+		omp_event_init(&events[runtime_dist_modeling_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[sync_cleanup_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD);
 		omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD);
