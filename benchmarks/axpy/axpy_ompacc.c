@@ -105,7 +105,7 @@ double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL 
 	args.n = n;
 	args.x = x;
 	args.y = y;
-	omp_offloading_info_t *__off_info__ = omp_offloading_init_info("axpy kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
+	omp_offloading_info_t *__off_info__ = omp_offloading_init_info("axpy_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
 																   __num_maps__, axpy_dev_kernel_demux, &args, 1);
 	omp_offloading_append_profile_per_iteration(__off_info__, 2, 2, 1);
 

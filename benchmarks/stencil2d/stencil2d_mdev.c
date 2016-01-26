@@ -100,7 +100,7 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
     off_args.n = n; off_args.m = m; off_args.u = u; off_args.radius = radius; off_args.coeff = coeff; off_args.num_its = num_its;
     off_args.uold = uold; off_args.coeff_center = coeff_center; off_args.coeff_dimX = coeff_dimX; off_args.u_dimX = u_dimX; off_args.u_dimY = u_dimY;
     omp_offloading_info_t * __off_info__ =
-            omp_offloading_init_info("stencil2d kernel", __top__, 1, OMP_OFFLOADING_CODE, 0,
+            omp_offloading_init_info("stencil2d_kernel", __top__, 1, OMP_OFFLOADING_CODE, 0,
                                      stencil2d_omp_mdev_launcher, &off_args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, 13*u_dimY, 7, 1);
 

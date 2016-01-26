@@ -106,7 +106,7 @@ double matvec_ompacc_mdev(int ndevs, int *targets, REAL *a, REAL *x, REAL *y, lo
     struct OUT__3__5904__other_args args;
     args.a = a; args.n = n; args.x = x;args.y = y;
 
-    omp_offloading_info_t *__off_info__ = omp_offloading_init_info("matvec kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
+    omp_offloading_info_t *__off_info__ = omp_offloading_init_info("matvec_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
                                                                    __num_maps__, OUT__3__5904__launcher, &args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, n * n, 1, 1);
 

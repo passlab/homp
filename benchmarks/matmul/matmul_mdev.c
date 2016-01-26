@@ -438,7 +438,7 @@ double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, lo
     /* we use universal args and launcher because matmul can do it */
     struct OUT__1__11058__args args;
     args.i = n;args.j = n;args.k = n;args.A = A;args.B = B;args.C = C;args.dist = dist_dim;
-    omp_offloading_info_t * __off_info__ = omp_offloading_init_info("matmul kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE, __num_maps__, OUT__1__11058__launcher, &args, 1);
+    omp_offloading_info_t * __off_info__ = omp_offloading_init_info("matmul_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE, __num_maps__, OUT__1__11058__launcher, &args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, 2*n*n, n*n, n);
 
     /* A map info */
