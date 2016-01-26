@@ -353,6 +353,7 @@ omp_offloading_sync_cleanup: ;
 	omp_event_accumulate_elapsed_ms(&events[total_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[timing_init_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[map_init_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[runtime_dist_modeling_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[sync_cleanup_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[barrier_wait_event_index], 0);
 	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_mapto_event_index], 0);
