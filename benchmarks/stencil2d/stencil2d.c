@@ -166,8 +166,20 @@ int main(int argc, char * argv[]) {
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
+	/* two NVGPU */
+	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* four NVGPU */
+	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
 	/* one ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
+	/* two ITLMIC */
+	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 2);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* one HOSTCPU and one NVGPU */
@@ -211,7 +223,7 @@ int main(int argc, char * argv[]) {
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
-	/* one CPU, two NVGPU and two ITLMIC */
+	/* one CPU, four NVGPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);

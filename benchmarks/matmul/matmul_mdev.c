@@ -274,8 +274,20 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
 
+    /* two NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* four NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
     /* one ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+
+    /* two ITLMIC */
+    num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 2);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
 
     /* one HOSTCPU and one NVGPU */
