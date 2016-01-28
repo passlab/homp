@@ -75,11 +75,11 @@ int main(int argc, char *argv[]) {
     int targets[num_active_devs];
     int num_targets = 1;
     double ompacc_time;
-
+ 
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
-    
+ 
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
@@ -101,24 +101,30 @@ int main(int argc, char *argv[]) {
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* one HOSTCPU and one NVGPU */
-    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
-    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
-    ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+    //num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    //num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
+    //ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* one HOSTCPU and one ITLMIC */
-    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
-    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
-    ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+    //num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    //num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
+    //ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* one NVGPU and one ITLMIC */
-    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
-    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
-    ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+    //num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
+    //num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
+    //ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* one HOSTCPU and two NVGPU */
+    //num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    //num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
+    //ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+
+    /* one HOSTCPU and four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
-    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
+    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+
 
     /* one HOSTCPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
@@ -126,9 +132,9 @@ int main(int argc, char *argv[]) {
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* two NVGPU and two ITLMIC */
-    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
-    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-    ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+    //num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
+    //num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    //ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* four NVGPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
@@ -136,10 +142,10 @@ int main(int argc, char *argv[]) {
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* one CPU, two NVGPU and two ITLMIC */
-    num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
-    num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
-    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-    ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+    //num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
+    //num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
+    //num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    //ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
     /* one CPU, four NVGPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
