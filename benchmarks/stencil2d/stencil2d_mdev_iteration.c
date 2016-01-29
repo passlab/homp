@@ -229,7 +229,7 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
 //	printf("offloading from stencil now\n");
     double off_kernel_time = read_timer_ms();
     int it;
-    int num_runs = 4;
+    int num_runs = 1;
     for (it=0; it< num_runs; it++) omp_offloading_start(__off_info__, it== num_runs -1);
     off_kernel_time = (read_timer_ms() - off_kernel_time)/ num_runs;
 
