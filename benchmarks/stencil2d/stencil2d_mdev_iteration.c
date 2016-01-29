@@ -132,14 +132,14 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
 
     /* data copy offloading */
     omp_offloading_info_t *__copy_data_off_info__ =
-            omp_offloading_init_info("data copy", __top__, 1, OMP_OFFLOADING_DATA, __num_maps__, NULL, NULL, 0);
+            omp_offloading_init_info("data_copy", __top__, 1, OMP_OFFLOADING_DATA, __num_maps__, NULL, NULL, 0);
 
     /* stencil kernel offloading */
     struct stencil2d_off_args off_args;
     off_args.n = n; off_args.m = m; off_args.u = u; off_args.radius = radius; off_args.coeff = coeff; off_args.num_its = num_its;
     off_args.uold = uold; off_args.coeff_center = coeff_center; off_args.coeff_dimX = coeff_dimX; off_args.u_dimX = u_dimX; off_args.u_dimY = u_dimY;
     omp_offloading_info_t * __off_info__ =
-            omp_offloading_init_info("stencil2d kernel", __top__, 1, OMP_OFFLOADING_CODE, 0,
+            omp_offloading_init_info("stencil2d_kernel", __top__, 1, OMP_OFFLOADING_CODE, 0,
                                      stencil2d_omp_mdev_iteration_launcher, &off_args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, 13*u_dimY, 7, 1);
 
@@ -241,13 +241,14 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
 
     double off_total = off_init_time + off_copyto_time + off_copyfrom_time + off_kernel_time;
 #if defined (OMP_BREAKDOWN_TIMING)
-    omp_offloading_info_report_profile(__copy_data_off_info__);
+    /* not reporting status for data copy */
+    //omp_offloading_info_report_profile(__copy_data_off_info__);
     omp_offloading_info_report_profile(__off_info__);
-    omp_offloading_info_t *infos[2];
-    infos[0] = __copy_data_off_info__;
-    infos[1] = __off_info__;
-    omp_offloading_info_sum_profile(infos, 2, start_time, start_time+off_total);
-    omp_offloading_info_report_profile(__copy_data_off_info__);
+    //omp_offloading_info_t *infos[2];
+    //infos[0] = __copy_data_off_info__;
+    //infos[1] = __off_info__;
+    //omp_offloading_info_sum_profile(infos, 2, start_time, start_time+off_total);
+    //omp_offloading_info_report_profile(__copy_data_off_info__);
 #endif
 
     omp_offloading_fini_info(__copy_data_off_info__);

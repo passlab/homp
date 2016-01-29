@@ -156,7 +156,7 @@ void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, 
 		suminfo->compl_time = compl_time;
 	}
 	//sprintf(suminfo->name, "Accumulated Profiles %d Types of Offloading", count);
-	suminfo->name = "Accumulated Multiple Types of Offloading";
+	suminfo->name = "AccumulatedMultipleTypesofOffloading";
 	for (i = 0; i < suminfo->top->nnodes; i++) {
 		suminfo->offloadings[i].num_events = misc_event_index_start;
 	}
