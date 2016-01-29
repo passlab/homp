@@ -392,13 +392,14 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
 	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, info->loop_dist_info[0].length, time_buff);
 	int events_to_print[misc_event_index_start];
-	int num_events_to_print = 6;
+	int num_events_to_print = 7;
 	events_to_print[0] = total_event_accumulated_index;
 	events_to_print[1] = acc_mapto_event_index;
 	events_to_print[2] = acc_kernel_exe_event_index;
 	events_to_print[3] = acc_mapfrom_event_index;
-	events_to_print[4] = total_event_index;
-	events_to_print[5] = runtime_dist_modeling_index;
+	events_to_print[4] = acc_ex_event_index;
+	events_to_print[5] = total_event_index;
+	events_to_print[6] = runtime_dist_modeling_index;
 
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
