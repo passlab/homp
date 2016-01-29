@@ -70,6 +70,8 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 		off->off_info = info;
 		off->num_maps = 0;
 		off->stage = OMP_OFFLOADING_INIT;
+		//off->events == NULL;
+		//off->num_events = 0;
 	}
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
@@ -972,7 +974,12 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		omp_offloading_t * off = &off_info->offloadings[seqid];
 		omp_event_t *events = off->events;
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[runtime_dist_modeling_index], NULL, "MODELING", "Runtime modeling cost");
+		/* For aligned AUTO, the alignee is not yet initialized so here we have limited access to
+		 * some of objects of the alignees, events are one of them.
+		 * So here we only charge this as modeling cost if off->events are all initialized in the offloading.
+		 * Otherwise, this modeling cost is charged to the aligner as the cost of distribution, not modeling
+		 */
+		if (off_info->count > 1) omp_event_record_start(&events[runtime_dist_modeling_index], NULL, "MODELING", "Runtime modeling cost");
 #endif
 		long offset = 0;
 		int i;
@@ -1120,7 +1127,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		}
 #endif
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[runtime_dist_modeling_index]);
+		if (off_info->count > 1) omp_event_record_stop(&events[runtime_dist_modeling_index]);
 #endif
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n",
