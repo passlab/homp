@@ -83,6 +83,7 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
             halo_map = map_uold;
         }
         stencil2d_kernel_wrapper(off, start, len, n, m, u_dimX, u_dimY, uu, uuold, radius, coeff_dimX, coeff);
+	//printf("iteration %d by dev: %d\n", it, off->dev->id);
         omp_event_record_stop(&events[acc_kernel_exe_event_index]);
         omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
 
@@ -228,7 +229,7 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
 //	printf("offloading from stencil now\n");
     double off_kernel_time = read_timer_ms();
     int it;
-    int num_runs = 10;
+    int num_runs = 4;
     for (it=0; it< num_runs; it++) omp_offloading_start(__off_info__, it== num_runs -1);
     off_kernel_time = (read_timer_ms() - off_kernel_time)/ num_runs;
 
