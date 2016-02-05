@@ -1194,15 +1194,27 @@ void omp_stream_destroy(omp_dev_stream_t *st) {
 }
 
 /* the event msg has limited length defined by OMP_EVENT_MSG_LENGTH macro, additional char will be cut off */
-void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_t record_method) {
+void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_t record_method,
+                    omp_dev_stream_t *stream, const char *event_name, const char *event_msg, ...) {
+    if (stream != NULL && stream->dev != dev) {
+        fprintf(stderr, "stream and event are not compatible, they are from two different devices: %s, %s\n",
+                stream->dev->name, dev->name);
+        abort();
+    }
     ev->dev = dev;
     ev->record_method = record_method;
-    omp_device_type_t devtype = dev->type;
     ev->count = 0;
     ev->recorded = 0;
     ev->elapsed_dev = ev->elapsed_host = 0.0;
-    ev->event_name = NULL;
-    ev->event_description[0] = '\0';
+
+    ev->stream = stream;
+    ev->event_name = event_name;
+    va_list l;
+    va_start(l, event_msg);
+    vsnprintf(ev->event_description, OMP_EVENT_MSG_LENGTH, event_msg, l);
+    va_end(l);
+
+    omp_device_type_t devtype = dev->type;
     if (record_method == OMP_EVENT_DEV_RECORD || record_method == OMP_EVENT_HOST_DEV_RECORD) {
         if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
@@ -1226,28 +1238,40 @@ void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_
     //omp_event_print(ev);
 }
 
-void omp_event_print(omp_event_t *ev) {
-    printf("ev: %X, dev: %X, stream: %X, record method: %d, name: %s, description: %s\n", ev, ev->dev,
-           ev->stream, ev->record_method, ev->event_name, ev->event_description);
-}
-
-void omp_event_record_start(omp_event_t *ev, omp_dev_stream_t *stream, const char *event_name, const char *event_msg,
-                            ...) {
+/* the event msg has limited length defined by OMP_EVENT_MSG_LENGTH macro, additional char will be cut off */
+void omp_event_set_attribute(omp_event_t *ev, omp_dev_stream_t *stream, const char *event_name, const char *event_msg, ...) {
     if (stream != NULL && stream->dev != ev->dev) {
         fprintf(stderr, "stream and event are not compatible, they are from two different devices: %s, %s\n",
                 stream->dev->name, ev->dev->name);
         abort();
     }
+
     ev->stream = stream;
-    omp_event_record_method_t rm = ev->record_method;
     ev->event_name = event_name;
     va_list l;
     va_start(l, event_msg);
     vsnprintf(ev->event_description, OMP_EVENT_MSG_LENGTH, event_msg, l);
     va_end(l);
 
+    //omp_event_print(ev);
+}
+
+void omp_event_print(omp_event_t *ev) {
+    printf("ev: %X, dev: %X, stream: %X, record method: %d, name: %s, description: %s\n", ev, ev->dev,
+           ev->stream, ev->record_method, ev->event_name, ev->event_description);
+}
+
+void omp_event_record_start(omp_event_t *ev) {
     //printf("omp_event_record_start: ev %X name: %s, dev: %X\n", ev, ev->event_name, ev->dev);
+#if 0
+    /* turn this off since our code does not have this bug ;-) */
+    if (ev->event_name == NULL) {
+        fprintf(stderr, "An event without a name (%X) for dev (%d) cannot record\n", ev, ev->dev->id);
+        abort();
+    }
+#endif
     omp_device_type_t devtype = ev->dev->type;
+    omp_event_record_method_t rm = ev->record_method;
 
     if (rm == OMP_EVENT_DEV_RECORD || rm == OMP_EVENT_HOST_DEV_RECORD) {
         if (devtype == OMP_DEVICE_NVGPU) {

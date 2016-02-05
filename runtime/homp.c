@@ -317,7 +317,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		for (j=0; j<off->num_events; j++) {
 			omp_event_t * ev = &off->events[j];
 			if (j == misc_event_index_start) printf("--------------------- Misc Report ------------------------------------------------------------\n");
-			if (ev->event_name != NULL) {
+			if (ev->count) {
 //                printf("%d   ", j);
 				double start_time, elapsed;
 				omp_event_print_elapsed(ev, info->start_time, &start_time, &elapsed);
@@ -371,7 +371,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 
 	//	events = &events[total_event_accumulated_index];
 	//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
-		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.4f\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
+		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.2f\t\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
 		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
 		printf("\t%d\t\t%.1f%%", off->loop_dist[0].length, percentage);
 
@@ -976,12 +976,13 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		omp_offloading_t * off = &off_info->offloadings[seqid];
 		omp_event_t *events = off->events;
 #if defined (OMP_BREAKDOWN_TIMING)
-		/* For aligned AUTO, the alignee is not yet initialized so here we have limited access to
+		/* For aligned AUTO, the alignee may not yet initialized so here we have limited access to
 		 * some of objects of the alignees, events are one of them.
 		 * So here we only charge this as modeling cost if off->events are all initialized in the offloading.
 		 * Otherwise, this modeling cost is charged to the aligner as the cost of distribution, not modeling
 		 */
-		if (off_info->count > 1) omp_event_record_start(&events[runtime_dist_modeling_index], NULL, "MODELING", "Runtime modeling cost");
+		if (events != NULL)
+			omp_event_record_start(&events[runtime_dist_modeling_index]);
 #endif
 		long offset = 0;
 		int i;
@@ -1130,7 +1131,8 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		}
 #endif
 #if defined (OMP_BREAKDOWN_TIMING)
-		if (off_info->count > 1) omp_event_record_stop(&events[runtime_dist_modeling_index]);
+		if (events != NULL)
+			omp_event_record_stop(&events[runtime_dist_modeling_index]);
 #endif
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n",

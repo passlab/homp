@@ -692,9 +692,11 @@ extern void omp_stream_destroy(omp_dev_stream_t * st);
 extern void omp_stream_sync(omp_dev_stream_t *st);
 extern void omp_map_free(omp_data_map_t *map, omp_offloading_t *off);
 
-extern void omp_event_init(omp_event_t * ev, omp_device_t * dev, omp_event_record_method_t record_method);
+extern void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_t record_method,
+						   omp_dev_stream_t *stream, const char *event_name, const char *event_msg, ...);
+extern void omp_event_set_attribute(omp_event_t *ev, omp_dev_stream_t *stream, const char *event_name, const char *event_msg, ...);
 extern void omp_event_print(omp_event_t * ev);
-extern void omp_event_record_start(omp_event_t * ev, omp_dev_stream_t * stream, const char * event_name, const char * event_msg, ...);
+extern void omp_event_record_start(omp_event_t *ev);
 extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_print_profile_header();
 extern void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed);
