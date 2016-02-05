@@ -315,9 +315,11 @@ typedef enum omp_data_map_type {
 
 typedef enum omp_dist_policy {
 	OMP_DIST_POLICY_BLOCK,
-	OMP_DIST_POLICY_DUPLICATE,
-	OMP_DIST_POLICY_AUTO, /* the balanced data distribution so computation is balanced distributed, ideally */
+	OMP_DIST_POLICY_FULL,
 	OMP_DIST_POLICY_ALIGN,
+	OMP_DIST_POLICY_AUTO, /* the balanced data distribution so computation is balanced distributed, ideally. Used with iteration dist */
+	OMP_DIST_POLICY_SCHEDULE, /* schedule the iteration/elements so that the balance is autmatically through scheduling, used with iteration dist */
+	OMP_DIST_POLICY_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
 	OMP_DIST_POLICY_CYCLIC, /* user defined */
 	OMP_DIST_POLICY_FIX, /* fixed dist */
 } omp_dist_policy_t;
@@ -332,6 +334,7 @@ typedef enum omp_dist_target_type {
 typedef struct omp_dist_info {
 	omp_dist_policy_t policy; /* the dist policy */
 	long start; /* the start index for the dim of the original array */
+	long end; /* the upper bound of the dist, not inclusive */
 	long length;   /* the length (total # element to be distributed) */
 	long stride; /* stride between ele, default 1 of course */
 	long chunk_size;

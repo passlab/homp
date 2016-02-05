@@ -728,13 +728,13 @@ loop1:for (i=0;i<n;i++) {
   	if (dist_dim == 1) {
 		if (dist_policy == 1) { /* BLOCK_BLOCK */
 			omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_FULL, 0, m, 0);
 
 			omp_data_map_dist_init_info(&u_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_FULL, 0, m, 0);
 
 			omp_data_map_dist_init_info(&uold_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_FULL, 0, m, 0);
 			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
 			omp_data_map_dist_init_info(&__uuold_exchange_loop_dist__[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
@@ -742,7 +742,7 @@ loop1:for (i=0;i<n;i++) {
 			printf("BLOCK dist policy for arrays and loop dist\n");
 		} else if (dist_policy == 2) { /* BLOCK_ALIGN */
 			omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_FULL, 0, m, 0);
 
 			omp_align_dist_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__data_map_infos__[0],
 								OMP_DIST_TARGET_DATA_MAP, 0);
@@ -765,15 +765,15 @@ loop1:for (i=0;i<n;i++) {
 
 			omp_align_dist_info(&f_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
 								OMP_DIST_TARGET_LOOP_ITERATION, 0);
-			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_FULL, 0, m, 0);
 
 			omp_align_dist_info(&u_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
 								OMP_DIST_TARGET_LOOP_ITERATION, 0);
-			omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_FULL, 0, m, 0);
 
 			omp_align_dist_info(&uold_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
 								OMP_DIST_TARGET_LOOP_ITERATION, 0);
-			omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_DUPLICATE, 0, m, 0);
+			omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_FULL, 0, m, 0);
 			omp_map_add_halo_region(&__data_map_infos__[2], 0, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
 
 			omp_align_dist_info(&__uuold_exchange_loop_dist__[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
@@ -781,14 +781,14 @@ loop1:for (i=0;i<n;i++) {
 			printf("AUTO dist policy for loop dist and array align with loops\n");
 		}
   	} else if (dist_dim == 2) {
-		omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+		omp_data_map_dist_init_info(&f_dist[0], 0, OMP_DIST_POLICY_FULL, 0, n, 0);
 		omp_data_map_dist_init_info(&f_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 0);
 
-		omp_data_map_dist_init_info(&u_dist[0], 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+		omp_data_map_dist_init_info(&u_dist[0], 0, OMP_DIST_POLICY_FULL, 0, n, 0);
 		omp_data_map_dist_init_info(&u_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 0);
   		//omp_map_add_halo_region(&__data_map_infos__[1], 1, 1, 1, 0);
 
-		omp_data_map_dist_init_info(&uold_dist[0], 0, OMP_DIST_POLICY_DUPLICATE, 0, n, 0);
+		omp_data_map_dist_init_info(&uold_dist[0], 0, OMP_DIST_POLICY_FULL, 0, n, 0);
 		omp_data_map_dist_init_info(&uold_dist[1], 0, OMP_DIST_POLICY_BLOCK, 0, m, 0);
   		omp_map_add_halo_region(&__data_map_infos__[2], 1, 1, 1, OMP_DIST_HALO_EDGING_REFLECTING);
   	} else /* dist == 3 */{

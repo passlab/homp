@@ -143,7 +143,7 @@ double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL 
 	//  printf("init time: %fs\n", ompacc_init_time);
 	/* here we do not need sync start */
 	double off_total = read_timer_ms();
-	int it; int total_its = 10;
+	int it; int total_its = 1;
 	for (it=0; it<total_its; it++) {
 		omp_offloading_start(__off_info__, it==total_its-1);
 	}

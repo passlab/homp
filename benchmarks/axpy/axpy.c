@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     init(y, n);
     memcpy(y_ompacc, y, n * sizeof(REAL));
     REAL omp_time = read_timer_ms();
-// reference serial execution for error checking  
+    // reference serial execution for error checking  
     axpy(x, y, n, a);
     omp_time = (read_timer_ms() - omp_time);
 
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     int targets[num_active_devs];
     int num_targets = 1;
     double ompacc_time;
-
+#if 0
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
     /* two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 2);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
-#if 0
+
     /* one HOSTCPU and one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
@@ -116,7 +116,6 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
-#endif
 
     /* one HOSTCPU and four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
@@ -149,13 +148,14 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
+#endif
 
-#if 0
     /* run on all devices */
     num_targets = num_active_devs;
     int i;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
-#endif
+    ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
+
     omp_fini_devices();
     REAL cksm = check(y, y_ompacc, n);
     printf("axpy(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n", n, cksm, omp_get_num_active_devices());

@@ -336,8 +336,10 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #endif
 	}
 
+	long length = info->loop_dist_info[0].length; // - info->loop_dist_info[0].start;
+
 	printf("\n============ Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) shown as average ==============\n");
-	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\tMODELING OVERHEAD\n", info->loop_dist_info[0].length);
+	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\tMODELING OVERHEAD\n", length);
 	printf("-------------------------------------------------------------------------------------------------------------\n");
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
@@ -370,7 +372,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	//	events = &events[total_event_accumulated_index];
 	//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
 		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.4f\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)\t%.4f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
-		float percentage = 100*((float)off->loop_dist[0].length/(float)info->loop_dist_info[0].length);
+		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
 		printf("\t%d\t\t%.1f%%", off->loop_dist[0].length, percentage);
 
 		ev = &off->events[runtime_dist_modeling_index];
@@ -390,7 +392,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	char time_buff[100];
 	time_t now = time (0);
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
-	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, info->loop_dist_info[0].length, time_buff);
+	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, length, time_buff);
 	int events_to_print[misc_event_index_start];
 	int num_events_to_print = 7;
 	events_to_print[0] = total_event_accumulated_index;
@@ -434,9 +436,8 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	for (j=0; j<info->top->nnodes; j++) {
 		omp_offloading_t *off = &info->offloadings[j];
 
-		info->loop_dist_info[0].length;
 		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", info->loop_dist_info[0].length);
+		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", length);
 		while(lastdevid <= devid) {
 			fprintf(report_cvs_file, ",\t");
 			lastdevid++;
@@ -448,15 +449,14 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	for (j=0; j<info->top->nnodes; j++) {
 		omp_offloading_t *off = &info->offloadings[j];
 
-		info->loop_dist_info[0].length;
 		int devid = off->dev->id;
 		if (j == 0) fprintf(report_cvs_file, "DIST(\%)");
 		while(lastdevid <= devid) {
 			fprintf(report_cvs_file, ",\t");
 			lastdevid++;
 		}
-//		printf("%d:%d,", off->loop_dist[0].length, info->loop_dist_info[0].length);
-		float percentage = 100*((float)off->loop_dist[0].length/(float)info->loop_dist_info[0].length);
+//		printf("%d:%d,", off->loop_dist[0].length, length);
+		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
 		fprintf(report_cvs_file, "%.1f\%", percentage);
 	}
 	fprintf(report_cvs_file, "\n");
@@ -562,6 +562,7 @@ void omp_init_dist_info(omp_dist_info_t * dist_info, omp_dist_policy_t dist_poli
 						long length, int topdim) {
 	dist_info->start = start;
 	dist_info->length = length;
+	dist_info->end = start + length;
 	dist_info->policy = dist_policy;
 	dist_info->dim_index = topdim;
 }
@@ -902,7 +903,7 @@ void omp_dist_block(long start, long full_length, long position, int dim, long *
  * The general dist algorithm that applies to both data distribution and iteration distribution
  */
 void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t *top, int *coords, int seqid) {
-	long n = dist_info->length;
+	long n = dist_info->end - dist_info->start;
 	omp_device_t * dev = &omp_devices[top->idmap[seqid]];
 
 	int dim_index = dist_info->dim_index;
@@ -925,7 +926,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 
 		dist->offset = dist_info->start + map_offset;
 		dist->length = map_dim;
-	} else if (dist_info->policy == OMP_DIST_POLICY_DUPLICATE) { /* full rang dist_info */
+	} else if (dist_info->policy == OMP_DIST_POLICY_FULL) { /* full rang dist_info */
 		dist->length = n;
 		dist->offset = dist_info->start;
 	} else if (dist_info->policy == OMP_DIST_POLICY_ALIGN) {
@@ -1098,20 +1099,21 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			allBrs += anoff->Br;
 		}
 		//printf("allArs: %f, allBrs: %f\n", allArs, allBrs);
-		double T0 = (dist_info->length - allBrs)/allArs; /* the predicted execution time by all the devices of the loop */
+		int full_length = dist_info->end - dist_info->start;
+		double T0 = (full_length - allBrs)/allArs; /* the predicted execution time by all the devices of the loop */
 		/* now compute the offset and length for AUTO dist policy */
 		offset = 0;
 		for (i =0; i <off_info->top->nnodes; i++) {
 			omp_offloading_t * anoff = &off_info->offloadings[i];
 			long length = (long)(T0*anoff->Ar + anoff->Br + 0.5);
 			if (length <= 0) length = 0;
-			if (length >= dist_info->length) length = dist_info->length;
-			if (i == off_info->top->nnodes-1 && offset + length != dist_info->length) { /* fix rounding error */
-				length = dist_info->length - offset;
+			if (length >= full_length) length = full_length;
+			if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
+				length = full_length - offset;
 			}
 			if (seqid == i) {
-				dist->length = length;
 				dist->offset = offset;
+				dist->length = length;
 			}
 //			printf("LINEAR_MODEL_2: Dev %d: offset: %d, length: %d of total length: %d from start: %d, predicted exe time: %f\n",
 //				   i, offset, length, dist_info->length, dist_info->start, T0);
