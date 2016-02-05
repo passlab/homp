@@ -1,1 +1,1 @@
-OFFOMP: An Offloading OpenMP Runtime Library
+HOMP: A Hybrid OpenMP Runtime Library
