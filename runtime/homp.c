@@ -144,383 +144,6 @@ void omp_offloading_fini_info(omp_offloading_info_t * info) {
 	free(info);
 }
 
-#if defined (OMP_BREAKDOWN_TIMING)
-/**
- * sum up all the profiling info of the infos to a info at location 0, all the infos should have the same target and topology.
- * Will also align the start_time with the provided info if it has, otherwise,
- * the call make assumptions that the first info is the one start first and finish last.
- */
-void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time) {
-	int i, j, k;
-	omp_offloading_info_t *suminfo = infos[0];
-	if (start_time == 0) {
-		printf("suminfo start: %f\n", suminfo->start_time);
-	} else {
-		suminfo->start_time = start_time;
-		suminfo->compl_time = compl_time;
-	}
-	//sprintf(suminfo->name, "Accumulated Profiles %d Types of Offloading", count);
-	suminfo->name = "AccumulatedMultipleTypesofOffloading";
-	for (i = 0; i < suminfo->top->nnodes; i++) {
-		suminfo->offloadings[i].num_events = misc_event_index_start;
-	}
-	//printf("count: %d, #events: %d, #dev: %d\n", count, misc_event_index_start, suminfo->top->nnodes);
-
-	for (i = 0; i < suminfo->top->nnodes; i++) {
-		for (k = 0; k < misc_event_index_start; k++) {
-			omp_event_t *sumev = &(suminfo->offloadings[i].events[k]);
-			for (j = 1; j < count; j++) {
-				omp_offloading_info_t *info = infos[j];
-				omp_offloading_t *off = &info->offloadings[i];
-				omp_event_t *ev = &off->events[k];
-				sumev->elapsed_host += ev->elapsed_host;
-				sumev->elapsed_dev += ev->elapsed_dev;
-				//printf("%d %d %d\n", k, i, j);
-
-				if (sumev->event_name == NULL) sumev->event_name = ev->event_name;
-				//if (strlen(sumev->event_description) == 0) memcpy(sumev->event_description, ev->event_description, strlen(ev->event_description));
-			}
-			if (k == total_event_index) { /* 0, the first one */
-				sumev->start_time_host = suminfo->start_time;
-				sumev->start_time_dev = suminfo->start_time;
-			} else {
-				omp_event_t *lastev = &(suminfo->offloadings[i].events[k-1]);
-				sumev->start_time_host = lastev->start_time_host + lastev->elapsed_host;
-				sumev->start_time_dev = lastev->start_time_dev + lastev->elapsed_dev;
-			}
-		}
-	}
-}
-
-void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * filename) {
-	char *original_name = info->name;
-
-	int name_len = 4;
-	int guid_len = 8;
-	int recu_len = 6;
-	char name[name_len];
-	int i;
-	for (i=0; i<strlen(original_name) && i<name_len; i++) {
-		name[i] = original_name[i];
-	}
-	for (;i<name_len; i++) {
-		name[i] = '_';
-	}
-
-	int filename_length = name_len + 1 + guid_len + 1 + recu_len + 5 + 1;
-	sprintf(filename, "%*s", name_len, name);
-	sprintf(filename +name_len, "%s", "_");
-	sprintf(filename +name_len+1, "%0*X", guid_len, info);
-	sprintf(filename +name_len+1+guid_len, "%s", "_");
-	sprintf(filename +name_len+1+guid_len+1, "%0*d", recu_len, info->count);
-	sprintf(filename +name_len+1+guid_len+1+recu_len, "%s", ".plot");
-	filename[filename_length] = '\0';
-}
-
-
-double omp_event_get_elapsed(omp_event_t *ev) {
-	omp_event_record_method_t record_method = ev->record_method;
-	if (record_method == OMP_EVENT_HOST_RECORD) {
-		return ev->elapsed_host;
-	} else if (record_method == OMP_EVENT_DEV_RECORD) {
-		return ev->elapsed_dev;
-	}
-	return 0.0;
-}
-
-#if defined(PROFILE_PLOT)
-char *colors[] = {
-		"#FFFFFF", /* white */
-		"#FF0000", /* red */
-		"#00FF00", /* Lime */
-		"#0000FF", /* Blue */
-		"#FFFF00", /* Yellow */
-		"#00FFFF", /* Cyan/Aqua */
-		"#FF00FF", /* Megenta/Fuchsia */
-		"#808080", /* Gray */
-		"#800000", /* Maroon */
-		"#808000", /* Olive */
-		"#008000", /* Green */
-		"#800080", /* Purple */
-		"#008080", /* Teal */
-		"#000080", /* Navy */
-};
-#endif
-void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
-	int i, j;
-#if defined(PROFILE_PLOT)
-	char plotscript_filename[128];
-	omp_offloading_info_report_filename(info, plotscript_filename);
-	FILE * plotscript_file = fopen(plotscript_filename, "w+");
-	fprintf(plotscript_file, "set title \"Offloading (%s) Profile on %d Devices\"\n", info->name, info->top->nnodes);
-	int yoffset_per_entry = 10;
-	double xsize = (info->compl_time - info->start_time)*1.1;
-	double yrange = info->top->nnodes*yoffset_per_entry+12;
-	double xrange = yrange * 2.2;
-	double xratio = xrange/xsize; /* so new mapped len will be len*xratio */
-	fprintf(plotscript_file, "set yrange [0:%f]\n", yrange);
-	fprintf(plotscript_file, "set xlabel \"execution time in ms\"\n");
-	fprintf(plotscript_file, "set xrange [0:%f]\n", xrange);
-	fprintf(plotscript_file, "set style fill pattern 2 bo 1\n");
-	fprintf(plotscript_file, "set style rect fs solid 1 noborder\n");
-//	fprintf(plotscript_file, "set style line 1 lt 1 lw 1 lc rgb \"#000000\"\n");
-	fprintf(plotscript_file, "set border 15 lw 0.2\n");
-//	fprintf(plotscript_file, "set style line 2 lt 1 lw 1 lc rgb \"#9944CC\"\n");
-	fprintf(plotscript_file, "set xtics out nomirror\n");
-	fprintf(plotscript_file, "unset key\n");
-	fprintf(plotscript_file, "set ytics out nomirror (");
-	int yposoffset = 5;
-	omp_offloading_t *off;
-	for (i=0; i<info->top->nnodes; i++) {
-		off = &info->offloadings[i];
-		int devid = off->dev->id;
-		int devsysid = off->dev->sysid;
-		char *type = omp_get_device_typename(off->dev);
-		fprintf(plotscript_file, "\"dev %d(sysid:%d,type:%s)\" %d", devid, devsysid, type, yposoffset);
-		yposoffset += yoffset_per_entry;
-		if (i != info->top->nnodes - 1) fprintf(plotscript_file, ",");
-	}
-	fprintf(plotscript_file, ")\n");
-	int recobj_count = 1;
-	int legend_bottom = info->top->nnodes*yoffset_per_entry+5;
-	int legend_width = xrange/12 > 10? xrange/12: 10;
-	int legend_offset = legend_width/3;
-	for (j=1; j<misc_event_index_start; j++) {
-		omp_event_t * ev = &off->events[j];
-		if (ev->event_name != NULL) {
-			fprintf(plotscript_file, "set object %d rect from %d, %d to %d, %d fc rgb \"%s\"\n",
-				recobj_count++, legend_offset, legend_bottom,  legend_offset+legend_width, legend_bottom+3, colors[j]);
-			fprintf(plotscript_file, "set label \"%s\" at %d,%d font \"Helvetica,8\'\"\n\n", ev->event_name, legend_offset, legend_bottom-2);
-			legend_offset += legend_width + legend_width/3;
-		}
-	}
-/*
-set yrange [0:25.5]
-set xlabel "execution time in ms"
-set xrange [0:25]
-set style fill pattern 2 bo 1
-set style rect fs solid 1 noborder
-set style line 1 lt 1 lw 1 lc rgb "#000000"
-set border 15 lw 0.2
-set style line 2 lt 1 lw 1 lc rgb "#9944CC"
-set xtics out nomirror
-unset key
-# for each device, we have an entry like the following
-set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12, "device 4" 15)
-*/
-#endif
-
-	for (i=0; i<info->top->nnodes; i++) {
-		omp_offloading_t * off = &info->offloadings[i];
-		int devid = off->dev->id;
-		int devsysid = off->dev->sysid;
-		char * type = omp_get_device_typename(off->dev);
-		printf("\n-------------- Profiles (ms) for Offloading(%s) on %s dev %d (sysid: %d) ---------------\n", info->name,  type, devid, devsysid);
-		printf("-------------- Last TOTAL: %.2f, Last start: %.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
-		omp_event_print_profile_header();
-		for (j=0; j<off->num_events; j++) {
-			omp_event_t * ev = &off->events[j];
-			if (j == misc_event_index_start) printf("--------------------- Misc Report ------------------------------------------------------------\n");
-			if (ev->count) {
-//                printf("%d   ", j);
-				double start_time, elapsed;
-				omp_event_print_elapsed(ev, info->start_time, &start_time, &elapsed);
-#if defined(PROFILE_PLOT)
-				if (j>0 && j < misc_event_index_start) { /* only plot the major event */
-					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
-							recobj_count++, start_time, i * yoffset_per_entry,  (start_time + elapsed)*xratio, (i + 1) * yoffset_per_entry, colors[j]);
-				}
-#endif
-            }
-		}
-		printf("---------------- End Profiling Report for Offloading(%s) on dev: %d ----------------------------\n", info->name, devid);
-
-#if defined(PROFILE_PLOT)
-		fprintf(plotscript_file, "set arrow from  0,%d to %f,%d nohead\n", i * yoffset_per_entry, xrange, i * yoffset_per_entry);
-#endif
-	}
-
-	long length = info->loop_dist_info[0].length; // - info->loop_dist_info[0].start;
-
-	printf("\n============ Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) shown as average ==============\n");
-	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\tMODELING OVERHEAD\n", length);
-	printf("-------------------------------------------------------------------------------------------------------------\n");
-	for (i=0; i<info->top->nnodes; i++) {
-		omp_offloading_t * off = &info->offloadings[i];
-		int devid = off->dev->id;
-		int devsysid = off->dev->sysid;
-		char * type = omp_get_device_typename(off->dev);
-
-		/* mapto */
-		omp_event_t * ev = &off->events[acc_mapto_event_index];
-		int mapto_count = ev->count;
-		double mapto_time_ms = (mapto_count != 0) ? omp_event_get_elapsed(ev)/mapto_count: 0;
-
-		/* kern */
-		ev = &off->events[acc_kernel_exe_event_index];
-		int kernel_count = ev->count;
-		double kern_time_ms = (kernel_count != 0) ? omp_event_get_elapsed(ev)/kernel_count: 0;
-
-		/* mapfrom */
-		ev = &off->events[acc_mapfrom_event_index];
-		int mapfrom_count = ev->count;
-		double mapfrom_time_ms = (mapfrom_count != 0) ? omp_event_get_elapsed(ev)/mapfrom_count: 0;
-
-		/* data exchange */
-		ev = &off->events[acc_ex_event_index];
-		int ex_count = ev->count;
-		double ex_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev)/ex_count: 0;
-
-		double accu_total_ms = mapto_time_ms + kern_time_ms + mapfrom_time_ms + ex_time_ms;
-
-	//	events = &events[total_event_accumulated_index];
-	//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
-		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.2f\t\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
-		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
-		printf("\t%d\t\t%.1f%%", off->loop_dist[0].length, percentage);
-
-		ev = &off->events[runtime_dist_modeling_index];
-		if (ev->event_name != NULL) {
-			int modeling_count = ev->count;
-			double modeling_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev) / modeling_count : 0;
-			printf("\t%.1f(%d) %.1f%%\n", modeling_time_ms, modeling_count, (modeling_time_ms/accu_total_ms)*100.0);
-		}
-		printf("\n");
-	}
-	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
-
-	/* write the report to a CSV file */
-	char report_cvs_filename[128];
-	sprintf(report_cvs_filename, "%s.csv\0", info->name);
-	FILE * report_cvs_file = fopen(report_cvs_filename, "a+");
-	char time_buff[100];
-	time_t now = time (0);
-	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
-	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, length, time_buff);
-	int events_to_print[misc_event_index_start];
-	int num_events_to_print = 7;
-	events_to_print[0] = total_event_accumulated_index;
-	events_to_print[1] = acc_mapto_event_index;
-	events_to_print[2] = acc_kernel_exe_event_index;
-	events_to_print[3] = acc_mapfrom_event_index;
-	events_to_print[4] = acc_ex_event_index;
-	events_to_print[5] = total_event_index;
-	events_to_print[6] = runtime_dist_modeling_index;
-
-	for (i=0; i<omp_num_devices; i++) {
-		omp_device_t * dev = &omp_devices[i];
-		int devid = dev->id;
-		int devsysid = dev->sysid;
-		char * type = omp_get_device_typename(dev);
-		fprintf(report_cvs_file, ",%s:%d(sysid:%d)", type, devid, devsysid);
-	}
-	fprintf(report_cvs_file, "\n");
-	int lastdevid = 0;
-	for (i=0; i<num_events_to_print; i++) {
-		int j;
-		lastdevid = 0;
-		for (j=0; j<info->top->nnodes; j++) {
-			omp_offloading_t *off = &info->offloadings[j];
-			int devid = off->dev->id;
-			omp_event_t * ev = &off->events[events_to_print[i]];
-			if (ev->event_name == NULL) continue;
-			int count = ev->count;
-			double time_ms = (count != 0) ? omp_event_get_elapsed(ev)/count: 0;
-			if (j == 0) fprintf(report_cvs_file, "%s", ev->event_name);
-			while(lastdevid <= devid) {
-				fprintf(report_cvs_file, ",\t");
-				lastdevid++;
-			}
-			fprintf(report_cvs_file, "%.4f", time_ms);
-		}
-		fprintf(report_cvs_file, "\n");
-	}
-
-	lastdevid = 0;
-	for (j=0; j<info->top->nnodes; j++) {
-		omp_offloading_t *off = &info->offloadings[j];
-
-		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", length);
-		while(lastdevid <= devid) {
-			fprintf(report_cvs_file, ",\t");
-			lastdevid++;
-		}
-		fprintf(report_cvs_file, "%d", off->loop_dist[0].length);
-	}
-	fprintf(report_cvs_file, "\n");
-	lastdevid = 0;
-	for (j=0; j<info->top->nnodes; j++) {
-		omp_offloading_t *off = &info->offloadings[j];
-
-		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DIST(\%)");
-		while(lastdevid <= devid) {
-			fprintf(report_cvs_file, ",\t");
-			lastdevid++;
-		}
-//		printf("%d:%d,", off->loop_dist[0].length, length);
-		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
-		fprintf(report_cvs_file, "%.1f\%", percentage);
-	}
-	fprintf(report_cvs_file, "\n");
-	lastdevid = 0;
-	for (j=0; j<info->top->nnodes; j++) {
-		omp_offloading_t *off = &info->offloadings[j];
-		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DEV GFLOPS");
-		while(lastdevid <= devid) {
-			fprintf(report_cvs_file, ",\t");
-			lastdevid++;
-		}
-		fprintf(report_cvs_file, "%.1f", off->dev->total_real_flopss);
-	}
-	fprintf(report_cvs_file, "\n");
-
-	fprintf(report_cvs_file, "-------------------------------------------------------------------------------------------------\n\n");
-	fclose(report_cvs_file);
-
-#if defined(PROFILE_PLOT)
-	fprintf(plotscript_file, "plot 0\n");
-	fclose(plotscript_file);
-#endif
-}
-
-void omp_event_print_profile_header() {
-    printf("%*s    TOTAL     AVE(#Calls) Last Start Host/dev Measure\tDescription\n",
-            OMP_EVENT_NAME_LENGTH-1, "Name");
-}
-
-void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed) {
-    omp_event_record_method_t record_method = ev->record_method;
-    if (record_method == OMP_EVENT_HOST_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
-		*start_time = ev->start_time_host - reference;
-		*elapsed = ev->elapsed_host;
-    } else if (record_method == OMP_EVENT_DEV_RECORD) {
-        printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
-		*start_time = ev->start_time_dev - reference;;
-		*elapsed = ev->elapsed_dev;
-    } else {
-		printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
-		printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
-                OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
-		*start_time = ev->start_time_host - reference;;
-		*elapsed = ev->elapsed_host;
-    }
-}
-#endif
-
-char * omp_get_device_typename(omp_device_t * dev) {
-	int i;
-	for (i=0; i<OMP_NUM_DEVICE_TYPES; i++) {
-		if (omp_device_types[i].type == dev->type) return omp_device_types[i].shortname;
-	}
-	return NULL;
-}
 
 // Initialize data_map_info
 void omp_data_map_init_info(const char *symbol, omp_data_map_info_t *info, omp_offloading_info_t *off_info,
@@ -1963,6 +1586,383 @@ void omp_topology_get_neighbors(omp_grid_topology_t * top, int seqid, int topdim
 }
 
 
+#if defined (OMP_BREAKDOWN_TIMING)
+/**
+ * sum up all the profiling info of the infos to a info at location 0, all the infos should have the same target and topology.
+ * Will also align the start_time with the provided info if it has, otherwise,
+ * the call make assumptions that the first info is the one start first and finish last.
+ */
+void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time) {
+	int i, j, k;
+	omp_offloading_info_t *suminfo = infos[0];
+	if (start_time == 0) {
+		printf("suminfo start: %f\n", suminfo->start_time);
+	} else {
+		suminfo->start_time = start_time;
+		suminfo->compl_time = compl_time;
+	}
+	//sprintf(suminfo->name, "Accumulated Profiles %d Types of Offloading", count);
+	suminfo->name = "AccumulatedMultipleTypesofOffloading";
+	for (i = 0; i < suminfo->top->nnodes; i++) {
+		suminfo->offloadings[i].num_events = misc_event_index_start;
+	}
+	//printf("count: %d, #events: %d, #dev: %d\n", count, misc_event_index_start, suminfo->top->nnodes);
+
+	for (i = 0; i < suminfo->top->nnodes; i++) {
+		for (k = 0; k < misc_event_index_start; k++) {
+			omp_event_t *sumev = &(suminfo->offloadings[i].events[k]);
+			for (j = 1; j < count; j++) {
+				omp_offloading_info_t *info = infos[j];
+				omp_offloading_t *off = &info->offloadings[i];
+				omp_event_t *ev = &off->events[k];
+				sumev->elapsed_host += ev->elapsed_host;
+				sumev->elapsed_dev += ev->elapsed_dev;
+				//printf("%d %d %d\n", k, i, j);
+
+				if (sumev->event_name == NULL) sumev->event_name = ev->event_name;
+				//if (strlen(sumev->event_description) == 0) memcpy(sumev->event_description, ev->event_description, strlen(ev->event_description));
+			}
+			if (k == total_event_index) { /* 0, the first one */
+				sumev->start_time_host = suminfo->start_time;
+				sumev->start_time_dev = suminfo->start_time;
+			} else {
+				omp_event_t *lastev = &(suminfo->offloadings[i].events[k-1]);
+				sumev->start_time_host = lastev->start_time_host + lastev->elapsed_host;
+				sumev->start_time_dev = lastev->start_time_dev + lastev->elapsed_dev;
+			}
+		}
+	}
+}
+
+void omp_offloading_info_report_filename(omp_offloading_info_t * info, char * filename) {
+	char *original_name = info->name;
+
+	int name_len = 4;
+	int guid_len = 8;
+	int recu_len = 6;
+	char name[name_len];
+	int i;
+	for (i=0; i<strlen(original_name) && i<name_len; i++) {
+		name[i] = original_name[i];
+	}
+	for (;i<name_len; i++) {
+		name[i] = '_';
+	}
+
+	int filename_length = name_len + 1 + guid_len + 1 + recu_len + 5 + 1;
+	sprintf(filename, "%*s", name_len, name);
+	sprintf(filename +name_len, "%s", "_");
+	sprintf(filename +name_len+1, "%0*X", guid_len, info);
+	sprintf(filename +name_len+1+guid_len, "%s", "_");
+	sprintf(filename +name_len+1+guid_len+1, "%0*d", recu_len, info->count);
+	sprintf(filename +name_len+1+guid_len+1+recu_len, "%s", ".plot");
+	filename[filename_length] = '\0';
+}
+
+
+double omp_event_get_elapsed(omp_event_t *ev) {
+	omp_event_record_method_t record_method = ev->record_method;
+	if (record_method == OMP_EVENT_HOST_RECORD) {
+		return ev->elapsed_host;
+	} else if (record_method == OMP_EVENT_DEV_RECORD) {
+		return ev->elapsed_dev;
+	}
+	return 0.0;
+}
+
+#if defined(PROFILE_PLOT)
+char *colors[] = {
+		"#FFFFFF", /* white */
+		"#FF0000", /* red */
+		"#00FF00", /* Lime */
+		"#0000FF", /* Blue */
+		"#FFFF00", /* Yellow */
+		"#00FFFF", /* Cyan/Aqua */
+		"#FF00FF", /* Megenta/Fuchsia */
+		"#808080", /* Gray */
+		"#800000", /* Maroon */
+		"#808000", /* Olive */
+		"#008000", /* Green */
+		"#800080", /* Purple */
+		"#008080", /* Teal */
+		"#000080", /* Navy */
+};
+#endif
+void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
+	int i, j;
+#if defined(PROFILE_PLOT)
+	char plotscript_filename[128];
+	omp_offloading_info_report_filename(info, plotscript_filename);
+	FILE * plotscript_file = fopen(plotscript_filename, "w+");
+	fprintf(plotscript_file, "set title \"Offloading (%s) Profile on %d Devices\"\n", info->name, info->top->nnodes);
+	int yoffset_per_entry = 10;
+	double xsize = (info->compl_time - info->start_time)*1.1;
+	double yrange = info->top->nnodes*yoffset_per_entry+12;
+	double xrange = yrange * 2.2;
+	double xratio = xrange/xsize; /* so new mapped len will be len*xratio */
+	fprintf(plotscript_file, "set yrange [0:%f]\n", yrange);
+	fprintf(plotscript_file, "set xlabel \"execution time in ms\"\n");
+	fprintf(plotscript_file, "set xrange [0:%f]\n", xrange);
+	fprintf(plotscript_file, "set style fill pattern 2 bo 1\n");
+	fprintf(plotscript_file, "set style rect fs solid 1 noborder\n");
+//	fprintf(plotscript_file, "set style line 1 lt 1 lw 1 lc rgb \"#000000\"\n");
+	fprintf(plotscript_file, "set border 15 lw 0.2\n");
+//	fprintf(plotscript_file, "set style line 2 lt 1 lw 1 lc rgb \"#9944CC\"\n");
+	fprintf(plotscript_file, "set xtics out nomirror\n");
+	fprintf(plotscript_file, "unset key\n");
+	fprintf(plotscript_file, "set ytics out nomirror (");
+	int yposoffset = 5;
+	omp_offloading_t *off;
+	for (i=0; i<info->top->nnodes; i++) {
+		off = &info->offloadings[i];
+		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char *type = omp_get_device_typename(off->dev);
+		fprintf(plotscript_file, "\"dev %d(sysid:%d,type:%s)\" %d", devid, devsysid, type, yposoffset);
+		yposoffset += yoffset_per_entry;
+		if (i != info->top->nnodes - 1) fprintf(plotscript_file, ",");
+	}
+	fprintf(plotscript_file, ")\n");
+	int recobj_count = 1;
+	int legend_bottom = info->top->nnodes*yoffset_per_entry+5;
+	int legend_width = xrange/12 > 10? xrange/12: 10;
+	int legend_offset = legend_width/3;
+	for (j=1; j<misc_event_index_start; j++) {
+		omp_event_t * ev = &off->events[j];
+		if (ev->event_name != NULL) {
+			fprintf(plotscript_file, "set object %d rect from %d, %d to %d, %d fc rgb \"%s\"\n",
+				recobj_count++, legend_offset, legend_bottom,  legend_offset+legend_width, legend_bottom+3, colors[j]);
+			fprintf(plotscript_file, "set label \"%s\" at %d,%d font \"Helvetica,8\'\"\n\n", ev->event_name, legend_offset, legend_bottom-2);
+			legend_offset += legend_width + legend_width/3;
+		}
+	}
+/*
+set yrange [0:25.5]
+set xlabel "execution time in ms"
+set xrange [0:25]
+set style fill pattern 2 bo 1
+set style rect fs solid 1 noborder
+set style line 1 lt 1 lw 1 lc rgb "#000000"
+set border 15 lw 0.2
+set style line 2 lt 1 lw 1 lc rgb "#9944CC"
+set xtics out nomirror
+unset key
+# for each device, we have an entry like the following
+set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12, "device 4" 15)
+*/
+#endif
+
+	for (i=0; i<info->top->nnodes; i++) {
+		omp_offloading_t * off = &info->offloadings[i];
+		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char * type = omp_get_device_typename(off->dev);
+		printf("\n-------------- Profiles (ms) for Offloading(%s) on %s dev %d (sysid: %d) ---------------\n", info->name,  type, devid, devsysid);
+		printf("-------------- Last TOTAL: %.2f, Last start: %.2f ---------------------\n", info->compl_time - info->start_time, info->start_time);
+		omp_event_print_profile_header();
+		for (j=0; j<off->num_events; j++) {
+			omp_event_t * ev = &off->events[j];
+			if (j == misc_event_index_start) printf("--------------------- Misc Report ------------------------------------------------------------\n");
+			if (ev->count) {
+//                printf("%d   ", j);
+				double start_time, elapsed;
+				omp_event_print_elapsed(ev, info->start_time, &start_time, &elapsed);
+#if defined(PROFILE_PLOT)
+				if (j>0 && j < misc_event_index_start) { /* only plot the major event */
+					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
+							recobj_count++, start_time, i * yoffset_per_entry,  (start_time + elapsed)*xratio, (i + 1) * yoffset_per_entry, colors[j]);
+				}
+#endif
+			}
+		}
+		printf("---------------- End Profiling Report for Offloading(%s) on dev: %d ----------------------------\n", info->name, devid);
+
+#if defined(PROFILE_PLOT)
+		fprintf(plotscript_file, "set arrow from  0,%d to %f,%d nohead\n", i * yoffset_per_entry, xrange, i * yoffset_per_entry);
+#endif
+	}
+
+	long length = info->loop_dist_info[0].length; // - info->loop_dist_info[0].start;
+
+	printf("\n============ Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) shown as average ==============\n");
+	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\tMODELING OVERHEAD\n", length);
+	printf("-------------------------------------------------------------------------------------------------------------\n");
+	for (i=0; i<info->top->nnodes; i++) {
+		omp_offloading_t * off = &info->offloadings[i];
+		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char * type = omp_get_device_typename(off->dev);
+
+		/* mapto */
+		omp_event_t * ev = &off->events[acc_mapto_event_index];
+		int mapto_count = ev->count;
+		double mapto_time_ms = (mapto_count != 0) ? omp_event_get_elapsed(ev)/mapto_count: 0;
+
+		/* kern */
+		ev = &off->events[acc_kernel_exe_event_index];
+		int kernel_count = ev->count;
+		double kern_time_ms = (kernel_count != 0) ? omp_event_get_elapsed(ev)/kernel_count: 0;
+
+		/* mapfrom */
+		ev = &off->events[acc_mapfrom_event_index];
+		int mapfrom_count = ev->count;
+		double mapfrom_time_ms = (mapfrom_count != 0) ? omp_event_get_elapsed(ev)/mapfrom_count: 0;
+
+		/* data exchange */
+		ev = &off->events[acc_ex_event_index];
+		int ex_count = ev->count;
+		double ex_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev)/ex_count: 0;
+
+		double accu_total_ms = mapto_time_ms + kern_time_ms + mapfrom_time_ms + ex_time_ms;
+
+		//	events = &events[total_event_accumulated_index];
+		//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
+		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.2f\t\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
+		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
+		printf("\t%d\t\t%.1f%%", off->loop_dist[0].length, percentage);
+
+		ev = &off->events[runtime_dist_modeling_index];
+		if (ev->event_name != NULL) {
+			int modeling_count = ev->count;
+			double modeling_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev) / modeling_count : 0;
+			printf("\t%.1f(%d) %.1f%%\n", modeling_time_ms, modeling_count, (modeling_time_ms/accu_total_ms)*100.0);
+		}
+		printf("\n");
+	}
+	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
+
+	/* write the report to a CSV file */
+	char report_cvs_filename[128];
+	sprintf(report_cvs_filename, "%s.csv\0", info->name);
+	FILE * report_cvs_file = fopen(report_cvs_filename, "a+");
+	char time_buff[100];
+	time_t now = time (0);
+	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
+	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, length, time_buff);
+	int events_to_print[misc_event_index_start];
+	int num_events_to_print = 7;
+	events_to_print[0] = total_event_accumulated_index;
+	events_to_print[1] = acc_mapto_event_index;
+	events_to_print[2] = acc_kernel_exe_event_index;
+	events_to_print[3] = acc_mapfrom_event_index;
+	events_to_print[4] = acc_ex_event_index;
+	events_to_print[5] = total_event_index;
+	events_to_print[6] = runtime_dist_modeling_index;
+
+	for (i=0; i<omp_num_devices; i++) {
+		omp_device_t * dev = &omp_devices[i];
+		int devid = dev->id;
+		int devsysid = dev->sysid;
+		char * type = omp_get_device_typename(dev);
+		fprintf(report_cvs_file, ",%s:%d(sysid:%d)", type, devid, devsysid);
+	}
+	fprintf(report_cvs_file, "\n");
+	int lastdevid = 0;
+	for (i=0; i<num_events_to_print; i++) {
+		int j;
+		lastdevid = 0;
+		for (j=0; j<info->top->nnodes; j++) {
+			omp_offloading_t *off = &info->offloadings[j];
+			int devid = off->dev->id;
+			omp_event_t * ev = &off->events[events_to_print[i]];
+			if (ev->event_name == NULL) continue;
+			int count = ev->count;
+			double time_ms = (count != 0) ? omp_event_get_elapsed(ev)/count: 0;
+			if (j == 0) fprintf(report_cvs_file, "%s", ev->event_name);
+			while(lastdevid <= devid) {
+				fprintf(report_cvs_file, ",\t");
+				lastdevid++;
+			}
+			fprintf(report_cvs_file, "%.4f", time_ms);
+		}
+		fprintf(report_cvs_file, "\n");
+	}
+
+	lastdevid = 0;
+	for (j=0; j<info->top->nnodes; j++) {
+		omp_offloading_t *off = &info->offloadings[j];
+
+		int devid = off->dev->id;
+		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", length);
+		while(lastdevid <= devid) {
+			fprintf(report_cvs_file, ",\t");
+			lastdevid++;
+		}
+		fprintf(report_cvs_file, "%d", off->loop_dist[0].length);
+	}
+	fprintf(report_cvs_file, "\n");
+	lastdevid = 0;
+	for (j=0; j<info->top->nnodes; j++) {
+		omp_offloading_t *off = &info->offloadings[j];
+
+		int devid = off->dev->id;
+		if (j == 0) fprintf(report_cvs_file, "DIST(\%)");
+		while(lastdevid <= devid) {
+			fprintf(report_cvs_file, ",\t");
+			lastdevid++;
+		}
+//		printf("%d:%d,", off->loop_dist[0].length, length);
+		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
+		fprintf(report_cvs_file, "%.1f\%", percentage);
+	}
+	fprintf(report_cvs_file, "\n");
+	lastdevid = 0;
+	for (j=0; j<info->top->nnodes; j++) {
+		omp_offloading_t *off = &info->offloadings[j];
+		int devid = off->dev->id;
+		if (j == 0) fprintf(report_cvs_file, "DEV GFLOPS");
+		while(lastdevid <= devid) {
+			fprintf(report_cvs_file, ",\t");
+			lastdevid++;
+		}
+		fprintf(report_cvs_file, "%.1f", off->dev->total_real_flopss);
+	}
+	fprintf(report_cvs_file, "\n");
+
+	fprintf(report_cvs_file, "-------------------------------------------------------------------------------------------------\n\n");
+	fclose(report_cvs_file);
+
+#if defined(PROFILE_PLOT)
+	fprintf(plotscript_file, "plot 0\n");
+	fclose(plotscript_file);
+#endif
+}
+
+void omp_event_print_profile_header() {
+	printf("%*s    TOTAL     AVE(#Calls) Last Start Host/dev Measure\tDescription\n",
+		   OMP_EVENT_NAME_LENGTH-1, "Name");
+}
+
+void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed) {
+	omp_event_record_method_t record_method = ev->record_method;
+	if (record_method == OMP_EVENT_HOST_RECORD) {
+		printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
+		*start_time = ev->start_time_host - reference;
+		*elapsed = ev->elapsed_host;
+	} else if (record_method == OMP_EVENT_DEV_RECORD) {
+		printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
+		*start_time = ev->start_time_dev - reference;;
+		*elapsed = ev->elapsed_dev;
+	} else {
+		printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
+		printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
+		*start_time = ev->start_time_host - reference;;
+		*elapsed = ev->elapsed_host;
+	}
+}
+#endif
+
+char * omp_get_device_typename(omp_device_t * dev) {
+	int i;
+	for (i=0; i<OMP_NUM_DEVICE_TYPES; i++) {
+		if (omp_device_types[i].type == dev->type) return omp_device_types[i].shortname;
+	}
+	return NULL;
+}
 
 
 /* read timer in second */
