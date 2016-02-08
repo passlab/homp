@@ -49,6 +49,7 @@ typedef struct omp_offloading omp_offloading_t;
 #define OMP_ALL_DIMENSIONS -1
 /* the LONG_MIN */
 #define OMP_ALIGNEE_START -2147483647
+#define CACHE_LINE_SIZE 64
 
 /**
  * multiple device support
@@ -169,6 +170,7 @@ struct omp_device {
 	omp_data_map_t ** resident_data_maps; /* a link-list or an array for resident data maps (data maps cross multiple offloading region */
 
 	pthread_t helperth;
+	char padding[CACHE_LINE_SIZE];
 };
 
 /**
@@ -246,22 +248,23 @@ typedef struct omp_event {
 #if defined (OMP_BREAKDOWN_TIMING)
 enum event_index {
 	total_event_index = 0,       		/* host event */
-	total_event_accumulated_index,   /* host event */
-	timing_init_event_index, 		/* host event */
-	map_init_event_index,  			/* host event */
-	runtime_dist_modeling_index,    /* host event for measuring the runtime modeling overhead */
+	total_event_accumulated_index,  	/* host event */
+	timing_init_event_index, 			/* host event */
+	map_init_event_index,  				/* host event */
+	map_dist_alloc_event_index,  		/* host event */
+	runtime_dist_modeling_index,    	/* host event for measuring the runtime modeling overhead */
 
-	acc_mapto_event_index, 			/* dev event */
-	acc_kernel_exe_event_index,		/* dev event */
+	acc_mapto_event_index, 				/* dev event */
+	acc_kernel_exe_event_index,			/* dev event */
 	acc_ex_pre_barrier_event_index, 	/* host event */
-	acc_ex_event_index,  			/* host event for data exchange such as halo xchange */
+	acc_ex_event_index,  				/* host event for data exchange such as halo xchange */
 	acc_ex_post_barrier_event_index,	/* host event */
 	acc_mapfrom_event_index,			/* dev event */
 
-	sync_cleanup_event_index,		/* host event */
-	barrier_wait_event_index,		/* host event */
+	sync_cleanup_event_index,			/* host event */
+	barrier_wait_event_index,			/* host event */
 
-	misc_event_index_start,      	/* other events, e.g. mapto/from for each array, start with 9*/
+	misc_event_index_start,      		/* other events, e.g. mapto/from for each array, start with 9*/
 };
 
 extern void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time);
@@ -317,11 +320,18 @@ typedef enum omp_dist_policy {
 	OMP_DIST_POLICY_BLOCK,
 	OMP_DIST_POLICY_FULL,
 	OMP_DIST_POLICY_ALIGN,
-	OMP_DIST_POLICY_AUTO, /* the balanced data distribution so computation is balanced distributed, ideally. Used with iteration dist */
-	OMP_DIST_POLICY_SCHEDULE, /* schedule the iteration/elements so that the balance is autmatically through scheduling, used with iteration dist */
-	OMP_DIST_POLICY_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
 	OMP_DIST_POLICY_CYCLIC, /* user defined */
 	OMP_DIST_POLICY_FIX, /* fixed dist */
+	OMP_DIST_POLICY_STATIC_RATIO, /* dist according to a user-specified ratio */
+	OMP_DIST_POLICY_SCHEDULE_STATIC, /* schedule the iteration/elements so that the balance is automatically through
+							   * scheduling of multiple small chunks of the same size identified using chunk_size field */
+	OMP_DIST_POLICY_SCHEDULE_DYNAMIC, /* schedule the iteration/elements so that the balance is automatically through
+							   * scheduling of multiple small chunks of gradulatelly changed sizes starting
+							   * from chunk_size field. The algorithm of changing the chunk size is system-specific */
+	OMP_DIST_POLICY_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
+	OMP_DIST_POLICY_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
+                           * model for load balance. The model makes best-efforts and one-time decision
+                           * to distribute all iterations */
 } omp_dist_policy_t;
 
 typedef enum omp_dist_target_type {
@@ -332,12 +342,14 @@ typedef enum omp_dist_target_type {
  * Info object for dist (array and iteration)
  */
 typedef struct omp_dist_info {
+	volatile long start; /* the start index for the dim of the original array */
+	char padding[CACHE_LINE_SIZE];
 	omp_dist_policy_t policy; /* the dist policy */
-	long start; /* the start index for the dim of the original array */
 	long end; /* the upper bound of the dist, not inclusive */
 	long length;   /* the length (total # element to be distributed) */
 	long stride; /* stride between ele, default 1 of course */
-	long chunk_size;
+	long chunk_size; /* initial chunk size for OMP_DIST_POLICY_SCHEDULE_STATIC policy */
+
 	int dim_index; /* the index of top dim to apply dist, for block, duplicate, auto. For ALIGN, this is dim at the alignee*/
 
 	omp_dist_target_type_t alignee_type; /* a data map or a loop iteration */
@@ -356,6 +368,12 @@ typedef struct omp_dist_info {
 		omp_data_map_info_t * data_map_info;
 	};
 	*/
+
+	/*
+	 * A flag used to tell whether re-distribution is needed or not after the initial one if this dist is to be used again
+	 * For example, if this dist aligns with another one that keep changing, e.g. SCHEDULE or PROFILE_AUTO policy
+	 * we will set this flag so realignment will be performed */
+	int redist_needed;
 } omp_dist_info_t;
 
 typedef enum omp_dist_halo_edging_type {
@@ -400,6 +418,7 @@ struct omp_data_map_info {
 	  */
 	int num_halo_dims; /* a simple flag for checking whether this map has halo or not */
 	omp_data_map_halo_region_info_t halo_info[OMP_MAX_NUM_DIMENSIONS]; /* it is an num_dims array */
+	int remap_needed;
 };
 
 /** a data map can only be changed by the shepherd thread of the device that map is belong to, but
@@ -408,11 +427,10 @@ struct omp_data_map_info {
  */
 typedef enum omp_data_map_access_level {
 	OMP_DATA_MAP_ACCESS_LEVEL_0, /* garbage value */
-	OMP_DATA_MAP_ACCESS_LEVEL_1, /* basic info, such as dev, info, is there */
-	OMP_DATA_MAP_ACCESS_LEVEL_2, /* map_dim, offset, etc info is there */
-	OMP_DATA_MAP_ACCESS_LEVEL_3, /* if halo, halo neightbors are set up, and halo buffers are allocated */
-	OMP_DATA_MAP_ACCESS_LEVEL_4, /* dev mem buffer is allocated */
-
+	OMP_DATA_MAP_ACCESS_LEVEL_INIT, /* basic info, such as dev, info, is there */
+	OMP_DATA_MAP_ACCESS_LEVEL_DIST, /* map_dim, offset, etc info is there */
+	OMP_DATA_MAP_ACCESS_LEVEL_HALO, /* if halo, halo neightbors are set up, and halo buffers are allocated */
+	OMP_DATA_MAP_ACCESS_LEVEL_MALLOC, /* dev mem buffer is allocated */
 } omp_data_map_access_level_t;
 
 typedef struct omp_data_map_halo_region_mem {
@@ -448,6 +466,7 @@ typedef struct omp_data_map_halo_region_mem {
 	char * right_in_host_relay_ptr;
 	volatile int right_in_data_in_relay_pushed;
 	volatile int right_in_data_in_relay_pulled;
+	char padding[CACHE_LINE_SIZE];
 } omp_data_map_halo_region_mem_t;
 
 /**
@@ -457,6 +476,10 @@ typedef struct omp_dist {
 	omp_dist_info_t * info; /* not yet used so far */
 	long offset;
 	long length;
+	omp_data_map_access_level_t access_level;
+	float ratio; /* a user specified distribution ratio */
+
+	char padding[CACHE_LINE_SIZE];
 } omp_dist_t;
 
 /* for each device, we maintain a list such objects, each for one mapped array */
@@ -484,6 +507,7 @@ struct omp_data_map {
 
 	int mem_noncontiguous;
 	//omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
+	char padding[CACHE_LINE_SIZE];
 };
 
 /**
@@ -589,6 +613,7 @@ struct omp_offloading_info {
 	/* max three level of loop nest */
 	omp_dist_info_t loop_dist_info[OMP_MAX_NUM_DIMENSIONS];
 	int loop_depth; /* max 3 so far */
+	int loop_redist_needed; /* a flag for telling whether redistribution is needed after the initial one */
 
 	/* the universal kernel launcher and args, the helper thread will use this one if no dev-specific one is provided */
 	/* the helper thread will first check these two field, if they are not null, it will use them, otherwise, it will use the dev-specific one */
@@ -656,6 +681,7 @@ struct omp_offloading {
 	long X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
 	void *args;
 	void (*kernel_launcher)(omp_offloading_t *, void *); /* device specific kernel, if any */
+	char padding[CACHE_LINE_SIZE];
 };
 
 /* init the device objects, num_of_devices, helper threads, default_device_var ICV etc 
@@ -721,11 +747,10 @@ extern void omp_data_map_info_set_dims_3d(omp_data_map_info_t * info, long dim0,
 
 extern void omp_print_map_info(omp_data_map_info_t * info);
 
-extern void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dist_policy_t dist_policy,
-										long start, long length, int topdim);
-extern void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy,
-									long start,
-									long length, int topdim);
+extern void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dist_policy_t dist_policy, long start,
+										long length, int chunk_size, int topdim);
+extern void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy, long start,
+									long length, int chunk_size, int topdim);
 extern void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, long start,
                                                      omp_data_map_info_t *alignee, int alignee_dim);
 extern void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, long start,
@@ -737,8 +762,8 @@ extern void omp_loop_dist_align_with_data_map(omp_offloading_info_t *loop_off_in
 extern void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level, long start,
                                    omp_offloading_info_t *alignee, int alignee_level);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev);
-extern void omp_data_map_dist(omp_data_map_t *map, int seqid);
-extern void omp_loop_iteration_dist(omp_offloading_t * off);
+extern long omp_data_map_dist(omp_data_map_t *map, int seqid);
+extern long omp_loop_iteration_dist(omp_offloading_t *off);
 extern void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left, int right,
 									omp_dist_halo_edging_type_t edging);
 //extern int omp_data_map_has_halo(omp_data_map_info_t * info, int dim);

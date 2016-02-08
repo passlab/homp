@@ -17,7 +17,10 @@ set(RUNTIME_SOURCE_FILES
 set(AXPY_SOURCE_FILES
     benchmarks/axpy/axpy.c
     benchmarks/axpy/axpy.h
-    benchmarks/axpy/axpy_ompacc.c)
+    benchmarks/axpy/axpy_ompacc.c
+        benchmarks/axpy/axpy_cpu_omp_kernel.c
+        benchmarks/axpy/axpy_nvgpu_cuda_kernel.cu
+        benchmarks/axpy/axpy_itlmic_kernel.c)
 
 set(MATVEC_SOURCE_FILES
     benchmarks/matvec/matvec.c
