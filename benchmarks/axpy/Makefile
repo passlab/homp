@@ -12,7 +12,7 @@ BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING
 # Turn on one of the following to use one of the two models for distribution
 # LINEAR_MODEL_1: dist according to flops
 # LINEAR_MODEL_2: dist according to both flops and data movement
-#BASE_CFLAGS += -DLINEAR_MODEL_1=1
+# BASE_CFLAGS += -DLINEAR_MODEL_1=1
 BASE_CFLAGS += -DLINEAR_MODEL_2=1
 
 # CFLAGS for NVGPU_CUDA support

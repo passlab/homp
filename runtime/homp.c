@@ -144,7 +144,6 @@ void omp_offloading_fini_info(omp_offloading_info_t * info) {
 	free(info);
 }
 
-
 // Initialize data_map_info
 void omp_data_map_init_info(const char *symbol, omp_data_map_info_t *info, omp_offloading_info_t *off_info,
                             void *source_ptr, int num_dims, int sizeof_element, omp_data_map_direction_t map_direction,
@@ -185,7 +184,6 @@ void omp_data_map_info_set_dims_3d(omp_data_map_info_t * info, long dim0, long d
 	info->dims[2] = dim2;
 }
 
-
 void omp_init_dist_info(omp_dist_info_t *dist_info, omp_dist_policy_t dist_policy, long start, long length,
 						int chunk_size, int topdim) {
 	dist_info->start = start;
@@ -216,7 +214,7 @@ void omp_loop_dist_static_ratio(omp_offloading_info_t *off_info, int level, long
 	omp_init_dist_info(dist_info, OMP_DIST_POLICY_STATIC_RATIO, start, length, 0, topdim);
 	int i;
 	for (i=0; i<off_info->top->dims[topdim]; i++) {
-
+		/* TODO: */
 	}
 }
 
@@ -366,26 +364,6 @@ void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int lev
 	loop_off_info->loop_redist_needed = alignee->loop_redist_needed;
 }
 
-/*
-int omp_data_map_has_halo(omp_data_map_info_t * info, int dim) {
-	if (info->halo_info == NULL) return 0;
-	if (info->halo_info[dim].left == 0 && info->halo_info[dim].right == 0) return 0;
-	return 1;
-}
-
-int omp_data_map_get_halo_left_devseqid(omp_data_map_t * map, int dim) {
-	if (omp_data_map_has_halo(map->info, dim) == 0) return -1;
-	return (map->halo_mem[dim].left_dev_seqid);
-}
-
-int omp_data_map_get_halo_right_devseqid(omp_data_map_t * map, int dim) {
-	if (omp_data_map_has_halo(map->info, dim) == 0) return -1;
-	return (map->halo_mem[dim].right_dev_seqid);
-}
-
-*/
-
-
 omp_data_map_t *omp_map_offcache_iterator(omp_offloading_t *off, int index, int * inherited) {
 	if (index >= off->num_maps) return NULL;
 	*inherited = off->map_cache[index].inherited;
@@ -518,8 +496,10 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_d
 		map->map_type = OMP_DATA_MAP_COPY;
 	}
 	int i;
-	for (i=0; i<info->num_dims; i++)
-		map->map_dist[i].access_level = OMP_DATA_MAP_ACCESS_LEVEL_INIT;
+	for (i=0; i<info->num_dims; i++) {
+		map->map_dist[i].counter = 0;
+		map->map_dist[i].next = NULL;
+	}
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_INIT;
 }
 
@@ -567,8 +547,11 @@ static __inline__ int __homp_cas(volatile int *ptr, int ag, int x) {
 /**
  * The general dist algorithm that applies to both data distribution and iteration distribution
  */
-void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t *top, int *coords, int seqid) {
-	long n = dist_info->end - dist_info->start;
+void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t *top, int *coords, int seqid, int dim) {
+	long full_length = dist_info->end - dist_info->start;
+	long offset = 0;
+	long length = 0;
+	int i;
 	omp_device_t * dev = &omp_devices[top->idmap[seqid]];
 
 	int dim_index = dist_info->dim_index;
@@ -577,22 +560,21 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		int topdimcoord = coords[dim_index]; /* dim_indx is top dim the dist is applied onto */
 		int topdimsize = top->dims[dim_index];
 		/* partition the array region into subregion and save it to the map */
-		long remaint = n % topdimsize;
-		long esize = n / topdimsize;
+		long remaint = full_length % topdimsize;
+		long esize = full_length / topdimsize;
 		//	printf("n: %d, seqid: %d, map_dist: topdimsize: %d, remaint: %d, esize: %d\n", n, seqid, topdimsize, remaint, esize);
-		long map_dim, map_offset;
 		if (topdimcoord < remaint) { /* each of the first remaint dev has one more element */
-			map_dim = esize + 1;
-			map_offset = (esize + 1) * topdimcoord;
+			length = esize + 1;
+			offset = (esize + 1) * topdimcoord;
 		} else {
-			map_dim = esize;
-			map_offset = esize * topdimcoord + remaint;
+			length = esize;
+			offset = esize * topdimcoord + remaint;
 		}
 
-		dist->offset = dist_info->start + map_offset;
-		dist->length = map_dim;
+		dist->offset = dist_info->start + offset;
+		dist->length = length;
 	} else if (dist_info->policy == OMP_DIST_POLICY_FULL) { /* full rang dist_info */
-		dist->length = n;
+		dist->length = full_length;
 		dist->offset = dist_info->start;
 	} else if (dist_info->policy == OMP_DIST_POLICY_ALIGN) {
 		omp_dist_info_t *alignee_dist_info = NULL;
@@ -649,8 +631,6 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		if (events != NULL)
 			omp_event_record_start(&events[runtime_dist_modeling_index]);
 #endif
-		long offset = 0;
-		int i;
 #ifdef LINEAR_MODEL_1
 		/* compute the total capability */
 		double total_flops = 0.0;
@@ -661,13 +641,14 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 
 		for (i =0; i <off_info->top->nnodes; i++) {
 			double flops = off_info->offloadings[i].dev->total_real_flopss;
-			long length = (flops/total_flops) * dist_info->length + 0.5; /* +0.5 is for rounding, so 3.4->4, and 3.5->4 */
-			if (i == off_info->top->nnodes-1 && offset + length != dist_info->length) { /* fix rounding error */
-				length = dist_info->length - offset;
+			length = (flops/total_flops) * full_length + 0.5; /* +0.5 is for rounding, so 3.4->4, and 3.5->4 */
+			if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
+				length = full_length - offset;
 			}
 			if (off->devseqid == i) {
 				dist->length = length;
 				dist->offset = offset;
+				break;
 			}
 			//printf("LINEAR_MODEL_1: Dev %d (%f GFlops/s): offset: %d, length: %d of total length: %d from start: %d\n", i, flops, offset, length, dist_info->length, dist_info->start);
 			offset += length;
@@ -695,6 +676,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		 */
 
 		/* this serves as fast cache for later alignment */
+		offset = 0;
 		struct align_map {
 			omp_data_map_t * map;
 			omp_dist_t * align_dist;
@@ -720,7 +702,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 				omp_dist_info_t *andist_info = &map_info->dist_info[j];
 				omp_dist_t * map_dist = &map->map_dist[j];
 				if (andist_info->policy != OMP_DIST_POLICY_ALIGN) { /* all non-auto distribution dimension, we will just do it */
-					omp_dist(andist_info, map_dist, top, coords, seqid);
+					omp_dist(andist_info, map_dist, top, coords, seqid, j);
 					map_size *= map_dist->length;
 				} else {/* ALIGN policy, and so far, we only handle one-dimension ALIGN with loop*/
 					align_maps[i].map = map;
@@ -765,13 +747,11 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			allBrs += anoff->Br;
 		}
 		//printf("allArs: %f, allBrs: %f\n", allArs, allBrs);
-		int full_length = dist_info->end - dist_info->start;
 		double T0 = (full_length - allBrs)/allArs; /* the predicted execution time by all the devices of the loop */
 		/* now compute the offset and length for AUTO dist policy */
-		offset = 0;
 		for (i =0; i <off_info->top->nnodes; i++) {
 			omp_offloading_t * anoff = &off_info->offloadings[i];
-			long length = (long)(T0*anoff->Ar + anoff->Br + 0.5);
+			length = (long)(T0*anoff->Ar + anoff->Br + 0.5);
 			if (length <= 0) length = 0;
 			if (length >= full_length) length = full_length;
 			if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
@@ -801,25 +781,124 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			omp_event_record_stop(&events[runtime_dist_modeling_index]);
 #endif
 	} else if (dist_info->policy == OMP_DIST_POLICY_STATIC_RATIO) { /* simply distribute according to a user specified ratio */
-
-
+		omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
+		for (i =0; i <off_info->top->nnodes; i++) {
+			omp_offloading_t * anoff = &off_info->offloadings[i];
+			length = full_length * anoff->loop_dist[dim].ratio;
+			if (length <= 0) length = 0;
+			if (length >= full_length) length = full_length;
+			if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
+				length = full_length - offset;
+			}
+			if (seqid == i) {
+				dist->offset = offset;
+				dist->length = length;
+				break;
+			}
+//			printf("STATIC_RATIO: Dev %d: offset: %d, length: %d of total length: %d from start: %d, predicted exe time: %f\n",
+//				   i, offset, length, dist_info->length, dist_info->start, T0);
+			offset += length;
+		}
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHEDULE_STATIC) { /* only for loop */
 		/* get next chunk */
-retry:;
-		int chunk_size = dist_info->chunk_size;
-		int start = dist_info->start;
-		int new_start = start + chunk_size;
-		if (new_start > dist_info->end) {
-			chunk_size = dist_info->end - start;
-			new_start = start + chunk_size;
-		}
-		if (chunk_size >=0 ) {
-			if (!__homp_cas(&dist_info->start, start, new_start)) goto retry;
-			dist->offset = new_start;
-			dist->length = chunk_size;
-		} else {
-			dist->offset = new_start;
-			dist->length = 0;
+		length = dist_info->chunk_size;
+		do {
+			offset = dist_info->start;
+			int new_offset = offset + length;
+			if (new_offset > dist_info->end) {
+				length = dist_info->end - offset;
+				if (length <= 0) {
+					length = 0;
+					break;
+				}
+				new_offset = offset + length;
+			}
+			if (length > 0) {
+				if (__homp_cas(&dist_info->start, offset, new_offset)) break;
+			}
+		} while (1);
+		dist->offset = offset;
+		dist->length = length;
+	} else if (dist_info->policy == OMP_DIST_POLICY_SCHEDULE_DYNAMIC) { /* only for loop */
+		length = dist->length / 2; /* cut in half each time to pick a chunk */
+		if (length < 10) length = 10; /* minimum 10 iterations per chunk */
+		do {
+			offset = dist_info->start;
+			int new_offset = offset + length;
+			if (new_offset > dist_info->end) {
+				length = dist_info->end - offset;
+				if (length <= 0) {
+					length = 0;
+					break;
+				}
+				new_offset = offset + length;
+			}
+			if (length > 0) {
+				if (__homp_cas(&dist_info->start, offset, new_offset)) break;
+			}
+		} while (1);
+		dist->offset = offset;
+		dist->length = length;
+	} else if (dist_info->policy == OMP_DIST_POLICY_PROFILE_AUTO) { /* only for loop */
+#ifndef OMP_BREAKDOWN_TIMING
+		printf("OMP_BREAKDOWN_TIMING must be set to use OMP_DIST_POLICY_PROFILE_AUTO policy\n");
+#endif
+        /* two dists are needed for this policy and we use counter for that */
+		if (dist->counter == 0) { /* SCHEDULE_STATIC policy */
+			length = dist_info->chunk_size;
+			do {
+				offset = dist_info->start;
+				int new_offset = offset + length;
+				if (new_offset > dist_info->end) {
+					length = dist_info->end - offset;
+					if (length <= 0) {
+						length = 0;
+						break;
+					}
+					new_offset = offset + length;
+				}
+				if (length > 0) {
+					if (__homp_cas(&dist_info->start, offset, new_offset)) break;
+				}
+			} while (1);
+			dist->offset = offset;
+			dist->length = length;
+//			printf("PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d from start: %d, predicted exe time: %f\n",
+//				   i, offset, length, dist_info->length, dist_info->start, T0);
+		} else { /* similar to ratio policy */
+			omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
+			full_length = dist_info->end - dist_info->start;
+			offset = 0;
+			for (i =0; i <off_info->top->nnodes; i++) {
+				omp_offloading_t * anoff = &off_info->offloadings[i];
+				omp_event_t * ev = &anoff->events[total_event_accumulated_index];
+				int evcount = ev->count;
+				if (evcount != 1) {
+					printf("Assertation failure for total_event_accumulated_index events, it should be called only once, but it is %d\n", evcount);
+				}
+				double Ti = omp_event_get_elapsed(ev);
+				double ratio = 0.0;
+				int j;
+				for (j=0; j<off_info->top->nnodes; j++) {
+					ratio += Ti/omp_event_get_elapsed(&off_info->offloadings[j].events[total_event_accumulated_index]);
+				}
+				length = full_length * ratio;
+
+				if (length <= 0) length = 0;
+				if (length >= full_length) length = full_length;
+				if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
+					length = full_length - offset;
+				}
+				if (seqid == i) {
+					dist->offset = offset;
+					dist->length = length;
+					break;
+				}
+
+				offset += length;
+//			printf("PROFILE_AUTO, AUTO: Dev %d: offset: %d, length: %d of total length: %d from start: %d, predicted exe time: %f\n",
+//				   i, offset, length, dist_info->length, dist_info->start, T0);
+			}
 		}
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n",
@@ -827,7 +906,7 @@ retry:;
 		abort();
 		exit(1);
 	}
-	dist->access_level < OMP_DATA_MAP_ACCESS_LEVEL_DIST;
+	dist->counter++;
 }
 
 /* return the total amount of distribution */
@@ -846,7 +925,7 @@ long omp_loop_iteration_dist(omp_offloading_t *off) {
 		omp_dist_info_t *dist_info = &off_info->loop_dist_info[i];
 		off->loop_dist[i].info = dist_info;
 
-		omp_dist(dist_info, &off->loop_dist[i], top, coords, off->devseqid);
+		omp_dist(dist_info, &off->loop_dist[i], top, coords, off->devseqid, i);
 		total *= off->loop_dist[i].length;
 	}
 
@@ -896,7 +975,7 @@ long omp_data_map_dist(omp_data_map_t *map, int seqid) {
 			omp_dist(dist_info, &map->map_dist[i], top, coords, seqid);
 		} else if (dist_info->redist_needed) /* if this is align and we are re-enter,  we need to dist regardless of whatever */
 #endif
-		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid);
+		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, i);
 
 		long length = map->map_dist[i].length;
 		long offset = map->map_dist[i].offset;

@@ -476,8 +476,18 @@ typedef struct omp_dist {
 	omp_dist_info_t * info; /* not yet used so far */
 	long offset;
 	long length;
-	omp_data_map_access_level_t access_level;
 	float ratio; /* a user specified distribution ratio */
+
+	/*
+	 * For the same data/loop, the proxy thread may apply mapping/dist multiple times.
+	 * we use either a counter to keep track of how may mapping/dist operations have been applied, thus reuse the object,
+	 * but we will loop the information since each mapping/dist overwrites previous info.
+	 * Or we create a link-list using the next field to track all the mapping/dist operations.
+	 *
+	 * The same approaches are used in data maps
+	 */
+	int counter;
+	struct omp_dist * next;
 
 	char padding[CACHE_LINE_SIZE];
 } omp_dist_t;
@@ -488,6 +498,15 @@ struct omp_data_map {
 	omp_data_map_info_t * info;
     omp_device_t * dev;
 	omp_data_map_type_t map_type;
+
+	/*
+	 * For the same data/loop, the proxy thread may apply mapping/dist multiple times.
+	 * we use either a counter to keep track of how may mapping/dist operations have been applied, thus reuse the object,
+	 * but we will loop the information since each mapping/dist overwrites previous info.
+	 * Or we create a link-list using the next field to track all the mapping/dist operations.
+	 */
+	int counter;
+	struct omp_data_map * next;
 
 	/* the subarray for the mapped region, including the offset and length */
 	omp_dist_t map_dist[OMP_MAX_NUM_DIMENSIONS];
@@ -727,6 +746,7 @@ extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_print_profile_header();
 extern void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed);
 extern double omp_event_elapsed_ms(omp_event_t *ev);
+extern double omp_event_get_elapsed(omp_event_t *ev);
 extern double omp_event_accumulate_elapsed_ms(omp_event_t *ev, double offset);
 extern void omp_offloading_clear_report_info(omp_offloading_info_t * info);
 

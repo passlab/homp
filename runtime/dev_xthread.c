@@ -460,7 +460,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	}
 
 	omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[off_info->loop_depth].policy;
-	if (loop_dist_policy == OMP_DIST_POLICY_SCHEDULE_STATIC) {
+	if (loop_dist_policy == OMP_DIST_POLICY_SCHEDULE_STATIC || loop_dist_policy == OMP_DIST_POLICY_SCHEDULE_DYNAMIC) {
 		int num_iterations = 0;
 		do {
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -472,6 +472,8 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_accumulate_elapsed_ms(events, num_events);
 #endif
+        /* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
+		pthread_barrier_wait(&off_info->inter_dev_barrier);
 		secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 	}
 
