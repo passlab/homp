@@ -2,30 +2,66 @@
 #include "homp.h"
 
 #if 0
-/* v2: explicit distribution of both data and loop:
+/* v1: explicit distribution of both data and loop:
  * the y[0:n], and x[0:n] will be evenly distributed among the ndev devices,
  * scalars such as a and n will each have a mapped copy in all the devices, loop will also be evenly distributed */
-void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
-#pragma omp target device (*) map(tofrom: y[0:n] dist_data(BLOCK)) map(to: x[0:n] dist_data(BLOCK),a,n)
-#pragma omp parallel for shared(x, y, n, a) dist_iteration(BLOCK)
+void axpy_mdev_v1(REAL* x, REAL* y,  long n, REAL a) {
+#pragma omp parallel target device (*) map(tofrom: y[0:n] distribute(BLOCK)) map(to: x[0:n] distribute(BLOCK),a,n)
+#pragma omp parallel for shared(x, y, n, a) distribute(BLOCK)
   for (i = 0; i < n; ++i)
     y[i] += a * x[i];
 }
 
-/* v3: block distribute array x and y and let the loop distribution aligh with x
+/* v2: block distribute array x and y and let the loop distribution aligh with x
+ */
+void axpy_mdev_v2(REAL* x, REAL* y,  long n, REAL a) {
+#pragma omp parallel target device (*) map(tofrom: y[0:n] distribute(BLOCK)) map(to: x[0:n] distribute(BLOCK),a,n)
+#pragma omp parallel for shared(x, y, n, a) distribute(BIND(x))
+  for (i = 0; i < n; ++i)
+    y[i] += a * x[i];
+}
+
+/* v3: AUTO-distribute the loop iteration and let the distribution of array x and y to be bound with loop distribution.
  */
 void axpy_mdev_v3(REAL* x, REAL* y,  long n, REAL a) {
-#pragma omp target device (*) map(tofrom: y[0:n] dist_data(BLOCK)) map(to: x[0:n] dist_data(BLOCK),a,n)
-#pragma omp parallel for shared(x, y, n, a) dist_iteration(ALIGN(x))
+#pragma omp parallel target device (*) map(tofrom: y[0:n] distribute(BIND)) map(to: x[0:n] distribute(BIND),a,n)
+#pragma omp parallel for shared(x, y, n, a) distribute(AUTO)
   for (i = 0; i < n; ++i)
     y[i] += a * x[i];
 }
 
-/* v4: AUTO-distribute the loop iteration and let the distribution of array x and y to be aligned with loop distribution.
+/* v4: SCHEDULE_STATIC(n)-distribute the loop iteration and let the distribution of array x and y to be bound with loop distribution.
  */
 void axpy_mdev_v4(REAL* x, REAL* y,  long n, REAL a) {
-#pragma omp target device (*) map(tofrom: y[0:n] dist_data(ALIGN)) map(to: x[0:n] dist_data(ALIGN),a,n)
-#pragma omp parallel for shared(x, y, n, a) dist_iteration(AUTO)
+#pragma omp parallel target device (*) map(tofrom: y[0:n] distribute(BIND)) map(to: x[0:n] distribute(BIND),a,n)
+#pragma omp parallel for shared(x, y, n, a) distribute(STATIC(10))
+  for (i = 0; i < n; ++i)
+    y[i] += a * x[i];
+}
+
+/* v5: SCHEDULE_DYNAMIC(n)-distribute the loop iteration and let the distribution of array x and y to be bound with loop distribution.
+ */
+void axpy_mdev_v5(REAL* x, REAL* y,  long n, REAL a) {
+#pragma omp parallel target device (*) map(tofrom: y[0:n] distribute(BIND)) map(to: x[0:n] distribute(BIND),a,n)
+#pragma omp parallel for shared(x, y, n, a) distribute(DYNAMIC(10))
+  for (i = 0; i < n; ++i)
+    y[i] += a * x[i];
+}
+
+/* v6: SCHEDULE_GUIDED(n)-distribute the loop iteration and let the distribution of array x and y to be bound with loop distribution.
+ */
+void axpy_mdev_v6(REAL* x, REAL* y,  long n, REAL a) {
+#pragma omp parallel target device (*) map(tofrom: y[0:n] distribute(BIND)) map(to: x[0:n] distribute(BIND),a,n)
+#pragma omp parallel for shared(x, y, n, a) distribute(GUIDED(10))
+  for (i = 0; i < n; ++i)
+    y[i] += a * x[i];
+}
+
+/* v7: SCHEDULE_GUIDED(n)-distribute the loop iteration and let the distribution of array x and y to be bound with loop distribution.
+ */
+void axpy_mdev_v7(REAL* x, REAL* y,  long n, REAL a) {
+#pragma omp parallel target device (*) map(tofrom: y[0:n] distribute(BIND)) map(to: x[0:n] distribute(BIND),a,n)
+#pragma omp parallel for shared(x, y, n, a) distribute(PROFILE_AUTO(10))
   for (i = 0; i < n; ++i)
     y[i] += a * x[i];
 }
@@ -90,7 +126,7 @@ static void axpy_dev_kernel_demux(omp_offloading_t *off, void *args) {
 		abort();
 	}
 }
-int axpy_mdev_v = 2;
+
 double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL a) {
 	double ompacc_init_time = read_timer_ms();
 
@@ -117,23 +153,24 @@ double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL 
 	omp_data_map_init_info("y", __y_map_info__, __off_info__, y, 1, sizeof(REAL), OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO);
 	omp_data_map_info_set_dims_1d(__y_map_info__, n);
 
-	if (axpy_mdev_v == 3) { /* version 3 */
-		omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-		//omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-		omp_data_map_dist_align_with_data_map(__y_map_info__, 0, 0, __x_map_info__, 0);
-		omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __x_map_info__, 0);
-		printf("version 3: BLOCK dist policy for x and y, and loop dist aligns with x\n");
-	} else if (axpy_mdev_v == 4) {/* version 4 */
-		omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0, 0);
-		omp_data_map_dist_align_with_loop(__x_map_info__, 0, 0, __off_info__, 0);
-		omp_data_map_dist_align_with_loop(__y_map_info__, 0, 0, __off_info__, 0);
-		printf("version 4: AUTO dist policy for loop, and x and y align with loop dist\n");
-	} else { /* default, version 2, block */
-		omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-		omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-		omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-		printf("version 2: BLOCK dist policy for x, y, and loop\n");
-	}
+#if 0
+    /* test BLOCK policy */
+	omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+	omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+	omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+	printf("version 2: BLOCK dist policy for x, y, and loop\n");
+
+	/* test loop binding to data */
+	omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+	//omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+	omp_data_map_dist_align_with_data_map(__y_map_info__, 0, 0, __x_map_info__, 0);
+	omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __x_map_info__, 0);
+	printf("version 3: BLOCK dist policy for x and y, and loop dist binds with x\n");
+#endif
+
+	omp_loop_dist_init_info(__off_info__, 0, LOOP_DIST_POLICY, 0, n, LOOP_DIST_CHUNK_SIZE, 0);
+	omp_data_map_dist_align_with_loop(__x_map_info__, 0, 0, __off_info__, 0);
+	omp_data_map_dist_align_with_loop(__y_map_info__, 0, 0, __off_info__, 0);
 
 	/*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG

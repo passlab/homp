@@ -460,7 +460,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	}
 
 	omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[off_info->loop_depth].policy;
-	if (loop_dist_policy == OMP_DIST_POLICY_SCHEDULE_STATIC || loop_dist_policy == OMP_DIST_POLICY_SCHEDULE_DYNAMIC) {
+	if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
 		int num_iterations = 0;
 		do {
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -468,7 +468,7 @@ void omp_offloading_run(omp_device_t * dev) {
 #endif
 			num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 		} while(num_iterations);
-	} else if (loop_dist_policy == OMP_DIST_POLICY_PROFILE_AUTO){
+	} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO){
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_accumulate_elapsed_ms(events, num_events);
 #endif

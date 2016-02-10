@@ -72,41 +72,22 @@ REAL check_accdiff(const REAL *output, const REAL *reference, const long dimx, c
 void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *filter, int num_its);
 void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its);
 
-int dist_dim;
-int dist_policy;
-int num_runs = 1;
-
 int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
 	int radius = 3;
 	int num_its = 5000;
 
-    fprintf(stderr,"Usage: jacobi [dist_dim(1|2|3)] [dist_policy(1|2|3)] [<n> <m> <radius> <num_its>]\n");
-	fprintf(stderr, "\tdist_dim: 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
-	fprintf(stderr, "\tdist_policy: 1: block_block; 2: block_align; 3: auto_align; default 1\n");
+    fprintf(stderr,"Usage: jacobi [<n> <m> <radius> <num_its>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
     fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
     fprintf(stderr, "\tradius - Filter radius, default: %d\n", radius);
     fprintf(stderr, "\tnum_its  - # iterations for iterative solver, default: %d\n", num_its);
 
-	dist_dim = 1;
-	dist_policy = 1;
-	if (argc >= 2) dist_dim = atoi(argv[1]);
-	if (argc >= 3) dist_policy = atoi(argv[2]);
-	if (dist_dim != 1 && dist_dim != 2 && dist_dim != 3) {
-		fprintf(stderr, "Unknown dist dimensions: %d, now fall to default (1)\n", dist_dim);
-		dist_dim = 1;
-	}
-	if (dist_policy != 1 && dist_policy != 2 && dist_policy != 3) {
-		fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist_policy);
-		dist_policy = 1;
-	}
-
-    if (argc == 4)      { sscanf(argv[3], "%d", &n); m = n; }
-    else if (argc == 5) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); }
-    else if (argc == 6) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &radius); }
-    else if (argc == 7) { sscanf(argv[3], "%d", &n); sscanf(argv[4], "%d", &m); sscanf(argv[5], "%d", &radius); sscanf(argv[6], "%d", &num_its); }
+    if (argc == 2)      { sscanf(argv[1], "%d", &n); m = n; }
+    else if (argc == 3) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); }
+    else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); }
+    else if (argc == 5) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); sscanf(argv[4], "%d", &num_its); }
     else {
     	/* the rest of arg ignored */
     }
@@ -143,6 +124,7 @@ int main(int argc, char * argv[]) {
 	printf("OMP execution\n");
 	REAL omp_elapsed = read_timer_ms();
 	int i;
+	int num_runs = 1;
 //	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
 	omp_elapsed = (read_timer_ms() - omp_elapsed)/num_runs;
 

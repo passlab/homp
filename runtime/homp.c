@@ -10,8 +10,56 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-
 #include "homp.h"
+
+#define num_allowed_dist_policies 5
+#define default_dist_policy_index 0
+omp_dist_policy_argument_t omp_dist_policy_args[num_allowed_dist_policies] = {
+		{OMP_DIST_POLICY_BLOCK,         		-1,     "OMP_DIST_POLICY_BLOCK", 				"BLOCK"},
+		{OMP_DIST_POLICY_SCHED_DYNAMIC, 		100,    "OMP_DIST_POLICY_SCHED_DYNAMIC",   		"SCHED_DYNAMIC"},
+		{OMP_DIST_POLICY_SCHED_GUIDED, 			100,	"OMP_DIST_POLICY_SCHED_GUIDED",  		"SCHED_GUIDED"},
+		{OMP_DIST_POLICY_SCHED_PROFILE_AUTO,	100,	"OMP_DIST_POLICY_SCHED_PROFILE_AUTO",	"SCHED_PROFILE_AUTO"},
+		{OMP_DIST_POLICY_SCHED_AUTO,        	-1, 	"OMP_DIST_POLICY_SCHED_AUTO",   		"SCHED_AUTO"},
+};
+
+void omp_print_dist_policy_options() {
+	int i;
+	printf("==========================================================================================================================\n");
+	printf("Usage: Loop distribution policy can be specified by setting LOOP_DIST_POLICY environment variable to one of the following:\n");
+	printf("  The first number is the policy id, and the second number is the chunk size. If it is -1, the chunk size is not used.\n");
+	for (i=0; i < num_allowed_dist_policies; i++) {
+		printf("\t%d,<n>:\t%s, full name: %s, default n: %d\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name, omp_dist_policy_args[i].chunk);
+	}
+	i= default_dist_policy_index;
+	printf("\t--------------------------------------------------------------------------------------------------------------------\n");
+	printf("\tDefault: %d,%d:\t%s, full name: %s\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].chunk, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name);
+	printf("==========================================================================================================================\n");
+
+}
+
+omp_dist_policy_t omp_read_dist_policy_options(int * chunk_size) {
+	omp_dist_policy_t p;
+	char *dist_policy_str = getenv("LOOP_DIST_POLICY");
+	int i = num_allowed_dist_policies;
+	if (dist_policy_str != NULL) {
+		sscanf(dist_policy_str, "%d,%d", &p, chunk_size);
+		for (i = 0; i < num_allowed_dist_policies; i++) {
+			if (omp_dist_policy_args[i].type == p) break;
+		}
+	}
+	if (i == num_allowed_dist_policies) {
+		i = default_dist_policy_index;
+		p = omp_dist_policy_args[i].type;
+		*chunk_size = omp_dist_policy_args[i].chunk;
+	}
+//	printf("Dist policy: %d,%d: %s, full name: %s\n", omp_dist_policy_args[i].type, *chunk_size, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name);
+	printf("Dist policy and chunk size are set and stored in the following two global variables that can be used in the program.\n");
+	printf("\tLOOP_DIST_POLICY     = %d (%s)\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].name);
+	printf("\tLOOP_DIST_CHUNK_SIZE = %d\n", *chunk_size);
+	printf("==========================================================================================================================\n\n");
+
+	return p;
+}
 
 /* we use as minimum malloc as posibble, so the mem layout is as follows:
  * -----------------------------------------
@@ -205,13 +253,16 @@ void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dis
 							 long length, int chunk_size, int topdim) {
 	omp_dist_info_t * dist_info = &off_info->loop_dist_info[level];
 	omp_init_dist_info(dist_info, dist_policy, start, length, chunk_size, topdim);
-	if (dist_policy == OMP_DIST_POLICY_SCHEDULE_STATIC || dist_policy == OMP_DIST_POLICY_SCHEDULE_DYNAMIC || dist_policy == OMP_DIST_POLICY_PROFILE_AUTO)
+	if (dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC ||
+		dist_policy == OMP_DIST_POLICY_SCHED_GUIDED ||
+		dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO ) {
 		dist_info->redist_needed = 1; /* multiple distributions are needed after the initial one */
+	}
 }
 
 void omp_loop_dist_static_ratio(omp_offloading_info_t *off_info, int level, long start, long length, float * ratios, int topdim) {
 	omp_dist_info_t * dist_info = &off_info->loop_dist_info[level];
-	omp_init_dist_info(dist_info, OMP_DIST_POLICY_STATIC_RATIO, start, length, 0, topdim);
+	omp_init_dist_info(dist_info, OMP_DIST_POLICY_SCHED_STATIC_RATIO, start, length, 0, topdim);
 	int i;
 	for (i=0; i<off_info->top->dims[topdim]; i++) {
 		/* TODO: */
@@ -612,7 +663,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		dist->length = alignee_dist->length;
 		dist->offset = alignee_dist->offset - alignee_dist_info->start + dist_info->start;
 //		printf("aligned dist on dev %d: offset: %d, length: %d\n", seqid, alignee_dist->offset, alignee_dist->length);
-	} else if (dist_info->policy == OMP_DIST_POLICY_AUTO) {
+	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_AUTO) {
 		/* in LINEAR_MODEL_1, only computation is considered */
 		if (dist_info->target_type == OMP_DIST_TARGET_LOOP_ITERATION ) {
 		} else {
@@ -780,7 +831,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		if (events != NULL)
 			omp_event_record_stop(&events[runtime_dist_modeling_index]);
 #endif
-	} else if (dist_info->policy == OMP_DIST_POLICY_STATIC_RATIO) { /* simply distribute according to a user specified ratio */
+	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_STATIC_RATIO) { /* simply distribute according to a user specified ratio */
 		omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
 		for (i =0; i <off_info->top->nnodes; i++) {
 			omp_offloading_t * anoff = &off_info->offloadings[i];
@@ -799,7 +850,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 //				   i, offset, length, dist_info->length, dist_info->start, T0);
 			offset += length;
 		}
-	} else if (dist_info->policy == OMP_DIST_POLICY_SCHEDULE_STATIC) { /* only for loop */
+	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_DYNAMIC) { /* only for loop */
 		/* get next chunk */
 		length = dist_info->chunk_size;
 		do {
@@ -819,7 +870,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		} while (1);
 		dist->offset = offset;
 		dist->length = length;
-	} else if (dist_info->policy == OMP_DIST_POLICY_SCHEDULE_DYNAMIC) { /* only for loop */
+	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_GUIDED) { /* only for loop */
 		length = dist->length / 2; /* cut in half each time to pick a chunk */
 		if (length < 10) length = 10; /* minimum 10 iterations per chunk */
 		do {
@@ -839,9 +890,9 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		} while (1);
 		dist->offset = offset;
 		dist->length = length;
-	} else if (dist_info->policy == OMP_DIST_POLICY_PROFILE_AUTO) { /* only for loop */
+	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) { /* only for loop */
 #ifndef OMP_BREAKDOWN_TIMING
-		printf("OMP_BREAKDOWN_TIMING must be set to use OMP_DIST_POLICY_PROFILE_AUTO policy\n");
+		printf("OMP_BREAKDOWN_TIMING must be set to use OMP_DIST_POLICY_SCHED_PROFILE_AUTO policy\n");
 #endif
         /* two dists are needed for this policy and we use counter for that */
 		if (dist->counter == 0) { /* SCHEDULE_STATIC policy */

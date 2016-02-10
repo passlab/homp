@@ -35,14 +35,17 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
     long offset;
     long start;
     long len;
-    if (dist_dim == 1) {
-        offset = omp_loop_get_range(off, 0, &start, &len);
-    } else if (dist_dim == 2) {
-        omp_loop_get_range(off, 0, &start, &len);
-    } else /* vx == 3) */ {
-        omp_loop_get_range(off, 0, &start, &len); /* todo */
-        omp_loop_get_range(off, 0, &start, &len); /* todo */
-    }
+
+    /* row-wise dist */
+    offset = omp_loop_get_range(off, 0, &start, &len);
+
+#if 0
+    /* col-wise dist */
+    omp_loop_get_range(off, 0, &start, &len);
+    /* row/col-wise dist */
+    omp_loop_get_range(off, 0, &start, &len); /* todo */
+    omp_loop_get_range(off, 0, &start, &len); /* todo */
+#endif
 
     omp_device_type_t devtype = off->dev->type;
     void (*stencil2d_kernel_wrapper)(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u,
@@ -69,7 +72,7 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
     omp_event_record_stop(&events[acc_kernel_exe_event_index]); /* match the runtime start */
     omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
     for (it = 0; it < num_its; it++) {
-        omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
+        omp_event_record_start(&events[acc_kernel_exe_event_index]);
         REAL * uu;
         REAL ** uuold;
         omp_data_map_t * halo_map;
@@ -87,15 +90,15 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
         omp_event_record_stop(&events[acc_kernel_exe_event_index]);
         omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
 
-        omp_event_record_start(&events[acc_ex_pre_barrier_event_index], NULL, "PRE_BAR_X", "Time for barrier sync before data exchange between devices");
+        omp_event_record_start(&events[acc_ex_pre_barrier_event_index]);
         pthread_barrier_wait(&off->off_info->inter_dev_barrier);
         omp_event_record_stop(&events[acc_ex_pre_barrier_event_index]);
 
-        omp_event_record_start(&events[acc_ex_event_index], NULL, "DATA_X", "Time for data exchange between devices");
+        omp_event_record_start(&events[acc_ex_event_index]);
         omp_halo_region_pull(halo_map, 0, OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT);
         omp_event_record_stop(&events[acc_ex_event_index]);
 
-        omp_event_record_start(&events[acc_ex_post_barrier_event_index], NULL, "POST_BAR_X", "Time for barrier sync after data exchange between devices");
+        omp_event_record_start(&events[acc_ex_post_barrier_event_index]);
         pthread_barrier_wait(&off->off_info->inter_dev_barrier);
         omp_event_record_stop(&events[acc_ex_post_barrier_event_index]);
 
@@ -104,7 +107,7 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
         omp_event_accumulate_elapsed_ms(&events[acc_ex_post_barrier_event_index], 0);
     }
     /* match the runtime stop */
-    omp_event_record_start(&events[acc_kernel_exe_event_index], stream, "KERN", "Time for kernel (%s) execution", off_info->name);
+    omp_event_record_start(&events[acc_kernel_exe_event_index]);
 }
 
 double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL *u, int radius, REAL *coeff,
@@ -119,12 +122,9 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
 
     double off_init_time = read_timer_ms();
 
-    int __top_ndims__;
     /**************************************** dist-specific *****************************************/
-    if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
-    else /* dist == 3 */__top_ndims__ = 2;
-    /************************************************************************************************/
-
+    int __top_ndims__ = 1;
+    /* TODO: to use row/col-wise dist, __top_ndims__ should be set to 2 */
     omp_grid_topology_t * __top__ = omp_grid_topology_init(ndevs, targets, __top_ndims__);
     /* init other infos (dims, periodic, idmaps) of top if needed */
 
@@ -160,53 +160,62 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
     omp_data_map_init_info("coeff", __coeff_map_info__, __copy_data_off_info__, coeff, 2, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
     omp_data_map_info_set_dims_2d(__coeff_map_info__, coeff_dimX, coeff_dimX);
 
-    omp_data_map_dist_init_info(__coeff_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, 0, coeff_dimX, 0);
-    omp_data_map_dist_init_info(__coeff_map_info__, 1, OMP_DIST_POLICY_DUPLICATE, 0, coeff_dimX, 0);
+    omp_data_map_dist_init_info(__coeff_map_info__, 0, OMP_DIST_POLICY_FULL, 0, coeff_dimX, 0, 0);
+    omp_data_map_dist_init_info(__coeff_map_info__, 1, OMP_DIST_POLICY_FULL, 0, coeff_dimX, 0, 0);
     /**************************************** dist-specific *****************************************/
-    if (dist_dim == 1) {
-        if (dist_policy == 1) { /* BLOCK_BLOCK */
-            omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-            omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-            //printf("BLOCK dist policy for arrays and loop dist\n");
-        } else if (dist_policy == 2) { /* BLOCK_ALIGN */
-            omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-            omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __u_map_info__, 0);
-            //printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
-        } else if (dist_policy == 3) { /* AUTO_ALIGN */
-            omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0);
-            omp_data_map_dist_align_with_loop(__u_map_info__, 0, radius, __off_info__, 0);
-            //printf("AUTO dist policy for loop dist and array align with loops\n");
-        }
-        omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_DUPLICATE, 0, u_dimY, 0);
-        omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, OMP_ALIGNEE_START, __u_map_info__, OMP_ALL_DIMENSIONS);
-    } else if (dist_dim == 2) {
-        omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, radius, n, 0);
-        omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-        omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
-        omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0);
-    } else /* dist == 3 */{
-        omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-        omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 1);
-        omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_map_add_halo_region(__u_map_info__, 1, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
-        omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-        omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 1);
-    }
+
+    /* row-wise distribution */
+#if 0
+    /* BLOCK_BLOCK */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    //printf("BLOCK dist policy for arrays and loop dist\n");
+    /* BLOCK_ALIGN */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __u_map_info__, 0);
+    //printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
+#endif
+
+   /* AUTO_ALIGN */
+    omp_loop_dist_init_info(__off_info__, 0, LOOP_DIST_POLICY, 0, n, LOOP_DIST_CHUNK_SIZE, 0);
+    omp_data_map_dist_align_with_loop(__u_map_info__, 0, radius, __off_info__, 0);
+    //printf("AUTO dist policy for loop dist and array align with loops\n");
+
+     /* used by all row-wise dist */
+    omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_FULL, 0, u_dimY, 0, 0);
+    omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, OMP_ALIGNEE_START, __u_map_info__, OMP_ALL_DIMENSIONS);
+
+#if 0
+    /* col-wise distribution */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_FULL, radius, n, 0, 0);
+    omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
+    omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0, 0);
+
+    /* row/col-wise distribution */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0, 1);
+    omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_map_add_halo_region(__u_map_info__, 1, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
+    omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0, 1);
+#endif
 
 #if 0
     /* halo exchange offloading */
     omp_data_map_halo_exchange_info_t x_halos[1];
     x_halos[0].map_info = __u_map_info__; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* u and uold*/
-    if (dist_dim == 1) {
-        x_halos[0].x_dim = 0;
-    } else if (dist_dim == 2) {
-        x_halos[0].x_dim = 1;
-    } else {
-        x_halos[0].x_dim = -1; /* means all the dimension */
-    }
+    /* row-wise dist */
+    x_halos[0].x_dim = 0;
+#if 0
+    /* col-wise dist */
+    x_halos[0].x_dim = 1;
+    /* row/col-wise dist */
+    x_halos[0].x_dim = -1; /* means all the dimension */
+#endif
     omp_offloading_append_data_exchange_info(__off_info__, x_halos, 1);
 #endif
 

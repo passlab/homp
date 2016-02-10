@@ -192,10 +192,10 @@ void ompacc_matmul_mdev_v3(REAL *A, REAL *B, REAL *C, long n)
  * dist = 2: B/C column dist,
  * dist = 3: A-row, B-column dist
  */
-double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy);
+double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, long n);
 
 int main(int argc, char *argv[]) {
-    long n;
+    long n = 256;
     float *A;
     float *B;
     float *C_seq;
@@ -203,26 +203,8 @@ int main(int argc, char *argv[]) {
     float *C_itlmkl_cpumic;
     double seq_elapsed;
     double ompacc_elapsed;
-    if (argc < 2) {
-        fprintf(stderr, "Usage: matmul <n> [dist_dim(1|2|3)] [dist_policy(1|2|3)]\\n");
-        fprintf(stderr, "\tn: matrix size (nxn)\n");
-        fprintf(stderr, "\tdist_dim: 1: row dist; 2: column dist; 3: both row/column dist; default 1\n");
-        fprintf(stderr, "\tdist_policy: 1: block_block; 2: block_align; 3: auto_align; default 1\n");
-        exit(1);
-    }
-    n = atoi(argv[1]);
-    int dist_dim = 1;
-    int dist_policy = 1;
-    if (argc == 3) dist_dim = atoi(argv[2]);
-    if (argc == 4) dist_policy = atoi(argv[3]);
-    if (dist_dim != 1 && dist_dim != 2 && dist_dim != 3) {
-        fprintf(stderr, "Unknown dist dimensions: %d, now fall to default (1)\n", dist_dim);
-        dist_dim = 1;
-    }
-    if (dist_policy != 1 && dist_policy != 2 && dist_policy != 3) {
-        fprintf(stderr, "Unknown dist policy: %d, now fall to default (1)\n", dist_policy);
-        dist_policy = 1;
-    }
+    fprintf(stderr, "Usage: matmul <n> for nxn matrix, n default: %d\n", n);
+    if (argc >= 2) n = atoi(argv[1]);
 
     A = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
     B = ((float *) (omp_unified_malloc(((n * n) * sizeof(float)))));
@@ -266,30 +248,31 @@ int main(int argc, char *argv[]) {
     int targets[num_active_devs];
     int num_targets = 1;
 
+#if 0
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* two NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* one ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 2);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
-#if 0
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
+
     /* one HOSTCPU and one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
@@ -310,21 +293,21 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
-#endif
+
     /* one HOSTCPU and four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* one HOSTCPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* four NVGPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     /* one CPU, two NVGPU and two ITLMIC */
     //num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
@@ -336,21 +319,19 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n, dist_dim, dist_policy);
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
+#endif
 
-#if 0
     /* run on all devices */
     num_targets = num_active_devs;
-    int i;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
-#endif
+    ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
     //print_array("Array C_ompacc", "C", C_ompacc, n, n);
     omp_fini_devices();
 
     printf("======================================================================================================\n");
-    printf("\tmatmul(%dx%d) example on %d devices, dist policy: %d (1: row; 2: column; 3: row-column)\n",
-           n, n, omp_get_num_active_devices(), dist_dim);
+    printf("\tmatmul(%dx%d) example on %d devices\n", n, n, omp_get_num_active_devices());
     printf("------------------------------------------------------------------------------------------------------\n");
     printf("Error: %g\n", maxerror(C_seq, C_ompacc, n));
     printf("------------------------------------------------------------------------------------------------------\n");
@@ -379,7 +360,6 @@ struct OUT__1__11058__args {
     REAL *A;
     REAL *B;
     REAL *C;
-    int dist;
 };
 
 void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
@@ -387,7 +367,6 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
     long i = iargs->i;
     long j = iargs->j;
     long k = iargs->k;
-    int dist = iargs->dist;
 
     omp_data_map_t *map_A = omp_map_get_map(off, iargs->A, 0); /* 0 means the map A */
     omp_data_map_t *map_B = omp_map_get_map(off, iargs->B, 1);  /* 1 means the map B */
@@ -403,15 +382,17 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
 #endif
 
     long start;
-    if (dist == 1) {
-        omp_loop_get_range(off, 0, &start, &i);
-    } else if (dist == 2) {
-        omp_loop_get_range(off, 0, &start, &j);
-    } else /* vx == 3) */ {
-        omp_loop_get_range(off, 0, &start, &i);
-        omp_loop_get_range(off, 0, &start, &j);
-    }
+    omp_loop_get_range(off, 0, &start, &i);
+
+#if 0
+    /* for col-wise distribution */
+    omp_loop_get_range(off, 0, &start, &j);
+
+    /* for row/col-wise distribution */
+    omp_loop_get_range(off, 0, &start, &i);
+    omp_loop_get_range(off, 0, &start, &j);
     //printf("dist: %d, dev: %d, i: %d, j: %d, k: %d\n", dist, off->devseqid, i, j, k);
+#endif
 
     omp_device_type_t devtype = off->dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
@@ -434,15 +415,12 @@ void OUT__1__11058__launcher(omp_offloading_t *off, void *args) {
 #endif
 }
 
-double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, long n, int dist_dim, int dist_policy) {
+double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, long n) {
     double ompacc_init_time = read_timer_ms();
     /* get number of target devices specified by the programmers */
-    int __top_ndims__;
+    int __top_ndims__ = 1;
     /**************************************** dist-specific *****************************************/
-    if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
-    else /* dist == 3 */__top_ndims__ = 2;
-    /************************************************************************************************/
-
+    /* TODO: to use row/col-wise dist, __top_ndims__ should be set to 2 */
     omp_grid_topology_t * __top__ = omp_grid_topology_init(ndevs, targets, __top_ndims__);
     /* init other infos (dims, periodic, idmaps) of top if needed */
 
@@ -450,7 +428,7 @@ double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, lo
 
     /* we use universal args and launcher because matmul can do it */
     struct OUT__1__11058__args args;
-    args.i = n;args.j = n;args.k = n;args.A = A;args.B = B;args.C = C;args.dist = dist_dim;
+    args.i = n;args.j = n;args.k = n;args.A = A;args.B = B;args.C = C;
     omp_offloading_info_t * __off_info__ = omp_offloading_init_info("matmul_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE, __num_maps__, OUT__1__11058__launcher, &args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, 2*n*n, 2*n*n, n);
 
@@ -470,56 +448,57 @@ double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, lo
     omp_data_map_info_set_dims_2d(__C_map_info__, n, n);
 
     /**************************************** dist-specific *****************************************/
-    /* dist_policy: block_block: 1, block_align: 2, align_auto: 3 */
-    if (dist_dim == 1) {
-        if (dist_policy == 1) {
-            /* block_block */
-            omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-            omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-            omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-            printf("BLOCK dist policy for arrays and loop dist\n");
-        } else if (dist_policy == 2) {
-            /* block_align */
-            omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-            omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-            omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __C_map_info__, 0);
-            printf("BLOCK dist policy for arrays, and loop dist align with array C/A row dist\n");
-        } else if (dist_policy == 3) {
-            /* align_auto */
-            omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0, 0);
-            omp_data_map_dist_align_with_loop(__C_map_info__, 0, 0, __off_info__, 0);
-            omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    /* row-wise distribution */
+#if 0
+    /* block_block */
+    omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    printf("BLOCK dist policy for arrays and loop dist\n");
+#endif
+#if 0
+    /* block_align */
+    omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __C_map_info__, 0);
+    printf("BLOCK dist policy for arrays, and loop dist align with array C/A row dist\n");
+#endif
 
-            printf("AUTO dist policy for loop dist and array align with loops\n");
-        } else {
+    /* align_auto */
+    omp_loop_dist_init_info(__off_info__, 0, LOOP_DIST_POLICY, 0, n, LOOP_DIST_CHUNK_SIZE, 0);
+    omp_data_map_dist_align_with_loop(__C_map_info__, 0, 0, __off_info__, 0);
+    omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
 
-        }
-        omp_data_map_dist_init_info(__B_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__B_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_align_with_data_map(__A_map_info__, OMP_ALL_DIMENSIONS, 0, __C_map_info__, OMP_ALL_DIMENSIONS);
-    } else if (dist_dim == 2) {
-        omp_data_map_dist_init_info(__A_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__A_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    /* this is common for all row-wise distribution */
+    omp_data_map_dist_init_info(__B_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__B_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_align_with_data_map(__A_map_info__, OMP_ALL_DIMENSIONS, 0, __C_map_info__, OMP_ALL_DIMENSIONS);
+#if 0
+    /*  col-wise distribution */
+    omp_data_map_dist_init_info(__A_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__A_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
 
-        omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
 
-        omp_data_map_dist_align_with_data_map(__B_map_info__, OMP_ALL_DIMENSIONS, 0, __C_map_info__, OMP_ALL_DIMENSIONS);
+    omp_data_map_dist_align_with_data_map(__B_map_info__, OMP_ALL_DIMENSIONS, 0, __C_map_info__, OMP_ALL_DIMENSIONS);
 
-        omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-    } else /* dist == 3 */{
-        omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 1);
+    omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+#endif
+#if 0
+    /* row/col-wise distribution */
+    omp_data_map_dist_init_info(__C_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__C_map_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 1);
 
-        omp_data_map_dist_init_info(__A_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0); /* or align with C[0] */
-        omp_data_map_dist_init_info(__A_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 1);
+    omp_data_map_dist_init_info(__A_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0); /* or align with C[0] */
+    omp_data_map_dist_init_info(__A_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 1);
 
-        omp_data_map_dist_init_info(__B_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__B_map_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 1); /* or align with C[1] */
+    omp_data_map_dist_init_info(__B_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__B_map_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 1); /* or align with C[1] */
 
-        omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-        omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 1);
-    }
+    omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, n, 0, 1);
+#endif
     /************************************************************************************************/
 
     /*********** NOW notifying helper thread to work on this offload ******************/

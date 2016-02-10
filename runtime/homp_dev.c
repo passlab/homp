@@ -542,6 +542,9 @@ void omp_probe_devices() {
     }
 }
 
+
+omp_dist_policy_t LOOP_DIST_POLICY;
+int LOOP_DIST_CHUNK_SIZE;
 /* init the device objects, num_of_devices, helper threads, default_device_var ICV etc
  *
  */
@@ -607,7 +610,7 @@ int omp_init_devices() {
         }
     }
 
-    printf("========================================================================================================\n");
+    printf("============================================================================================================================\n");
     printf("Total %d devices: %d HOSTCPU, %d NVGPU, %d ITLMIC, %d ITLGPU and %d THSIM; default dev: %d.\n",
            omp_num_devices,
            num_hostcpu_dev, num_nvgpu_dev, num_itlmic_dev, num_itlgpu_dev, num_thsim_dev, default_device_var);
@@ -638,6 +641,9 @@ int omp_init_devices() {
         }
     }
     pthread_barrier_wait(&all_dev_sync_barrier);
+    omp_print_dist_policy_options();
+    int chunk_size;
+    LOOP_DIST_POLICY = omp_read_dist_policy_options(&LOOP_DIST_CHUNK_SIZE);
     return omp_num_devices;
 }
 

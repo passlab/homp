@@ -95,8 +95,6 @@ void OUT__3__5904__launcher(omp_offloading_t *off, void *args) {
 
 }
 
-int matvec_mdev_v = 2;
-
 double matvec_ompacc_mdev(int ndevs, int *targets, REAL *a, REAL *x, REAL *y, long n) {
     double ompacc_init_time = read_timer_ms();
 
@@ -123,32 +121,29 @@ double matvec_ompacc_mdev(int ndevs, int *targets, REAL *a, REAL *x, REAL *y, lo
     omp_data_map_info_set_dims_2d(__a_map_info__, n, n);
     //printf("x: %X, y: %X, a: %X\n", x, y, a);
 
-    if (matvec_mdev_v == 3) { /* version 3 */
-        omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-        omp_data_map_dist_align_with_data_map(__a_map_info__, 0, 0, __y_map_info__, 0);
-        //omp_data_map_dist_init_info(__a_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-        omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __y_map_info__, 0);
-        printf("version 3: BLOCK dist policy for x and y, and loop dist aligns with x\n");
-    } else if (matvec_mdev_v == 4) {/* version 4 */
-        omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_align_with_loop(__y_map_info__, 0, 0, __off_info__, 0);
-        omp_data_map_dist_align_with_loop(__a_map_info__, 0, 0, __off_info__, 0);
-        omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+#if 0
+    omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__a_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    printf("version 2: BLOCK dist policy for x, y, and loop\n");
+#endif
+#if 0
+    omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_data_map_dist_align_with_data_map(__a_map_info__, 0, 0, __y_map_info__, 0);
+    //omp_data_map_dist_init_info(__a_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
+    omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __y_map_info__, 0);
+    printf("version 3: BLOCK dist policy for x and y, and loop dist aligns with x\n");
+#endif
 
-        printf("version 4: AUTO dist policy for loop, and x and y align with loop dist\n");
-    }
-    else { /* default, version 2, block */
-        omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__y_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__a_map_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-        omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-        omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
-        printf("version 2: BLOCK dist policy for x, y, and loop\n");
-    }
-
+    omp_loop_dist_init_info(__off_info__, 0, LOOP_DIST_POLICY, 0, n, LOOP_DIST_CHUNK_SIZE, 0);
+    omp_data_map_dist_init_info(__x_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    omp_data_map_dist_align_with_loop(__y_map_info__, 0, 0, __off_info__, 0);
+    omp_data_map_dist_align_with_loop(__a_map_info__, 0, 0, __off_info__, 0);
+    omp_data_map_dist_init_info(__a_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
     /*********** NOW notifying helper thread to work on this offload ******************/
 #if DEBUG_MSG
 	 printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);

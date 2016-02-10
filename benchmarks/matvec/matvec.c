@@ -50,9 +50,8 @@ int main(int argc, char *argv[]) {
     REAL *x;
     REAL *a;
     //n = 500000;
-    printf("usage: matvec [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n", n);
+    printf("usage: matvec [n] (default %d) \n", n);
     if (argc >= 2) n = atoi(argv[1]);
-    if (argc >= 3) matvec_mdev_v = atoi(argv[2]);
 
     a = ((REAL *) (omp_unified_malloc(n * n * sizeof(REAL))));
     x = ((REAL *) (omp_unified_malloc((n * sizeof(REAL)))));
@@ -75,7 +74,8 @@ int main(int argc, char *argv[]) {
     int targets[num_active_devs];
     int num_targets = 1;
     double ompacc_time;
- 
+
+#if 0
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
@@ -152,21 +152,20 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+#endif
 
-#if 0
     /* run on all devices */
     num_targets = num_active_devs;
-    int i;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
-#endif
-    
+    ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+
     omp_fini_devices();
     REAL cksm;
     cksm = check(y,y_ompacc,n) ;
     printf("matvec(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n", n, cksm,
            omp_get_num_active_devices());
     printf("\t\t\t\t\t\t%4f\t%4f\n", omp_time, ompacc_time);
-    printf("usage: matvec [n] (default %d) [2|3|4], 2: block_block, 3: block_align, 4 align_auto (policy), default 2\n\n", n);
+    printf("usage: matvec [n] (default %d) \n", n);
     free(y);
     omp_unified_free(y_ompacc);
     omp_unified_free(x);

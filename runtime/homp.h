@@ -317,22 +317,34 @@ typedef enum omp_data_map_type {
 } omp_data_map_type_t;
 
 typedef enum omp_dist_policy {
-	OMP_DIST_POLICY_BLOCK,
 	OMP_DIST_POLICY_FULL,
-	OMP_DIST_POLICY_ALIGN,
+	OMP_DIST_POLICY_BLOCK,
 	OMP_DIST_POLICY_CYCLIC, /* user defined */
+	OMP_DIST_POLICY_ALIGN, /* used only between data or between iteration, but not between data and iteration */
+	OMP_DIST_POLICY_BIND, /* used only between a data and an iteration */
 	OMP_DIST_POLICY_FIX, /* fixed dist */
-	OMP_DIST_POLICY_STATIC_RATIO, /* dist according to a user-specified ratio */
-	OMP_DIST_POLICY_SCHEDULE_STATIC, /* schedule the iteration/elements so that the balance is automatically through
-							   * scheduling of multiple small chunks of the same size identified using chunk_size field */
-	OMP_DIST_POLICY_SCHEDULE_DYNAMIC, /* schedule the iteration/elements so that the balance is automatically through
+	OMP_DIST_POLICY_SCHED_STATIC_RATIO, /* dist according to a user-specified ratio */
+	OMP_DIST_POLICY_SCHED_STATIC_CHUNK, /* dist according to a user-specified ratio */
+	OMP_DIST_POLICY_SCHED_DYNAMIC, /* schedule the iteration/elements so that the balance is automatically through
+							   * scheduling of multiple small chunks of the same size identified using chunk_size field,
+							   */
+	OMP_DIST_POLICY_SCHED_GUIDED, /* schedule the iteration/elements so that the balance is automatically through
 							   * scheduling of multiple small chunks of gradulatelly changed sizes starting
 							   * from chunk_size field. The algorithm of changing the chunk size is system-specific */
-	OMP_DIST_POLICY_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
-	OMP_DIST_POLICY_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
+	OMP_DIST_POLICY_SCHED_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
+	OMP_DIST_POLICY_SCHED_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
                            * model for load balance. The model makes best-efforts and one-time decision
                            * to distribute all iterations */
+	OMP_DIST_POLICY_TOTAL_NUMS,
 } omp_dist_policy_t;
+
+typedef struct omp_dist_policy_argument {
+	omp_dist_policy_t type;
+	int chunk;
+	char name[48];
+	char shortname[24];
+} omp_dist_policy_argument_t;
+extern omp_dist_policy_argument_t omp_dist_policy_args[];
 
 typedef enum omp_dist_target_type {
 	OMP_DIST_TARGET_DATA_MAP,
@@ -348,7 +360,7 @@ typedef struct omp_dist_info {
 	long end; /* the upper bound of the dist, not inclusive */
 	long length;   /* the length (total # element to be distributed) */
 	long stride; /* stride between ele, default 1 of course */
-	long chunk_size; /* initial chunk size for OMP_DIST_POLICY_SCHEDULE_STATIC policy */
+	long chunk_size; /* initial chunk size for OMP_DIST_POLICY_SCHED_DYNAMIC policy */
 
 	int dim_index; /* the index of top dim to apply dist, for block, duplicate, auto. For ALIGN, this is dim at the alignee*/
 
@@ -717,6 +729,12 @@ extern int omp_set_current_device_dev(omp_device_t * d); /* return the current d
 extern int omp_set_current_device(int id); /* return the current device id */
 extern void helper_thread_main(void * arg);
 extern void omp_warmup_device(omp_device_t * dev);
+
+extern void omp_print_dist_policy_options();
+extern omp_dist_policy_t omp_read_dist_policy_options(int * chunk_size);
+/* The use of the two global variables is an easy way to pass env setting to user program */
+extern omp_dist_policy_t LOOP_DIST_POLICY;
+extern int LOOP_DIST_CHUNK_SIZE;
 
 extern omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topology_t *top, int recurring,
 														omp_offloading_type_t off_type, int num_maps,

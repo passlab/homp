@@ -35,14 +35,16 @@ void stencil2d_omp_mdev_launcher(omp_offloading_t * off, void *args) {
     long offset;
     long start;
     long len;
-    if (dist_dim == 1) {
-        offset = omp_loop_get_range(off, 0, &start, &len);
-    } else if (dist_dim == 2) {
-        omp_loop_get_range(off, 0, &start, &len);
-    } else /* vx == 3) */ {
-        omp_loop_get_range(off, 0, &start, &len); /* todo */
-        omp_loop_get_range(off, 0, &start, &len); /* todo */
-    }
+    offset = omp_loop_get_range(off, 0, &start, &len);
+
+#if 0
+    /* col-wise dist */
+    omp_loop_get_range(off, 0, &start, &len);
+    /* row/col-wise dist */
+    omp_loop_get_range(off, 0, &start, &len); /* todo */
+    omp_loop_get_range(off, 0, &start, &len); /* todo */
+#endif
+
     omp_device_type_t devtype = off->dev->type;
     //printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
 
@@ -68,7 +70,7 @@ void stencil2d_omp_mdev_launcher(omp_offloading_t * off, void *args) {
      */
 }
 
-double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
+double stencil2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
     long u_dimX = n + 2 * radius;
     long u_dimY = m + 2 * radius;
     int coeff_dimX = 2*radius+1;
@@ -79,21 +81,17 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
 
     double off_init_time = read_timer_ms();
 
-    int __top_ndims__;
     /**************************************** dist-specific *****************************************/
-    if (dist_dim == 1 || dist_dim == 2) __top_ndims__ = 1;
-    else /* dist == 3 */__top_ndims__ = 2;
-    /************************************************************************************************/
-    /* use all the devices */
-    int __num_targets__ = omp_get_num_active_devices(); /*XXX: = runtime or compiler generated code */
-    omp_grid_topology_t * __top__ = omp_grid_topology_init_simple(__num_targets__, __top_ndims__);
+    int __top_ndims__ = 1;
+    /* TODO: to use row/col-wise dist, __top_ndims__ should be set to 2 */
+    omp_grid_topology_t * __top__ = omp_grid_topology_init(ndevs, targets, __top_ndims__);
     /* init other infos (dims, periodic, idmaps) of top if needed */
 
     int __num_maps__ = 3; /* u, uold and the coeff */ /* XXX: need compiler output */
 
     /* data copy offloading */
     omp_offloading_info_t *__copy_data_off_info__ =
-            omp_offloading_init_info("data copy", __top__, 1, OMP_OFFLOADING_DATA, __num_maps__, NULL, NULL, 0);
+            omp_offloading_init_info("data_copy", __top__, 1, OMP_OFFLOADING_DATA, __num_maps__, NULL, NULL, 0);
 
     /* stencil kernel offloading */
     struct stencil2d_off_args off_args;
@@ -121,52 +119,61 @@ double stencil2d_omp_mdev(long n, long m, REAL *u, int radius, REAL *coeff, int 
     omp_data_map_init_info("coeff", __coeff_map_info__, __copy_data_off_info__, coeff, 2, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
     omp_data_map_info_set_dims_2d(__coeff_map_info__, coeff_dimX, coeff_dimX);
 
-    omp_data_map_dist_init_info(__coeff_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, 0, coeff_dimX, 0);
-    omp_data_map_dist_init_info(__coeff_map_info__, 1, OMP_DIST_POLICY_DUPLICATE, 0, coeff_dimX, 0);
+    omp_data_map_dist_init_info(__coeff_map_info__, 0, OMP_DIST_POLICY_FULL, 0, coeff_dimX, 0, 0);
+    omp_data_map_dist_init_info(__coeff_map_info__, 1, OMP_DIST_POLICY_FULL, 0, coeff_dimX, 0, 0);
     /**************************************** dist-specific *****************************************/
-    if (dist_dim == 1) {
-        if (dist_policy == 1) { /* BLOCK_BLOCK */
-            omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-            omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-            //printf("BLOCK dist policy for arrays and loop dist\n");
-        } else if (dist_policy == 2) { /* BLOCK_ALIGN */
-            omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-            omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __u_map_info__, 0);
-            //printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
-        } else if (dist_policy == 3) { /* AUTO_ALIGN */
-            omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_AUTO, 0, n, 0);
-            omp_data_map_dist_align_with_loop(__u_map_info__, 0, radius, __off_info__, 0);
-            //printf("AUTO dist policy for loop dist and array align with loops\n");
-        }
-        omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_DUPLICATE, 0, u_dimY, 0);
-        omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, OMP_ALIGNEE_START, __u_map_info__, OMP_ALL_DIMENSIONS);
-    } else if (dist_dim == 2) {
-        omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_DUPLICATE, radius, n, 0);
-        omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-        omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
-        omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0);
-    } else /* dist == 3 */{
-        omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0);
-        omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 1);
-        omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_map_add_halo_region(__u_map_info__, 1, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-        omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
-        omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0);
-        omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 1);
-    }
+
+    /* row-wise distribution */
+#if 0
+    /* BLOCK_BLOCK */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    //printf("BLOCK dist policy for arrays and loop dist\n");
+    /* BLOCK_ALIGN */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_loop_dist_align_with_data_map(__off_info__, 0, 0, __u_map_info__, 0);
+    //printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
+#endif
+
+    /* AUTO_ALIGN */
+    omp_loop_dist_init_info(__off_info__, 0, LOOP_DIST_POLICY, 0, n, LOOP_DIST_CHUNK_SIZE, 0);
+    omp_data_map_dist_align_with_loop(__u_map_info__, 0, radius, __off_info__, 0);
+    //printf("AUTO dist policy for loop dist and array align with loops\n");
+
+    /* used by all row-wise dist */
+    omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_FULL, 0, u_dimY, 0, 0);
+    omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, OMP_ALIGNEE_START, __u_map_info__, OMP_ALL_DIMENSIONS);
+
+#if 0
+    /* col-wise distribution */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_FULL, radius, n, 0, 0);
+    omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
+    omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0, 0);
+
+    /* row/col-wise distribution */
+    omp_data_map_dist_init_info(__u_map_info__, 0, OMP_DIST_POLICY_BLOCK, radius, n, 0, 0);
+    omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_BLOCK, radius, n, 0, 1);
+    omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_map_add_halo_region(__u_map_info__, 1, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
+    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, 0, __u_map_info__, OMP_ALL_DIMENSIONS);
+    omp_loop_dist_init_info(__off_info__, 0, OMP_DIST_POLICY_BLOCK, 0, n, 0, 0);
+    omp_loop_dist_init_info(__off_info__, 1, OMP_DIST_POLICY_BLOCK, 0, m, 0, 1);
+#endif
 
     /* halo exchange offloading */
     omp_data_map_halo_exchange_info_t x_halos[1];
     x_halos[0].map_info = __u_map_info__; x_halos[0].x_direction = OMP_DATA_MAP_EXCHANGE_FROM_LEFT_RIGHT; /* u and uold*/
-    if (dist_dim == 1) {
-        x_halos[0].x_dim = 0;
-    } else if (dist_dim == 2) {
-        x_halos[0].x_dim = 1;
-    } else {
-        x_halos[0].x_dim = -1; /* means all the dimension */
-    }
+    /* row-wise dist */
+    x_halos[0].x_dim = 0;
+#if 0
+    /* col-wise dist */
+    x_halos[0].x_dim = 1;
+    /* row/col-wise dist */
+    x_halos[0].x_dim = -1; /* means all the dimension */
+#endif
 
 //#define STANDALONE_DATA_X 1
 #if !defined (STANDALONE_DATA_X)
