@@ -1247,6 +1247,7 @@ void omp_event_init(omp_event_t *ev, omp_device_t *dev, omp_event_record_method_
 /* the event msg has limited length defined by OMP_EVENT_MSG_LENGTH macro, additional char will be cut off */
 void omp_event_set_attribute(omp_event_t *ev, omp_dev_stream_t *stream, const char *event_name, const char *event_msg, ...) {
     if (stream != NULL && stream->dev != ev->dev) {
+        fprintf(stderr, "stream and event are from two different devices: %p, %p\n", stream->dev, ev->dev);
         fprintf(stderr, "stream and event are not compatible, they are from two different devices: %s, %s\n",
                 stream->dev->name, ev->dev->name);
         abort();

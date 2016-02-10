@@ -280,30 +280,44 @@ void omp_offloading_run(omp_device_t * dev) {
 //	case OMP_OFFLOADING_INIT:
 	if (off_info->count <= 1) { /* the first time of recurring offloading or a non-recurring offloading */
 #if defined USING_PER_OFFLOAD_STREAM
-		omp_stream_create(dev, &off->mystream);
-		off->stream = &off->mystream;
+        omp_stream_create(dev, &off->mystream);
+        off->stream = &off->mystream;
 #else
 		off->stream = &dev->default_stream;
 #endif
 		omp_dev_stream_t *stream = off->stream;
 
 #if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_init(&events[timing_init_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_0", "Time for initialization of stream and event", devid);
+		omp_event_init(&events[timing_init_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_0",
+					   "Time for initialization of stream and event", devid);
 		omp_event_record_start(&events[timing_init_event_index]);
-		omp_event_init(&events[total_event_accumulated_index], dev, OMP_EVENT_HOST_RECORD, NULL, "ACCU_TOTAL", "Total ACCUMULATED time on dev: %d", devid);
-		omp_event_init(&events[map_init_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_0.1", "Time for init map data structure");
-		omp_event_init(&events[map_dist_alloc_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_1", "Time for data dist, memory allocation, and data marshalling");
-		omp_event_init(&events[runtime_dist_modeling_index], dev, OMP_EVENT_HOST_RECORD, NULL, "MODELING", "Runtime modeling cost");
-		omp_event_init(&events[sync_cleanup_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "FINI_1", "Time for dev sync and cleaning (event/stream/map, deallocation/unmarshalling)");
-		omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "BAR_FINI_2", "Time for barrier wait for other to complete");
-		omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "ACC_MAPTO", "Accumulated time for mapto data movement for all array");
-		omp_event_init(&events[acc_kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "KERN", "Time for kernel (%s) execution", off_info->name);
-		omp_event_init(&events[acc_mapfrom_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "ACC_MAPFROM", "Accumulated time for mapfrom data movement for all array");
-		omp_event_init(&events[acc_ex_pre_barrier_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "PRE_BAR_X", "Time for barrier sync before data exchange between devices");
-		omp_event_init(&events[acc_ex_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "DATA_X", "Time for data exchange between devices");
-		omp_event_init(&events[acc_ex_post_barrier_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "POST_BAR_X", "Time for barrier sync after data exchange between devices");
+		omp_event_init(&events[total_event_accumulated_index], dev, OMP_EVENT_HOST_RECORD, NULL, "ACCU_TOTAL",
+					   "Total ACCUMULATED time on dev: %d", devid);
+		omp_event_init(&events[map_init_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_0.1",
+					   "Time for init map data structure");
+		omp_event_init(&events[map_dist_alloc_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_1",
+					   "Time for data dist, memory allocation, and data marshalling");
+		omp_event_init(&events[runtime_dist_modeling_index], dev, OMP_EVENT_HOST_RECORD, NULL, "MODELING",
+					   "Runtime modeling cost");
+		omp_event_init(&events[sync_cleanup_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "FINI_1",
+					   "Time for dev sync and cleaning (event/stream/map, deallocation/unmarshalling)");
+		omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "BAR_FINI_2",
+					   "Time for barrier wait for other to complete");
+		omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "ACC_MAPTO",
+					   "Accumulated time for mapto data movement for all array");
+		omp_event_init(&events[acc_kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "KERN",
+					   "Time for kernel (%s) execution", off_info->name);
+		omp_event_init(&events[acc_mapfrom_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "ACC_MAPFROM",
+					   "Accumulated time for mapfrom data movement for all array");
+		omp_event_init(&events[acc_ex_pre_barrier_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "PRE_BAR_X",
+					   "Time for barrier sync before data exchange between devices");
+		omp_event_init(&events[acc_ex_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "DATA_X",
+					   "Time for data exchange between devices");
+		omp_event_init(&events[acc_ex_post_barrier_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "POST_BAR_X",
+					   "Time for barrier sync after data exchange between devices");
 
-		for (i=misc_event_index_start; i<num_events; i++) {
+		for (i = misc_event_index_start; i < num_events; i++) {
+			//printf("init misc event: %d by dev: %d\n", i, dev->id);
 			omp_event_init(&events[i], dev, OMP_EVENT_DEV_RECORD, NULL, NULL, NULL, 0);
 		}
 
@@ -318,7 +332,8 @@ void omp_offloading_run(omp_device_t * dev) {
 
 			int inherited = 1;
 			omp_data_map_t *map = omp_map_get_map_inheritance(dev, map_info->source_ptr);
-			if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
+			if (map ==
+				NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
 				map = &map_info->maps[seqid];
 				omp_data_map_init_map(map, map_info, dev);
 				inherited = 0;
@@ -329,34 +344,34 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[map_init_event_index]);
 #endif
+
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_start(&events[map_dist_alloc_event_index]);
+#endif
+		if (!off->loop_dist_done) omp_loop_iteration_dist(off);
+
+		//case OMP_OFFLOADING_MAPMEM:
+		off->stage = OMP_OFFLOADING_MAPMEM;
+		/* init data map and dev memory allocation */
+		/***************** for each mapped variable that has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
+		for (i = 0; i < off_info->num_mapped_vars; i++) {
+			/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
+			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
+
+			int inherited = 1;
+			omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+			if (inherited) continue;
+			omp_data_map_dist(map, seqid); /* handle all unmapped variable */
+			if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
+			//omp_print_data_map(map);
+		}
+
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_event_record_stop(&events[map_dist_alloc_event_index]);
+#endif
 	}
 
 	int misc_event_index = misc_event_index_start;
-#if defined (OMP_BREAKDOWN_TIMING)
-	omp_event_record_start(&events[map_dist_alloc_event_index]);
-#endif
-	if (!off->loop_dist_done) omp_loop_iteration_dist(off);
-
-	//case OMP_OFFLOADING_MAPMEM:
-	off->stage = OMP_OFFLOADING_MAPMEM;
-	/* init data map and dev memory allocation */
-	/***************** for each mapped variable that has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-	for (i = 0; i < off_info->num_mapped_vars; i++) {
-		/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
-		omp_data_map_info_t *map_info = &off_info->data_map_info[i];
-
-		int inherited = 1;
-		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
-		if (inherited) continue;
-		omp_data_map_dist(map, seqid); /* handle all unmapped variable */
-		if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
-		//omp_print_data_map(map);
-	}
-
-#if defined (OMP_BREAKDOWN_TIMING)
-	omp_event_record_stop(&events[map_dist_alloc_event_index]);
-#endif
-
 	if (off_info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE) goto data_exchange;
 	if (off_info->type == OMP_OFFLOADING_DATA && off_info->count > 1) {
 		goto omp_offloading_copyfrom;
@@ -378,6 +393,7 @@ void omp_offloading_run(omp_device_t * dev) {
 			if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 				omp_event_t * ev = &events[misc_event_index];
+				//if (devid == 0) printf("set misc event att: %d by dev: %d\n", misc_event_index, dev->id);
 				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
 				omp_event_record_start(&events[misc_event_index]);
 #endif
@@ -397,7 +413,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	if (off_info->type == OMP_OFFLOADING_DATA) { /* only data offloading, i.e., OMP_OFFLOADING_DATA */
 		//assert (off_info->recurring == 1);
 		off->stage = OMP_OFFLOADING_SYNC;
-		return; //goto omp_offloading_sync_cleanup;
+		goto omp_offloading_sync_cleanup;
 	} else {
 		off->stage = OMP_OFFLOADING_KERNEL;
 	}

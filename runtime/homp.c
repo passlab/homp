@@ -93,7 +93,7 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 	info->top = top;
 	info->count = recurring == 0? 0 : 1;
 	info->type = off_type;
-	if (off_type == OMP_OFFLOADING_DATA) { /* we handle offloading data as two steps, thus a recurruing offloading */
+	if (off_type == OMP_OFFLOADING_DATA) { /* we handle offloading data as two steps, thus a recurring offloading */
 		info->count = 1;
 	}
 	info->num_mapped_vars = num_maps;

@@ -204,19 +204,17 @@ int main(int argc, char * argv[]) {
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-#endif
 	/* one CPU, four NVGPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+#endif
 
-#if 0
     /* run on all devices */
     num_targets = num_active_devs;
-    int i;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
-#endif
+	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	long flops = n*m*radius;
 #ifdef SQUARE_SETNCIL

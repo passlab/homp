@@ -46,6 +46,7 @@ set(STENCIL2D_SOURCE_FILES
         benchmarks/stencil2d/stencil2d_mdev.c
         benchmarks/stencil2d/stencil2d_mdev_iteration.c
         benchmarks/stencil2d/stencil2d.h
+        benchmarks/stencil2d/stencil2d.c
         benchmarks/stencil2d/stencil2d_cpu_omp_kernel.c
         benchmarks/stencil2d/stencil2d_itlmic_kernel.c
         benchmarks/stencil2d/stencil2d_nvgpu_cuda_kernel.cu
