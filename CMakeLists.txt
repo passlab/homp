@@ -1,6 +1,6 @@
 #cmake_minimum_required(VERSION 3.1)
 cmake_minimum_required(VERSION 2.8)
-project(offomp)
+project(homp)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -18,42 +18,59 @@ set(AXPY_SOURCE_FILES
     benchmarks/axpy/axpy.c
     benchmarks/axpy/axpy.h
     benchmarks/axpy/axpy_ompacc.c
-        benchmarks/axpy/axpy_cpu_omp_kernel.c
-        benchmarks/axpy/axpy_nvgpu_cuda_kernel.cu
-        benchmarks/axpy/axpy_itlmic_kernel.c)
+    benchmarks/axpy/axpy_cpu_omp_kernel.c
+    benchmarks/axpy/axpy_nvgpu_cuda_kernel.cu
+    benchmarks/axpy/axpy_itlmic_kernel.c)
 
 set(MATVEC_SOURCE_FILES
     benchmarks/matvec/matvec.c
     benchmarks/matvec/matvec.h
-    benchmarks/matvec/matvec_ompacc.c)
+    benchmarks/matvec/matvec_ompacc.c
+        benchmarks/matvec/matvec_cpu_omp_kernel.c
+        benchmarks/matvec/matvec_itlmic_kernel.c
+        benchmarks/matvec/matvec_nvgpu_cuda_kernel.cu
+        )
 
 set(MATMUL_SOURCE_FILES
-    benchmarks/matmul/matmul_mdev.c)
+        benchmarks/matmul/matmul_mdev.c
+        benchmarks/matmul/matmul.h
+        benchmarks/matmul/matmul_cpu_omp_kernel.c
+        benchmarks/matmul/matmul_itlmic_kernel.c
+        benchmarks/matmul/matmul_nvgpu_cuda_kernel.cu
+        )
 
 set(RADIX_SOURCE_FILES
     benchmarks/radixsort/radix.c)
 
 set(STENCIL2D_SOURCE_FILES
-    benchmarks/stencil2d/stencil2d.h
-    benchmarks/stencil2d/stencil2d.c
-    benchmarks/stencil2d/nvgpu_kernels.c
-    benchmarks/stencil2d/kernel_launcher.c)
+        benchmarks/stencil2d/stencil2d_mdev.c
+        benchmarks/stencil2d/stencil2d_mdev_iteration.c
+        benchmarks/stencil2d/stencil2d.h
+        benchmarks/stencil2d/stencil2d_cpu_omp_kernel.c
+        benchmarks/stencil2d/stencil2d_itlmic_kernel.c
+        benchmarks/stencil2d/stencil2d_nvgpu_cuda_kernel.cu
+        )
 
 set(JACOBI_SOURCE_FILES
-    benchmarks/jacobi/jacobi_ompacc_mdev.c)
+        benchmarks/jacobi/jacobi_ompacc_mdev.c
+        benchmarks/jacobi/jacobi.h
+        benchmarks/jacobi/jacobi_cpu_omp_kernel.c
+        benchmarks/jacobi/jacobi_itlmic_kernel.c
+        benchmarks/jacobi/jacobi_nvgpu_cuda_kernel.cu
+        )
 
 include_directories("runtime")
 
-add_executable(axpy-thsim ${RUNTIME_SOURCE_FILES} ${AXPY_SOURCE_FILES})
-add_executable(matvec-thsim ${RUNTIME_SOURCE_FILES} ${MATVEC_SOURCE_FILES})
-add_executable(matmul-thsim ${RUNTIME_SOURCE_FILES} ${MATMUL_SOURCE_FILES})
-add_executable(radix-thsim ${RUNTIME_SOURCE_FILES} ${RADIX_SOURCE_FILES})
-add_executable(stencil2d-thsim ${RUNTIME_SOURCE_FILES} ${STENCIL2D_SOURCE_FILES} benchmarks/stencil2d/uoldcopy.c benchmarks/stencil2d/stencil2d.h)
-add_executable(jacobi-thsim ${RUNTIME_SOURCE_FILES} ${JACOBI_SOURCE_FILES})
-target_link_libraries(axpy-thsim pthread m)
-target_link_libraries(matvec-thsim pthread m)
-target_link_libraries(matmul-thsim pthread m)
-target_link_libraries(radix-thsim pthread m)
-target_link_libraries(stencil2d-thsim pthread m)
-target_link_libraries(jacobi-thsim pthread m)
+add_executable(axpy-cpu ${RUNTIME_SOURCE_FILES} ${AXPY_SOURCE_FILES})
+add_executable(matvec-cpu ${RUNTIME_SOURCE_FILES} ${MATVEC_SOURCE_FILES})
+add_executable(matmul-cpu ${RUNTIME_SOURCE_FILES} ${MATMUL_SOURCE_FILES})
+add_executable(radix-cpu ${RUNTIME_SOURCE_FILES} ${RADIX_SOURCE_FILES})
+add_executable(stencil2d-cpu ${RUNTIME_SOURCE_FILES} ${STENCIL2D_SOURCE_FILES})
+add_executable(jacobi-cpu ${RUNTIME_SOURCE_FILES} ${JACOBI_SOURCE_FILES})
+target_link_libraries(axpy-cpu pthread m)
+target_link_libraries(matvec-cpu pthread m)
+target_link_libraries(matmul-cpu pthread m)
+target_link_libraries(radix-cpu pthread m)
+target_link_libraries(stencil2d-cpu pthread m)
+target_link_libraries(jacobi-cpu pthread m)
 
