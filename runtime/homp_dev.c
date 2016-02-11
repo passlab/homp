@@ -641,9 +641,9 @@ int omp_init_devices() {
         }
     }
     pthread_barrier_wait(&all_dev_sync_barrier);
-    omp_print_dist_policy_options();
     int chunk_size;
     LOOP_DIST_POLICY = omp_read_dist_policy_options(&LOOP_DIST_CHUNK_SIZE);
+    omp_print_homp_usage();
     return omp_num_devices;
 }
 
@@ -1284,8 +1284,8 @@ void omp_event_record_start(omp_event_t *ev) {
         if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 			cudaError_t result;
-			result = cudaStreamAddCallback(stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->start_time_dev, 0);
-			result = cudaEventRecord(ev->start_event_dev, stream->systream.cudaStream);
+			result = cudaStreamAddCallback(ev->stream->systream.cudaStream, omp_stream_host_timer_callback, &ev->start_time_dev, 0);
+			result = cudaEventRecord(ev->start_event_dev, ev->stream->systream.cudaStream);
 			devcall_nvgpu_cuda_assert(result);
 #endif
         } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {

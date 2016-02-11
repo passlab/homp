@@ -363,7 +363,6 @@ void omp_offloading_run(omp_device_t * dev) {
 			if (inherited) continue;
 			omp_data_map_dist(map, seqid); /* handle all unmapped variable */
 			if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
-			//omp_print_data_map(map);
 		}
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -397,6 +396,7 @@ void omp_offloading_run(omp_device_t * dev) {
 				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
 				omp_event_record_start(&events[misc_event_index]);
 #endif
+				omp_print_data_map(map);
 				omp_map_mapto_async(map, off->stream);
 				//omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)

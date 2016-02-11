@@ -354,7 +354,7 @@ typedef enum omp_dist_target_type {
  * Info object for dist (array and iteration)
  */
 typedef struct omp_dist_info {
-	volatile long start; /* the start index for the dim of the original array */
+	volatile long offset; /* the offset index for the dim of the original array */
 	char padding[CACHE_LINE_SIZE];
 	omp_dist_policy_t policy; /* the dist policy */
 	long end; /* the upper bound of the dist, not inclusive */
@@ -730,6 +730,7 @@ extern int omp_set_current_device(int id); /* return the current device id */
 extern void helper_thread_main(void * arg);
 extern void omp_warmup_device(omp_device_t * dev);
 
+extern void omp_print_homp_usage();
 extern void omp_print_dist_policy_options();
 extern omp_dist_policy_t omp_read_dist_policy_options(int * chunk_size);
 /* The use of the two global variables is an easy way to pass env setting to user program */
@@ -785,19 +786,19 @@ extern void omp_data_map_info_set_dims_3d(omp_data_map_info_t * info, long dim0,
 
 extern void omp_print_map_info(omp_data_map_info_t * info);
 
-extern void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dist_policy_t dist_policy, long start,
-										long length, int chunk_size, int topdim);
-extern void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy, long start,
+extern void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dist_policy_t dist_policy,
+										long offset, long length, int chunk_size, int topdim);
+extern void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy, long offset,
 									long length, int chunk_size, int topdim);
-extern void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, long start,
+extern void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, long offset,
                                                      omp_data_map_info_t *alignee, int alignee_dim);
-extern void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, long start,
+extern void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, long offset,
                                            omp_data_map_info_t *alignee, int alignee_dim);
-extern void omp_data_map_dist_align_with_loop(omp_data_map_info_t *map_info, int dim, long start,
+extern void omp_data_map_dist_align_with_loop(omp_data_map_info_t *map_info, int dim, long offset,
                                        omp_offloading_info_t *alignee, int alignee_level);
-extern void omp_loop_dist_align_with_data_map(omp_offloading_info_t *loop_off_info, int level, long start,
+extern void omp_loop_dist_align_with_data_map(omp_offloading_info_t *loop_off_info, int level, long offset,
                                        omp_data_map_info_t *alignee, int alignee_dim);
-extern void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level, long start,
+extern void omp_loop_dist_align_with_loop(omp_offloading_info_t *loop_off_info, int level, long offset,
                                    omp_offloading_info_t *alignee, int alignee_level);
 extern void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev);
 extern long omp_data_map_dist(omp_data_map_t *map, int seqid);
@@ -853,16 +854,16 @@ extern void xomp_beyond_block_reduction_float_stream_callback(cudaStream_t strea
  *
  * @param: omp_data_map_t * map: the mapped variable, we should use the original pointer and let the runtime retrieve the map
  * @param: int dim: which dimension to retrieve the range
- * @param: int start: the start index from the original array, if start is -1, use the map_offset_<dim>, which will simply cause
+ * @param: int offset: the offset index from the original array, if offset is -1, use the map_offset_<dim>, which will simply cause
  * 					the function return 0 for obvious reasons
- * @param: int length: the length of the range, if -1, use the mapped dim from the start
- * @param: int * map_start: the mapped start index in the mapped range, if return <0 value, wrong input
+ * @param: int length: the length of the range, if -1, use the mapped dim from the offset
+ * @param: int * map_offset: the mapped offset index in the mapped range, if return <0 value, wrong input
  * @param: int * map_length: normally just the length, if lenght == -1, use the map_dim[dim]
  *
  * NOTE: the mapped range must be a subset of the range of the specified map in the specified dim
  *
  */
-extern long omp_loop_get_range(omp_offloading_t *off, int loop_level, long *start, long *length);
+extern long omp_loop_get_range(omp_offloading_t *off, int loop_level, long *offset, long *length);
 
 /* util */
 extern double read_timer_ms();
