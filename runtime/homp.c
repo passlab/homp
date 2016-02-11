@@ -545,6 +545,10 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_d
 	map->dev = dev; /* mainly use as cache so we save one pointer deference */
 	map->mem_noncontiguous = 0;
 	map->map_type = info->map_type;
+	map->counter = 0;
+	map->next = NULL;
+	map->total_map_size = 0;
+	map->total_map_wextra_size = 0;
 
 	if (map->map_type == OMP_DATA_MAP_AUTO) {
 		if (omp_device_mem_discrete(map->dev->mem_type)) {
@@ -830,7 +834,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 //				   i, offset, length, dist_info->length, dist_info->offset, T0);
 			offset += length;
 		}
-
+#if 0
 		/* do the alignment map for arrays */
 		for (i=0; i<off_info->num_mapped_vars; i++) {
 			omp_dist_t * align_dist = align_maps[i].align_dist;
@@ -839,6 +843,8 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 				align_dist->offset = dist->offset;
 			}
 		}
+#endif
+
 #endif
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (events != NULL)
@@ -989,7 +995,7 @@ long omp_loop_iteration_dist(omp_offloading_t *off) {
 		 * But for a re-dist example, we redist level even if it is not needed. Thus for those levels that do not need
 		 * redist, we reset the total_length to length
 		 */
-		if (dist_info->redist_needed) off->loop_dist[i].total_length =+ off->loop_dist[i].length;
+		if (dist_info->redist_needed) off->loop_dist[i].total_length += off->loop_dist[i].length;
 		else off->loop_dist[i].total_length = off->loop_dist[i].length;
 	}
 
@@ -1297,7 +1303,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 	//for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
 	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].total_length);
 
-	printf(", size: %d, size wextra: %d (accumulated)\n",map->total_map_size, map->total_map_wextra_size);
+	printf(", size: %d, size wextra: %d (accumulated %d times)\n",map->total_map_size, map->total_map_wextra_size, map->counter);
 	printf("\t\tsrc ptr: %X, src wextra ptr: %X, dev ptr: %X, dev wextra ptr: %X (last)\n", map->map_source_ptr, map->map_source_wextra_ptr, map->map_dev_ptr, map->map_dev_wextra_ptr);
 	if (info->num_halo_dims) {
 		//printf("\t\thalo memory:\n");
@@ -1903,6 +1909,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 */
 #endif
 
+	int count = info->count==0? 1:info->count-1;
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		int devid = off->dev->id;
@@ -1917,7 +1924,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 			if (ev->count) {
 //                printf("%d   ", j);
 				double start_time, elapsed;
-				omp_event_print_elapsed(ev, info->start_time, &start_time, &elapsed);
+				omp_event_print_elapsed(ev, info->start_time, &start_time, &elapsed, ev->count<count?ev->count:count);
 #if defined(PROFILE_PLOT)
 				if (j>0 && j < misc_event_index_start) { /* only plot the major event */
 					fprintf(plotscript_file, "set object %d rect from %f, %d to %f, %d fc rgb \"%s\"\n",
@@ -1933,10 +1940,10 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #endif
 	}
 
-	long length = info->loop_dist_info[0].length; // - info->loop_dist_info[0].offset;
+	long full_length = info->loop_dist_info[0].length; // - info->loop_dist_info[0].offset;
 
 	printf("\n============ Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) shown as average ==============\n");
-	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\tMODELING OVERHEAD\n", length);
+	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\tMODELING OVERHEAD\n", full_length);
 	printf("-------------------------------------------------------------------------------------------------------------\n");
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
@@ -1946,22 +1953,22 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 
 		/* mapto */
 		omp_event_t * ev = &off->events[acc_mapto_event_index];
-		int mapto_count = ev->count;
+		int mapto_count = ev->count<count?ev->count:count;
 		double mapto_time_ms = (mapto_count != 0) ? omp_event_get_elapsed(ev)/mapto_count: 0;
 
 		/* kern */
 		ev = &off->events[acc_kernel_exe_event_index];
-		int kernel_count = ev->count;
+		int kernel_count = ev->count<count?ev->count:count;
 		double kern_time_ms = (kernel_count != 0) ? omp_event_get_elapsed(ev)/kernel_count: 0;
 
 		/* mapfrom */
 		ev = &off->events[acc_mapfrom_event_index];
-		int mapfrom_count = ev->count;
+		int mapfrom_count = ev->count<count?ev->count:count;
 		double mapfrom_time_ms = (mapfrom_count != 0) ? omp_event_get_elapsed(ev)/mapfrom_count: 0;
 
 		/* data exchange */
 		ev = &off->events[acc_ex_event_index];
-		int ex_count = ev->count;
+		int ex_count = ev->count<count?ev->count:count;
 		double ex_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev)/ex_count: 0;
 
 		double accu_total_ms = mapto_time_ms + kern_time_ms + mapfrom_time_ms + ex_time_ms;
@@ -1969,12 +1976,12 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		//	events = &events[total_event_accumulated_index];
 		//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
 		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.2f\t\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
-		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
-		printf("\t%d\t\t%.1f%%", off->loop_dist[0].length, percentage);
+		float percentage = 100*((float)off->loop_dist[0].total_length/(float) full_length);
+		printf("\t%d\t\t%.1f%%", off->loop_dist[0].total_length, percentage);
 
 		ev = &off->events[runtime_dist_modeling_index];
 		if (ev->event_name != NULL) {
-			int modeling_count = ev->count;
+			int modeling_count = ev->count<count?ev->count:count;
 			double modeling_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev) / modeling_count : 0;
 			printf("\t%.1f(%d) %.1f%%\n", modeling_time_ms, modeling_count, (modeling_time_ms/accu_total_ms)*100.0);
 		}
@@ -1989,7 +1996,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	char time_buff[100];
 	time_t now = time (0);
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
-	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, length, time_buff);
+	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, full_length, time_buff);
 	int events_to_print[misc_event_index_start];
 	int num_events_to_print = 7;
 	events_to_print[0] = total_event_accumulated_index;
@@ -2034,12 +2041,12 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		omp_offloading_t *off = &info->offloadings[j];
 
 		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", length);
+		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", full_length);
 		while(lastdevid <= devid) {
 			fprintf(report_cvs_file, ",\t");
 			lastdevid++;
 		}
-		fprintf(report_cvs_file, "%d", off->loop_dist[0].length);
+		fprintf(report_cvs_file, "%d", off->loop_dist[0].total_length);
 	}
 	fprintf(report_cvs_file, "\n");
 	lastdevid = 0;
@@ -2053,7 +2060,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 			lastdevid++;
 		}
 //		printf("%d:%d,", off->loop_dist[0].length, length);
-		float percentage = 100*((float)off->loop_dist[0].length/(float)length);
+		float percentage = 100*((float)off->loop_dist[0].total_length/(float) full_length);
 		fprintf(report_cvs_file, "%.1f\%", percentage);
 	}
 	fprintf(report_cvs_file, "\n");
@@ -2084,23 +2091,23 @@ void omp_event_print_profile_header() {
 		   OMP_EVENT_NAME_LENGTH-1, "Name");
 }
 
-void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed) {
+void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed, int count) {
 	omp_event_record_method_t record_method = ev->record_method;
 	if (record_method == OMP_EVENT_HOST_RECORD) {
 		printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
-			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/count, count, ev->start_time_host - reference, ev->event_description);
 		*start_time = ev->start_time_host - reference;
 		*elapsed = ev->elapsed_host;
 	} else if (record_method == OMP_EVENT_DEV_RECORD) {
 		printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
-			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/count, count, ev->start_time_dev - reference, ev->event_description);
 		*start_time = ev->start_time_dev - reference;;
 		*elapsed = ev->elapsed_dev;
 	} else {
 		printf("%*s%10.2f%10.2f(%d)%10.2f\thost\t%s\n",
-			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/ev->count, ev->count, ev->start_time_host - reference, ev->event_description);
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_host, ev->elapsed_host/count, count, ev->start_time_host - reference, ev->event_description);
 		printf("%*s%10.2f%10.2f(%d)%10.2f\tdev\t%s\n",
-			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/ev->count, ev->count, ev->start_time_dev - reference, ev->event_description);
+			   OMP_EVENT_NAME_LENGTH, ev->event_name, ev->elapsed_dev, ev->elapsed_dev/count, count, ev->start_time_dev - reference, ev->event_description);
 		*start_time = ev->start_time_host - reference;;
 		*elapsed = ev->elapsed_host;
 	}

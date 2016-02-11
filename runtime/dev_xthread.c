@@ -60,7 +60,9 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 		int inherited = 1;
 		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
 		if (inherited) continue;
-		if (map_info->remap_needed)omp_data_map_dist(map, seqid); {
+
+		if (map_info->remap_needed){
+			omp_data_map_dist(map, seqid);
 			if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
 		}
 		//omp_print_data_map(map);
@@ -509,24 +511,6 @@ void omp_offloading_run(omp_device_t * dev) {
 #endif
 	}
 
-	omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
-	if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
-		long num_iterations = 0;
-		do {
-#if defined (OMP_BREAKDOWN_TIMING)
-			omp_accumulate_elapsed_ms(events, num_events);
-#endif
-			num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
-		} while(num_iterations);
-	} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO){
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_accumulate_elapsed_ms(events, num_events);
-#endif
-		/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
-		pthread_barrier_wait(&off_info->inter_dev_barrier);
-		secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
-	}
-
 	//case OMP_OFFLOADING_SYNC:
 	//case OMP_OFFLOADING_SYNC_CLEANUP:
 	{
@@ -564,6 +548,27 @@ omp_offloading_sync_cleanup: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[sync_cleanup_event_index]);
 #endif
+		off->stage = OMP_OFFLOADING_SECONDARY_OFFLOADING;
+	}
+
+	{
+		omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
+		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
+			long num_iterations = 0;
+			do {
+#if defined (OMP_BREAKDOWN_TIMING)
+				omp_accumulate_elapsed_ms(events, num_events);
+#endif
+				num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
+			} while (num_iterations);
+		} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) {
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_accumulate_elapsed_ms(events, num_events);
+#endif
+			/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
+			pthread_barrier_wait(&off_info->inter_dev_barrier);
+			secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
+		}
 		off->stage = OMP_OFFLOADING_MDEV_BARRIER;
 	}
 

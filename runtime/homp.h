@@ -605,6 +605,7 @@ typedef enum omp_offloading_stage {
 	OMP_OFFLOADING_COPYFROM,  /* copy data from dev to host */
 	OMP_OFFLOADING_SYNC, 		/* sync*/
 	OMP_OFFLOADING_SYNC_CLEANUP, /* sync and clean up */
+	OMP_OFFLOADING_SECONDARY_OFFLOADING, /* secondary offloading of the original one because of the dist policy */
 	OMP_OFFLOADING_MDEV_BARRIER, /* mdev barrier wait to sync all participating devices */
 	OMP_OFFLOADING_COMPLETE,  /* anything else if there is */
 	OMP_OFFLOADING_NUM_STEPS, /* total number of steps */
@@ -772,7 +773,7 @@ extern void omp_event_print(omp_event_t * ev);
 extern void omp_event_record_start(omp_event_t *ev);
 extern void omp_event_record_stop(omp_event_t * ev);
 extern void omp_event_print_profile_header();
-extern void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed);
+extern void omp_event_print_elapsed(omp_event_t *ev, double reference, double *start_time, double *elapsed, int count);
 extern double omp_event_elapsed_ms(omp_event_t *ev);
 extern double omp_event_get_elapsed(omp_event_t *ev);
 extern double omp_event_accumulate_elapsed_ms(omp_event_t *ev, double offset);
