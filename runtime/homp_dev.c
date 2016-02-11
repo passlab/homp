@@ -641,7 +641,6 @@ int omp_init_devices() {
         }
     }
     pthread_barrier_wait(&all_dev_sync_barrier);
-    int chunk_size;
     LOOP_DIST_POLICY = omp_read_dist_policy_options(&LOOP_DIST_CHUNK_SIZE);
     omp_print_homp_usage();
     return omp_num_devices;

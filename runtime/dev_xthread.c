@@ -48,8 +48,7 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 #endif
     long total;
 	if (off_info->loop_redist_needed) total = omp_loop_iteration_dist(off);
-	else total = 0;
-	if (total == 0) return 0;
+	else return 0;
 	//case OMP_OFFLOADING_MAPMEM:
 	off->stage = OMP_OFFLOADING_MAPMEM;
 	/* init data map and dev memory allocation */
@@ -205,6 +204,7 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 			omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
 	}
+	return total;
 }
 
 void omp_accumulate_elapsed_ms (omp_event_t * events, int num_events) {
@@ -396,7 +396,7 @@ void omp_offloading_run(omp_device_t * dev) {
 				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
 				omp_event_record_start(&events[misc_event_index]);
 #endif
-				omp_print_data_map(map);
+				//omp_print_data_map(map);
 				omp_map_mapto_async(map, off->stream);
 				//omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -475,24 +475,6 @@ void omp_offloading_run(omp_device_t * dev) {
 //		if (off_info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE) goto omp_offloading_sync_cleanup;
 	}
 
-	omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[off_info->loop_depth].policy;
-	if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
-		int num_iterations = 0;
-		do {
-#if defined (OMP_BREAKDOWN_TIMING)
-			omp_accumulate_elapsed_ms(events, num_events);
-#endif
-			num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
-		} while(num_iterations);
-	} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO){
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_accumulate_elapsed_ms(events, num_events);
-#endif
-        /* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
-		pthread_barrier_wait(&off_info->inter_dev_barrier);
-		secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
-	}
-
 //	case OMP_OFFLOADING_COPYFROM:
 	{
 		omp_offloading_copyfrom:;
@@ -525,6 +507,24 @@ void omp_offloading_run(omp_device_t * dev) {
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
+	}
+
+	omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
+	if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
+		long num_iterations = 0;
+		do {
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_accumulate_elapsed_ms(events, num_events);
+#endif
+			num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
+		} while(num_iterations);
+	} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO){
+#if defined (OMP_BREAKDOWN_TIMING)
+		omp_accumulate_elapsed_ms(events, num_events);
+#endif
+		/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
+		pthread_barrier_wait(&off_info->inter_dev_barrier);
+		secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 	}
 
 	//case OMP_OFFLOADING_SYNC:

@@ -48,7 +48,7 @@ typedef struct omp_offloading omp_offloading_t;
 #define OMP_MAX_NUM_DIMENSIONS 3
 #define OMP_ALL_DIMENSIONS -1
 /* the LONG_MIN */
-#define OMP_ALIGNEE_START -2147483647
+#define OMP_ALIGNEE_OFFSET -2147483647
 #define CACHE_LINE_SIZE 64
 
 /**
@@ -354,12 +354,13 @@ typedef enum omp_dist_target_type {
  * Info object for dist (array and iteration)
  */
 typedef struct omp_dist_info {
-	volatile long offset; /* the offset index for the dim of the original array */
+	volatile long start; /* the next start index for the dist, starting from offset */
 	char padding[CACHE_LINE_SIZE];
-	omp_dist_policy_t policy; /* the dist policy */
+	long offset; /* the offset index for the dim of the original array */
 	long end; /* the upper bound of the dist, not inclusive */
-	long length;   /* the length (total # element to be distributed) */
+	long length;   /* the total # element to be distributed */
 	long stride; /* stride between ele, default 1 of course */
+	omp_dist_policy_t policy; /* the dist policy */
 	long chunk_size; /* initial chunk size for OMP_DIST_POLICY_SCHED_DYNAMIC policy */
 
 	int dim_index; /* the index of top dim to apply dist, for block, duplicate, auto. For ALIGN, this is dim at the alignee*/
@@ -483,10 +484,11 @@ typedef struct omp_data_map_halo_region_mem {
 
 /**
  * dist object, a subregion of the whole region defined in info object
+ *
  */
 typedef struct omp_dist {
 	omp_dist_info_t * info; /* not yet used so far */
-	long offset;
+	long offset; /* offset from the original array for most alignment type except for align dist, offset is the relative offset from the alignee offset */
 	long length;
 	float ratio; /* a user specified distribution ratio */
 
@@ -496,10 +498,13 @@ typedef struct omp_dist {
 	 * but we will loop the information since each mapping/dist overwrites previous info.
 	 * Or we create a link-list using the next field to track all the mapping/dist operations.
 	 *
+	 * When we use counter, total_length accumulates all the lengths each time this dist is used
+	 *
 	 * The same approaches are used in data maps
 	 */
 	int counter;
 	struct omp_dist * next;
+	long total_length;
 
 	char padding[CACHE_LINE_SIZE];
 } omp_dist_t;
@@ -516,9 +521,13 @@ struct omp_data_map {
 	 * we use either a counter to keep track of how may mapping/dist operations have been applied, thus reuse the object,
 	 * but we will loop the information since each mapping/dist overwrites previous info.
 	 * Or we create a link-list using the next field to track all the mapping/dist operations.
+	 *
+	 * total_map_size and total_map_wextra_size store the sizes of all the mapped data regions
 	 */
 	int counter;
 	struct omp_data_map * next;
+	long total_map_size;
+	long total_map_wextra_size;
 
 	/* the subarray for the mapped region, including the offset and length */
 	omp_dist_t map_dist[OMP_MAX_NUM_DIMENSIONS];

@@ -183,7 +183,7 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
      /* used by all row-wise dist */
     omp_data_map_dist_init_info(__u_map_info__, 1, OMP_DIST_POLICY_FULL, 0, u_dimY, 0, 0);
     omp_map_add_halo_region(__u_map_info__, 0, radius, radius, OMP_DIST_HALO_EDGING_REFLECTING);
-    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, OMP_ALIGNEE_START, __u_map_info__, OMP_ALL_DIMENSIONS);
+    omp_data_map_dist_align_with_data_map_with_halo(__uold_map_info__, OMP_ALL_DIMENSIONS, OMP_ALIGNEE_OFFSET, __u_map_info__, OMP_ALL_DIMENSIONS);
 
 #if 0
     /* col-wise distribution */
