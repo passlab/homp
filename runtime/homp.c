@@ -39,7 +39,8 @@ void omp_print_dist_policy_options() {
 		printf("\t%d,<n>:\t%s(%s), default n: %d\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name, omp_dist_policy_args[i].chunk);
 	}
 	i= default_dist_policy_index;
-	printf("\t--------------------------------------------------------------------------------------------------------------------\n");
+	printf("-------------------------------------------------------------------------------------------------------------------------------\n");
+	printf("\tExample: export LOOP_DIST_POLICY=10,200\n");
 	printf("\tDefault: %d,%d:\t%s(%s)\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].chunk, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name);
 	printf("==========================================================================================================================\n");
 
@@ -62,7 +63,7 @@ omp_dist_policy_t omp_read_dist_policy_options(int * chunk_size) {
 	}
 //	printf("Dist policy: %d,%d: %s, full name: %s\n", omp_dist_policy_args[i].type, *chunk_size, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name);
 	printf("--------------------------------------------------------------------------------------------------------------------\n");
-	printf("Dist policy and chunk size are set and stored in the following two global variables that can be used in the program.\n");
+	printf("Current dist policy is set and stored in the following two global variables that can be used in the program.\n");
 	printf("\tLOOP_DIST_POLICY     = %d (%s)\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].name);
 	printf("\tLOOP_DIST_CHUNK_SIZE = %d\n", *chunk_size);
 	printf("==========================================================================================================================\n\n");
