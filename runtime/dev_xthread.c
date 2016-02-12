@@ -446,8 +446,7 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[acc_ex_pre_barrier_event_index]);
 #endif
-		pthread_barrier_wait(
-				&off_info->inter_dev_barrier); /* make sure everybody is completed so we can exchange now */
+		pthread_barrier_wait(&off_info->inter_dev_barrier); /* make sure everybody is completed so we can exchange now */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_ex_pre_barrier_event_index]);
 #endif
@@ -567,6 +566,7 @@ omp_offloading_sync_cleanup: ;
 #endif
 			/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
 			pthread_barrier_wait(&off_info->inter_dev_barrier);
+//			printf("dev %d wait in barrier for the secondary offloading\n", dev->id);
 			secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 		}
 		off->stage = OMP_OFFLOADING_MDEV_BARRIER;

@@ -715,10 +715,10 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			}
 			if (off->devseqid == i) {
 				dist->length = length;
-				dist->offset = offset;
+				dist->offset = offset + dist_info->offset;
 				break;
 			}
-			//printf("LINEAR_MODEL_1: Dev %d (%f GFlops/s): offset: %d, length: %d of total length: %d from offset: %d\n", i, flops, offset, length, dist_info->length, dist_info->offset);
+			//printf("SCHED_AUTO: LINEAR_MODEL_1: Dev %d (%f GFlops/s): offset: %d, length: %d of total length: %d\n", i, flops, dist->offset, dist->length, full_length);
 			offset += length;
 		}
 #endif
@@ -830,10 +830,9 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 				dist->length = length;
 				break;
 			}
-//			printf("LINEAR_MODEL_2: Dev %d: offset: %d, length: %d of total length: %d from offset: %d, predicted exe time: %f\n",
-//				   i, offset, length, dist_info->length, dist_info->offset, T0);
 			offset += length;
 		}
+//		printf("SCHED_AUTO: LINEAR_MODEL_2: Dev %d: offset: %d, length: %d of total length: %d, predicted exe time: %f\n", dev->id, dist->offset, dist->length, full_length, T0);
 #if 0
 		/* do the alignment map for arrays */
 		for (i=0; i<off_info->num_mapped_vars; i++) {
@@ -851,6 +850,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			omp_event_record_stop(&events[runtime_dist_modeling_index]);
 #endif
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_STATIC_RATIO) { /* simply distribute according to a user specified ratio */
+		/* TODO: we do not have yet a user interface or runtime API for user to use this feature */
 		omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
 		for (i =0; i <off_info->top->nnodes; i++) {
 			omp_offloading_t * anoff = &off_info->offloadings[i];
@@ -865,10 +865,9 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 				dist->length = length;
 				break;
 			}
-//			printf("STATIC_RATIO: Dev %d: offset: %d, length: %d of total length: %d from offset: %d, predicted exe time: %f\n",
-//				   i, offset, length, dist_info->length, dist_info->offset, T0);
 			offset += length;
 		}
+		//printf("STATIC_RATIO: Dev %d: offset: %d, length: %d of total length: %d with ratio: %f\n", dev->id, dist->offset, dist->length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_DYNAMIC) { /* only for loop */
 		/* get next chunk */
 		length = dist_info->chunk_size;
@@ -887,9 +886,10 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		} while (1);
 		dist->offset = offset;
 		dist->length = length;
+		//printf("SCHED_DYNAMIC: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_GUIDED) { /* only for loop */
-		length = dist->length / 2; /* cut in half each time to pick a chunk */
-		if (length < 10) length = 10; /* minimum 10 iterations per chunk */
+		length = dist_info->chunk_size/(dist->counter+1);
+		if (length < 100) length = 100; /* minimum 10 iterations per chunk */
 		do {
 			offset = dist_info->start;
 			int new_start = offset + length;
@@ -905,6 +905,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		} while (1);
 		dist->offset = offset;
 		dist->length = length;
+//		printf("SCHED_GUIDE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) { /* only for loop */
 #ifndef OMP_BREAKDOWN_TIMING
 		printf("OMP_BREAKDOWN_TIMING must be set to use OMP_DIST_POLICY_SCHED_PROFILE_AUTO policy\n");
@@ -913,8 +914,8 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		if (dist->counter == 0) { /* SCHEDULE_STATIC policy */
 			length = dist_info->chunk_size;
 			do {
-				offset = dist_info->offset;
-				int new_start = offset + length;
+				offset = dist_info->start;
+				long new_start = offset + length;
 				if (new_start > dist_info->end) {
 					length = dist_info->end - offset;
 					if (length <= 0) {
@@ -927,8 +928,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			} while (1);
 			dist->offset = offset;
 			dist->length = length;
-//			printf("PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d from offset: %d, predicted exe time: %f\n",
-//				   i, offset, length, dist_info->length, dist_info->offset, T0);
+			printf("PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, full_length);
 		} else { /* similar to ratio policy */
 			omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
 			for (i =0; i <off_info->top->nnodes; i++) {
@@ -945,6 +945,9 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 				for (j=0; j<off_info->top->nnodes; j++) {
 					ratio += Ti/omp_event_get_elapsed(&off_info->offloadings[j].events[total_event_accumulated_index]);
 				}
+				ratio = 1.0/ratio;
+//				printf("Dev %d: Ti: %f, ratio: %f\n", dev->id, Ti, ratio);
+
 				length = full_length * ratio;
 
 				if (length <= 0) length = 0;
@@ -953,15 +956,14 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 					length = full_length - offset;
 				}
 				if (seqid == i) {
-					dist->offset = offset+dist_info->offset;
+					dist->offset = offset + dist_info->start + dist_info->offset;
 					dist->length = length;
-					break;
+					//break;
 				}
 
 				offset += length;
-//			printf("PROFILE_AUTO, AUTO: Dev %d: offset: %d, length: %d of total length: %d from offset: %d, predicted exe time: %f\n",
-//				   i, offset, length, dist_info->length, dist_info->offset, T0);
 			}
+			printf("PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, full_length);
 		}
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n",
@@ -969,7 +971,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		abort();
 		exit(1);
 	}
-	dist->counter++;
+	if (length > 0) dist->counter++;
 }
 
 /* return the total amount of distribution */
@@ -1091,7 +1093,7 @@ long omp_data_map_dist(omp_data_map_t *map, int seqid) {
 	map->total_map_size += map_size;
 	map->total_map_wextra_size += map_wextra_size;
 
-	map->counter++;
+	if (total > 0) map->counter++;
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_DIST;
 	return total;
 }
