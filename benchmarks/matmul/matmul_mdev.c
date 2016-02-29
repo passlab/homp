@@ -472,7 +472,9 @@ double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, lo
     /* this is common for all row-wise distribution */
     omp_data_map_dist_init_info(__B_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
     omp_data_map_dist_init_info(__B_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
-    omp_data_map_dist_align_with_data_map(__A_map_info__, OMP_ALL_DIMENSIONS, 0, __C_map_info__, OMP_ALL_DIMENSIONS);
+    omp_data_map_dist_align_with_loop(__A_map_info__, 0, 0, __off_info__, 0);
+    omp_data_map_dist_init_info(__A_map_info__, 1, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
+    //omp_data_map_dist_align_with_data_map(__A_map_info__, OMP_ALL_DIMENSIONS, 0, __C_map_info__, OMP_ALL_DIMENSIONS);
 #if 0
     /*  col-wise distribution */
     omp_data_map_dist_init_info(__A_map_info__, 0, OMP_DIST_POLICY_FULL, 0, n, 0, 0);
@@ -509,7 +511,7 @@ double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, lo
     /* here we do not need sync start */
     double off_total = read_timer_ms();
     int it;
-    int total_its = 10;
+    int total_its = 1;
     for (it = 0; it < total_its; it++)
         omp_offloading_start(__off_info__, it == total_its - 1);
     off_total = (read_timer_ms() - off_total) / total_its;

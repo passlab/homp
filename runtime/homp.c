@@ -12,14 +12,15 @@
 #include <time.h>
 #include "homp.h"
 
-#define num_allowed_dist_policies 5
+#define num_allowed_dist_policies 6
 #define default_dist_policy_index 0
 omp_dist_policy_argument_t omp_dist_policy_args[num_allowed_dist_policies] = {
-		{OMP_DIST_POLICY_BLOCK,         		-1,     "OMP_DIST_POLICY_BLOCK", 				"BLOCK"},
-		{OMP_DIST_POLICY_SCHED_DYNAMIC, 		100,    "OMP_DIST_POLICY_SCHED_DYNAMIC",   		"SCHED_DYNAMIC"},
-		{OMP_DIST_POLICY_SCHED_GUIDED, 			100,	"OMP_DIST_POLICY_SCHED_GUIDED",  		"SCHED_GUIDED"},
-		{OMP_DIST_POLICY_SCHED_PROFILE_AUTO,	100,	"OMP_DIST_POLICY_SCHED_PROFILE_AUTO",	"SCHED_PROFILE_AUTO"},
-		{OMP_DIST_POLICY_SCHED_AUTO,        	-1, 	"OMP_DIST_POLICY_SCHED_AUTO",   		"SCHED_AUTO"},
+		{OMP_DIST_POLICY_BLOCK,              -1,   "OMP_DIST_POLICY_BLOCK",              "BLOCK"},
+		{OMP_DIST_POLICY_SCHED_DYNAMIC,      100,  "OMP_DIST_POLICY_SCHED_DYNAMIC",      "SCHED_DYNAMIC"},
+		{OMP_DIST_POLICY_SCHED_GUIDED,       100,  "OMP_DIST_POLICY_SCHED_GUIDED",       "SCHED_GUIDED"},
+		{OMP_DIST_POLICY_SCHED_PROFILE_AUTO, 100,  "OMP_DIST_POLICY_SCHED_PROFILE_AUTO", "SCHED_PROFILE_AUTO"},
+		{OMP_DIST_POLICY_MODEL_AUTO,         -1,   "OMP_DIST_POLICY_MODEL_AUTO",         "MODEL_AUTO"},
+		{OMP_DIST_POLICY_MODEL_PROFILE_AUTO, 100,  "OMP_DIST_POLICY_MODEL_PROFILE_AUTO", "MODEL_PROFILE_AUTO"},
 };
 
 __attribute__((destructor))
@@ -34,24 +35,31 @@ void omp_print_dist_policy_options() {
 	int i;
 	printf("==========================================================================================================================\n");
 	printf("Loop distribution policy can be specified by setting LOOP_DIST_POLICY environment variable to one of the following:\n");
-	printf("  The first number is the policy id, and the second number is the chunk size. If it is -1, the chunk size is not used.\n");
+	printf("  The first number is the policy id, and the second number is the chunk size or chunk percentage. If it is -1, the chunk size is not used.\n");
 	for (i=0; i < num_allowed_dist_policies; i++) {
 		printf("\t%d,<n>:\t%s(%s), default n: %d\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name, omp_dist_policy_args[i].chunk);
 	}
 	i= default_dist_policy_index;
 	printf("-------------------------------------------------------------------------------------------------------------------------------\n");
-	printf("\tExample: export LOOP_DIST_POLICY=10,200\n");
+	printf("\tExample: export LOOP_DIST_POLICY=10,200, or export LOOP_DIST_POLICY=8,10%\n");
 	printf("\tDefault: %d,%d:\t%s(%s)\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].chunk, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name);
 	printf("==========================================================================================================================\n");
 
 }
 
-omp_dist_policy_t omp_read_dist_policy_options(int * chunk_size) {
+omp_dist_policy_t omp_read_dist_policy_options(int *chunk_size) {
 	omp_dist_policy_t p;
 	char *dist_policy_str = getenv("LOOP_DIST_POLICY");
 	int i = num_allowed_dist_policies;
+
+	int use_percentage = 0;
 	if (dist_policy_str != NULL) {
-		sscanf(dist_policy_str, "%d,%d", &p, chunk_size);
+		if (dist_policy_str[strlen(dist_policy_str)-1]='%') {
+			sscanf(dist_policy_str, "%d,%d%%", &p, chunk_size);
+			use_percentage = 1;
+		} else {
+			sscanf(dist_policy_str, "%d,%d", &p, chunk_size);
+		}
 		for (i = 0; i < num_allowed_dist_policies; i++) {
 			if (omp_dist_policy_args[i].type == p) break;
 		}
@@ -65,9 +73,13 @@ omp_dist_policy_t omp_read_dist_policy_options(int * chunk_size) {
 	printf("--------------------------------------------------------------------------------------------------------------------\n");
 	printf("Current dist policy is set and stored in the following two global variables that can be used in the program.\n");
 	printf("\tLOOP_DIST_POLICY     = %d (%s)\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].name);
-	printf("\tLOOP_DIST_CHUNK_SIZE = %d\n", *chunk_size);
+	printf("\tLOOP_DIST_CHUNK_SIZE = %d", *chunk_size);
+	if (use_percentage) printf("%%");
+	printf("\n");
 	printf("==========================================================================================================================\n\n");
 
+	/* we use negative chunk_size for percentage */
+	if (use_percentage) *chunk_size = 0-*chunk_size;
 	return p;
 }
 
@@ -681,7 +693,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		dist->length = alignee_dist->length;
 		dist->offset = alignee_dist->offset + dist_info->offset;
 //		printf("aligned dist on dev %d: offset: %d, length: %d\n", seqid, alignee_dist->offset, alignee_dist->length);
-	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_AUTO) {
+	} else if (dist_info->policy == OMP_DIST_POLICY_MODEL_AUTO) {
 		/* in LINEAR_MODEL_1, only computation is considered */
 		if (dist_info->target_type == OMP_DIST_TARGET_LOOP_ITERATION ) {
 		} else {
@@ -871,7 +883,11 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		//printf("STATIC_RATIO: Dev %d: offset: %d, length: %d of total length: %d with ratio: %f\n", dev->id, dist->offset, dist->length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_DYNAMIC) { /* only for loop */
 		/* get next chunk */
-		length = dist_info->chunk_size;
+		if (dist_info->chunk_size < 0)
+			/* the percentage of total iterations, not the left-over */
+			length = (0 - dist_info->chunk_size) * (dist_info->length) / 100;
+		else
+			length = dist_info->chunk_size;
 		do {
 			offset = dist_info->start;
 			int new_start = offset + length;
@@ -889,8 +905,17 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		dist->length = length;
 		//printf("SCHED_DYNAMIC: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_GUIDED) { /* only for loop */
-		length = dist_info->chunk_size/(dist->counter+1);
+		if (dist_info->chunk_size < 0)
+			/* the percentage of left-over, not the total */
+			length = (0 - dist_info->chunk_size) * (dist_info->end - dist_info->start) / 100;
+		else
+			length = dist_info->chunk_size/(dist->counter + 1);
+
 		if (length < 100) length = 100; /* minimum 10 iterations per chunk */
+		if (length > dist_info->length) {
+			printf("Posibblly because of data race\n");
+			abort();
+		}
 		do {
 			offset = dist_info->start;
 			int new_start = offset + length;
@@ -913,7 +938,11 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 #endif
         /* two dists are needed for this policy and we use counter for that */
 		if (dist->counter == 0) { /* SCHEDULE_STATIC policy */
-			length = dist_info->chunk_size;
+			if (dist_info->chunk_size < 0)
+				/* the percentage of total iterations, not the left-over */
+				length = (0 - dist_info->chunk_size) * (dist_info->length) / 100;
+			else
+				length = dist_info->chunk_size;
 			do {
 				offset = dist_info->start;
 				long new_start = offset + length;
@@ -932,22 +961,18 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			printf("PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, full_length);
 		} else { /* similar to ratio policy */
 			omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
+			double profile_performance = 0.0;
+			double myratio = 0.0;
 			for (i =0; i <off_info->top->nnodes; i++) {
 				omp_offloading_t * anoff = &off_info->offloadings[i];
-				omp_event_t * ev = &anoff->events[total_event_accumulated_index];
-				int evcount = ev->count;
-				if (evcount != 1) {
-					printf("Assertation failure for total_event_accumulated_index events, it should be called only once, but it is %d\n", evcount);
-					abort();
-				}
-				double Ti = omp_event_get_elapsed(ev);
+				double Ti = anoff->runtime_profile_elapsed;
 				double ratio = 0.0;
 				int j;
 				for (j=0; j<off_info->top->nnodes; j++) {
-					ratio += Ti/omp_event_get_elapsed(&off_info->offloadings[j].events[total_event_accumulated_index]);
+					ratio += Ti/off_info->offloadings[j].runtime_profile_elapsed;
 				}
 				ratio = 1.0/ratio;
-//				printf("Dev %d: Ti: %f, ratio: %f\n", dev->id, Ti, ratio);
+			//	printf("Dev %d: Ti: %f, ratio: %f\n", dev->id, Ti, ratio);
 
 				length = full_length * ratio;
 
@@ -959,12 +984,14 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 				if (seqid == i) {
 					dist->offset = offset + dist_info->start + dist_info->offset;
 					dist->length = length;
+					profile_performance = Ti;
+					myratio = ratio;
 					//break;
 				}
 
 				offset += length;
 			}
-			printf("PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, full_length);
+			printf("PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d (%.2f%%) of total length: %d based on my profiling performance: %f\n", dev->id, dist->offset, dist->length, myratio*100.0, full_length, profile_performance);
 		}
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n",

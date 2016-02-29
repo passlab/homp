@@ -43,6 +43,24 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_comple
 
 long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t * off, omp_event_t* events, int seqid, int misc_event_index) {
 	int i;
+
+	/* sync stream to wait for completion of the initial offloading */
+	omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[sync_cleanup_event_index]);
+#endif
+	for (i=0; i<off->num_maps; i++) {
+		int inherited;
+		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+		if (inherited) continue;
+		if (map->info->remap_needed) omp_map_free(map, off);
+	}
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[sync_cleanup_event_index]);
+#endif
+	off->stage = OMP_OFFLOADING_MDEV_BARRIER;
+
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_event_record_start(&events[map_dist_alloc_event_index]);
 #endif
@@ -53,15 +71,12 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 	off->stage = OMP_OFFLOADING_MAPMEM;
 	/* init data map and dev memory allocation */
 	/***************** for each mapped variable that has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-	for (i = 0; i < off_info->num_mapped_vars; i++) {
-		/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
-		omp_data_map_info_t *map_info = &off_info->data_map_info[i];
-
+	for (i = 0; i < off->num_maps; i++) {
 		int inherited = 1;
 		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
 		if (inherited) continue;
 
-		if (map_info->remap_needed){
+		if (map->info->remap_needed){
 			omp_data_map_dist(map, seqid);
 			if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
 		}
@@ -87,21 +102,21 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 			omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
 			if (inherited) continue;
 			omp_data_map_info_t *map_info = map->info;
-			if (!map_info->remap_needed) {
-				misc_event_index ++;
-				continue;
-			}
 			if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
+				if (map_info->remap_needed) {
 #if defined (OMP_BREAKDOWN_TIMING)
-				omp_event_t * ev = &events[misc_event_index];
-				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
-				omp_event_record_start(&events[misc_event_index]);
+					omp_event_t *ev = &events[misc_event_index];
+//				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
+//				printf("Dev: %d: MAPTO_%s, %d\n", off->dev->id, map_info->symbol, misc_event_index-1);
+					omp_event_record_start(ev);
 #endif
-				omp_map_mapto_async(map, off->stream);
-				//omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
+					omp_map_mapto_async(map, off->stream);
+					//omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
-				omp_event_record_stop(&events[misc_event_index++]);
+					omp_event_record_stop(ev);
 #endif
+				}
+				misc_event_index++;
 			}
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -183,22 +198,21 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 			omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
 			if (inherited) continue;
 			omp_data_map_info_t *map_info = map->info;
-			if (!map_info->remap_needed) {
-				misc_event_index ++;
-				continue;
-			}
 			if (map_info->map_direction == OMP_DATA_MAP_FROM || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
+				if (map_info->remap_needed) {
 #if defined (OMP_BREAKDOWN_TIMING)
-				/* TODO bug here if this is reached from the above goto, since events is not available */
-				omp_event_t * ev = &events[misc_event_index];
-				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPFROM_", "Time for mapfrom data movement for array %s", map_info->symbol);
-				omp_event_record_start(&events[misc_event_index]);
+					/* TODO bug here if this is reached from the above goto, since events is not available */
+					omp_event_t *ev = &events[misc_event_index];
+//				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPFROM_", "Time for mapfrom data movement for array %s", map_info->symbol);
+					omp_event_record_start(ev);
 #endif
-				omp_map_mapfrom_async(map, off->stream);
-				//omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, dev, map->map_size, off->stream); /* memcpy from host to device */
+					omp_map_mapfrom_async(map, off->stream);
+					//omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, dev, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
-				omp_event_record_stop(&events[misc_event_index++]);
+					omp_event_record_stop(ev);
 #endif
+				}
+				misc_event_index ++;
 			}
 		}
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -209,13 +223,16 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 	return total;
 }
 
-void omp_accumulate_elapsed_ms (omp_event_t * events, int num_events) {
+/**
+ * return the acc_time of this call only, and this time will be added upon the previous accu_time in the event
+ */
+double omp_accumulate_elapsed_ms(omp_event_t *events, int num_events) {
 	int i;
 	double accu_time = 0.0;
 	omp_event_accumulate_elapsed_ms(&events[total_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[timing_init_event_index], 0);
-	omp_event_accumulate_elapsed_ms(&events[map_init_event_index], 0);
-	omp_event_accumulate_elapsed_ms(&events[map_dist_alloc_event_index], 0);
+	accu_time += omp_event_accumulate_elapsed_ms(&events[map_init_event_index], 0);
+	accu_time += omp_event_accumulate_elapsed_ms(&events[map_dist_alloc_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[runtime_dist_modeling_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[sync_cleanup_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[barrier_wait_event_index], 0);
@@ -231,6 +248,7 @@ void omp_accumulate_elapsed_ms (omp_event_t * events, int num_events) {
 	omp_event_record_start(&events[total_event_accumulated_index]);
 	omp_event_record_stop(&events[total_event_accumulated_index]);
 	omp_event_accumulate_elapsed_ms(&events[total_event_accumulated_index], accu_time);
+	return accu_time;
 }
 
 /**
@@ -268,28 +286,16 @@ void omp_offloading_run(omp_device_t * dev) {
 		events = (omp_event_t *) malloc(sizeof(omp_event_t) * num_events); /**TODO: free this memory somewhere later */
 		off->num_events = num_events;
 		off->events = events;
-	} else { /* second time and later recurring offloading */
-		num_events = off->num_events;
-		events = off->events;
-	}
-
-	/* set up stream and event */
-	if (off_info->count <= 1)
 		omp_event_init(&events[total_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "OFF_TOTAL", "Total offloading time (everything) on dev: %d", devid);
-	omp_event_record_start(&events[total_event_index]);
-#endif
-
-//	case OMP_OFFLOADING_INIT:
-	if (off_info->count <= 1) { /* the first time of recurring offloading or a non-recurring offloading */
+		omp_event_record_start(&events[total_event_index]);
 #if defined USING_PER_OFFLOAD_STREAM
-        omp_stream_create(dev, &off->mystream);
+		omp_stream_create(dev, &off->mystream);
         off->stream = &off->mystream;
 #else
 		off->stream = &dev->default_stream;
 #endif
 		omp_dev_stream_t *stream = off->stream;
 
-#if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_init(&events[timing_init_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_0",
 					   "Time for initialization of stream and event", devid);
 		omp_event_record_start(&events[timing_init_event_index]);
@@ -321,56 +327,63 @@ void omp_offloading_run(omp_device_t * dev) {
 		for (i = misc_event_index_start; i < num_events; i++) {
 			//printf("init misc event: %d by dev: %d\n", i, dev->id);
 			omp_event_init(&events[i], dev, OMP_EVENT_DEV_RECORD, NULL, NULL, NULL, 0);
+
+
 		}
 
 		omp_event_record_stop(&events[timing_init_event_index]);
-#endif
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[map_init_event_index]);
-#endif
-		for (i = 0; i < off_info->num_mapped_vars; i++) {
-			/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
-			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
-
-			int inherited = 1;
-			omp_data_map_t *map = omp_map_get_map_inheritance(dev, map_info->source_ptr);
-			if (map ==
-				NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
-				map = &map_info->maps[seqid];
-				omp_data_map_init_map(map, map_info, dev);
-				inherited = 0;
-			}
-			omp_map_append_map_to_offcache(off, map, inherited);
-			//omp_print_data_map(map);
-		}
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[map_init_event_index]);
-#endif
-
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_start(&events[map_dist_alloc_event_index]);
-#endif
-		if (!off->loop_dist_done) omp_loop_iteration_dist(off);
-
-		//case OMP_OFFLOADING_MAPMEM:
-		off->stage = OMP_OFFLOADING_MAPMEM;
-		/* init data map and dev memory allocation */
-		/***************** for each mapped variable that has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
-		for (i = 0; i < off_info->num_mapped_vars; i++) {
-			/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
-			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
-
-			int inherited = 1;
-			omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
-			if (inherited) continue;
-			omp_data_map_dist(map, seqid); /* handle all unmapped variable */
-			if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
-		}
-
-#if defined (OMP_BREAKDOWN_TIMING)
-		omp_event_record_stop(&events[map_dist_alloc_event_index]);
-#endif
+	} else { /* second time and later recurring offloading */
+		num_events = off->num_events;
+		events = off->events;
+		omp_event_record_start(&events[total_event_index]);
 	}
+#endif
+
+	double runtime_profile_elapsed =read_timer_ms();
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[map_init_event_index]);
+#endif
+	for (i = 0; i < off_info->num_mapped_vars; i++) {
+		/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
+		omp_data_map_info_t *map_info = &off_info->data_map_info[i];
+
+		int inherited = 1;
+		omp_data_map_t *map = omp_map_get_map_inheritance(dev, map_info->source_ptr);
+		if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
+			map = &map_info->maps[seqid];
+			omp_data_map_init_map(map, map_info, dev);
+			inherited = 0;
+		}
+		omp_map_append_map_to_offcache(off, map, inherited);
+		//omp_print_data_map(map);
+	}
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[map_init_event_index]);
+#endif
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[map_dist_alloc_event_index]);
+#endif
+	if (!off->loop_dist_done) omp_loop_iteration_dist(off);
+
+	//case OMP_OFFLOADING_MAPMEM:
+	off->stage = OMP_OFFLOADING_MAPMEM;
+	/* init data map and dev memory allocation */
+	/***************** for each mapped variable that has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
+	for (i = 0; i < off_info->num_mapped_vars; i++) {
+		/* we handle inherited map here, by each helper thread, and we only update the off object (not off_info)*/
+		omp_data_map_info_t *map_info = &off_info->data_map_info[i];
+
+		int inherited = 1;
+		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+		if (inherited) continue;
+		omp_data_map_dist(map, seqid); /* handle all unmapped variable */
+		if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
+	}
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[map_dist_alloc_event_index]);
+#endif
 
 	int misc_event_index = misc_event_index_start;
 	if (off_info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE) goto data_exchange;
@@ -393,16 +406,17 @@ void omp_offloading_run(omp_device_t * dev) {
 			omp_data_map_info_t *map_info = map->info;
 			if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
-				omp_event_t * ev = &events[misc_event_index];
+				omp_event_t * ev = &events[misc_event_index++];
 				//if (devid == 0) printf("set misc event att: %d by dev: %d\n", misc_event_index, dev->id);
 				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
-				omp_event_record_start(&events[misc_event_index]);
+//				printf("Dev: %d: MAPTO_%s, %d\n", dev->id, map_info->symbol, misc_event_index-1);
+				omp_event_record_start(ev);
 #endif
 				//omp_print_data_map(map);
 				omp_map_mapto_async(map, off->stream);
 				//omp_map_memcpy_to_async((void*)map->map_dev_ptr, dev, (void*)map->map_buffer, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
-				omp_event_record_stop(&events[misc_event_index++]);
+				omp_event_record_stop(ev);
 #endif
 			}
 		}
@@ -493,14 +507,14 @@ void omp_offloading_run(omp_device_t * dev) {
 			if (map_info->map_direction == OMP_DATA_MAP_FROM || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 				/* TODO bug here if this is reached from the above goto, since events is not available */
-				omp_event_t * ev = &events[misc_event_index];
+				omp_event_t * ev = &events[misc_event_index++];
 				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPFROM_", "Time for mapfrom data movement for array %s", map_info->symbol);
-				omp_event_record_start(&events[misc_event_index]);
+				omp_event_record_start(ev);
 #endif
 				omp_map_mapfrom_async(map, off->stream);
 				//omp_map_memcpy_from_async((void*)map->map_buffer, (void*)map->map_dev_ptr, dev, map->map_size, off->stream); /* memcpy from host to device */
 #if defined (OMP_BREAKDOWN_TIMING)
-				omp_event_record_stop(&events[misc_event_index++]);
+				omp_event_record_stop(ev);
 #endif
 			}
 		}
@@ -508,6 +522,31 @@ void omp_offloading_run(omp_device_t * dev) {
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
+		off->stage = OMP_OFFLOADING_SECONDARY_OFFLOADING;
+	}
+
+	runtime_profile_elapsed =read_timer_ms() - runtime_profile_elapsed;
+	off->runtime_profile_elapsed = runtime_profile_elapsed;
+	{
+		omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
+		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
+			long num_iterations = 0;
+			do {
+#if defined (OMP_BREAKDOWN_TIMING)
+				omp_accumulate_elapsed_ms(events, num_events);
+#endif
+				num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
+			} while (num_iterations);
+		} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) {
+#if defined (OMP_BREAKDOWN_TIMING)
+			off->runtime_profile_elapsed = omp_accumulate_elapsed_ms(events, num_events);
+//			printf("Device %d, profile time: %f using events vs %f using timer\n", dev->id, off->runtime_profile_elapsed, runtime_profile_elapsed);
+#endif
+			/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
+			pthread_barrier_wait(&off_info->inter_dev_barrier);
+//			printf("dev %d wait in barrier for the secondary offloading\n", dev->id);
+			secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
+		}
 	}
 
 	//case OMP_OFFLOADING_SYNC:
@@ -547,28 +586,6 @@ omp_offloading_sync_cleanup: ;
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[sync_cleanup_event_index]);
 #endif
-		off->stage = OMP_OFFLOADING_SECONDARY_OFFLOADING;
-	}
-
-	{
-		omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
-		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
-			long num_iterations = 0;
-			do {
-#if defined (OMP_BREAKDOWN_TIMING)
-				omp_accumulate_elapsed_ms(events, num_events);
-#endif
-				num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
-			} while (num_iterations);
-		} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) {
-#if defined (OMP_BREAKDOWN_TIMING)
-			omp_accumulate_elapsed_ms(events, num_events);
-#endif
-			/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
-			pthread_barrier_wait(&off_info->inter_dev_barrier);
-//			printf("dev %d wait in barrier for the secondary offloading\n", dev->id);
-			secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
-		}
 		off->stage = OMP_OFFLOADING_MDEV_BARRIER;
 	}
 

@@ -332,9 +332,10 @@ typedef enum omp_dist_policy {
 							   * scheduling of multiple small chunks of gradulatelly changed sizes starting
 							   * from chunk_size field. The algorithm of changing the chunk size is system-specific */
 	OMP_DIST_POLICY_SCHED_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
-	OMP_DIST_POLICY_SCHED_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
+	OMP_DIST_POLICY_MODEL_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
                            * model for load balance. The model makes best-efforts and one-time decision
                            * to distribute all iterations */
+	OMP_DIST_POLICY_MODEL_PROFILE_AUTO, /* use model to allocate max number of chunks to each device, profile and then distribute the rest according to the normalized performance */
 	OMP_DIST_POLICY_TOTAL_NUMS,
 } omp_dist_policy_t;
 
@@ -547,6 +548,11 @@ struct omp_data_map {
 
 	int mem_noncontiguous;
 	//omp_dev_stream_t * stream; /* the stream operations of this data map are registered with, mostly it will be the stream created for an offloading */
+
+	/* each map has pointers to its mapto and/or mapfrom event for timing individual operations. The two events objects are in off object */
+	omp_event_t * mapto_event;
+	omp_event_t * mapfrom_event;
+
 	char padding[CACHE_LINE_SIZE];
 };
 
@@ -722,6 +728,7 @@ struct omp_offloading {
 	long X2, Y2, Z2; /* the second level kernel thread config, e.g. CUDA gridDim */
 	void *args;
 	void (*kernel_launcher)(omp_offloading_t *, void *); /* device specific kernel, if any */
+	double runtime_profile_elapsed;
 	char padding[CACHE_LINE_SIZE];
 };
 
@@ -742,7 +749,7 @@ extern void omp_warmup_device(omp_device_t * dev);
 
 extern void omp_print_homp_usage();
 extern void omp_print_dist_policy_options();
-extern omp_dist_policy_t omp_read_dist_policy_options(int * chunk_size);
+extern omp_dist_policy_t omp_read_dist_policy_options(int *chunk_size);
 /* The use of the two global variables is an easy way to pass env setting to user program */
 extern omp_dist_policy_t LOOP_DIST_POLICY;
 extern int LOOP_DIST_CHUNK_SIZE;
