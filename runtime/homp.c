@@ -47,6 +47,10 @@ void omp_print_dist_policy_options() {
 
 }
 
+/*
+ * *chunk_size stores percentage as negative integer numbers
+ *
+ */
 omp_dist_policy_t omp_read_dist_policy_options(int *chunk_size) {
 	omp_dist_policy_t p;
 	char *dist_policy_str = getenv("LOOP_DIST_POLICY");
@@ -273,6 +277,9 @@ void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dis
 	omp_init_dist_info(dist_info, dist_policy, offset, length, chunk_size, topdim);
 }
 
+/**
+ * chunk_size store percentage as negative integer numbers
+ */
 void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy, long offset,
 							 long length, int chunk_size, int topdim) {
 	omp_dist_info_t * dist_info = &off_info->loop_dist_info[level];
