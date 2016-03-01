@@ -529,7 +529,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	off->runtime_profile_elapsed = runtime_profile_elapsed;
 	{
 		omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
-		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED) {
+		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED ) {
 			long num_iterations = 0;
 			do {
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -537,11 +537,13 @@ void omp_offloading_run(omp_device_t * dev) {
 #endif
 				num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 			} while (num_iterations);
-		} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) {
+		} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO || loop_dist_policy == OMP_DIST_POLICY_MODEL_PROFILE_AUTO) {
 #if defined (OMP_BREAKDOWN_TIMING)
 			off->runtime_profile_elapsed = omp_accumulate_elapsed_ms(events, num_events);
 //			printf("Device %d, profile time: %f using events vs %f using timer\n", dev->id, off->runtime_profile_elapsed, runtime_profile_elapsed);
 #endif
+            //printf("elapsed: %f, per iteration: %f of total iteration: %d\n", off->runtime_profile_elapsed, off->runtime_profile_elapsed/off->loop_dist[0].length, off->loop_dist[0].length);
+			off->runtime_profile_elapsed = off->runtime_profile_elapsed/off->loop_dist[0].length;
 			/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
 			pthread_barrier_wait(&off_info->inter_dev_barrier);
 //			printf("dev %d wait in barrier for the secondary offloading\n", dev->id);

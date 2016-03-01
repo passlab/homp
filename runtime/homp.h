@@ -342,8 +342,8 @@ typedef enum omp_dist_policy {
 typedef struct omp_dist_policy_argument {
 	omp_dist_policy_t type;
 	int chunk;
-	char name[48];
-	char shortname[24];
+	char *name;
+	char *shortname;
 } omp_dist_policy_argument_t;
 extern omp_dist_policy_argument_t omp_dist_policy_args[];
 
