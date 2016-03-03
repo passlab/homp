@@ -263,6 +263,7 @@ enum event_index {
 
 	sync_cleanup_event_index,			/* host event */
 	barrier_wait_event_index,			/* host event */
+	profiling_barrier_wait_event_index,			/* host event */
 
 	misc_event_index_start,      		/* other events, e.g. mapto/from for each array, start with 9*/
 };

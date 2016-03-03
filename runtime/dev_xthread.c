@@ -251,6 +251,7 @@ double omp_accumulate_elapsed_ms(omp_event_t *events, int num_events) {
 	omp_event_accumulate_elapsed_ms(&events[runtime_dist_modeling_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[sync_cleanup_event_index], 0);
 	omp_event_accumulate_elapsed_ms(&events[barrier_wait_event_index], 0);
+	omp_event_accumulate_elapsed_ms(&events[profiling_barrier_wait_event_index], 0);
 	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_mapto_event_index], 0);
 	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_kernel_exe_event_index], 0);
 	accu_time += omp_event_accumulate_elapsed_ms(&events[acc_mapfrom_event_index], 0);
@@ -326,6 +327,8 @@ void omp_offloading_run(omp_device_t * dev) {
 					   "Time for dev sync and cleaning (event/stream/map, deallocation/unmarshalling)");
 		omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "BAR_FINI_2",
 					   "Time for barrier wait for other to complete");
+		omp_event_init(&events[profiling_barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "PROF_BAR",
+					   "Time for barrier wait to make sure profiling by all dev is done");
 		omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "ACC_MAPTO",
 					   "Accumulated time for mapto data movement for all array");
 		omp_event_init(&events[acc_kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "KERN",
@@ -582,7 +585,15 @@ omp_offloading_sync_cleanup: ;
             //printf("elapsed: %f, per iteration: %f of total iteration: %d\n", off->runtime_profile_elapsed, off->runtime_profile_elapsed/off->loop_dist[0].length, off->loop_dist[0].length);
 			off->runtime_profile_elapsed = off->runtime_profile_elapsed/off->loop_dist[0].length;
 			/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
+
+
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_event_record_start(&events[profiling_barrier_wait_event_index]);
+#endif
 			pthread_barrier_wait(&off_info->inter_dev_barrier);
+#if defined (OMP_BREAKDOWN_TIMING)
+			omp_event_record_stop(&events[profiling_barrier_wait_event_index]);
+#endif
 //			printf("dev %d wait in barrier for the secondary offloading\n", dev->id);
 			secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 		}
