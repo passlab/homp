@@ -1026,6 +1026,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 
 			omp_dist_profile_auto(dist_info, dist_info->start, full_length, seqid, &dist->offset, &dist->length, &myratio, &profile_performance);
 			printf("SCHED_PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d (%.2f%%) of total length: %d based on my profiling performance: %f\n", dev->id, dist->offset, dist->length, myratio*100.0, full_length, profile_performance);
+			//dist->counter = 0; /* reset dist->counter for the future call of the same offloading */
 		}
 	} else if (dist_info->policy == OMP_DIST_POLICY_MODEL_PROFILE_AUTO) {
 		if (dist_info->chunk_size < 0)
@@ -1044,6 +1045,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 
 			omp_dist_profile_auto(dist_info, offset, full_length, seqid, &dist->offset, &dist->length, &myratio, &profile_performance);
 			printf("SCHED_PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d (%.2f%%) of total length: %d based on my profiling performance: %f\n", dev->id, dist->offset, dist->length, myratio*100.0, full_length, profile_performance);
+			//dist->counter = 0; /* reset dist->counter for the future call of the same offloading */
 		}
 	} else {
 		fprintf(stderr, "other dist_info type %d is not yet supported\n", dist_info->policy);
@@ -1823,6 +1825,65 @@ void omp_topology_get_neighbors(omp_grid_topology_t * top, int seqid, int topdim
     }
 }
 
+/**
+ * Not used yet
+ */
+int omp_init_events(omp_device_t *dev, int num_mis_events, omp_dev_stream_t *stream) {
+	/* the num_mapped_vars * 2 +4 is the rough number of events needed */
+	/* the event (if mapto var is num_mapto, and mapfrom var is num_mapfrom (both including tofrom);
+	 * 0: The whole measured time from host side, measured from host
+	 * 1: The init time (stream, event, etc), this is the overhead for the breakdown timing, measured from host
+	 * 2: The time for map init, data dist, buffer allocation and data marshalling, measured from host
+	 * 3: The accumulated time for mapto datamovement, measured from dev
+	 * 4 - acc_kernel_exe_event_index-1: The time for each mapto datamovement, measured from dev (total num_mapto events)
+	 * acc_kernel_exe_event_index: kernel exe time
+	 * acc_kernel_exe_event_index+1: The accumulated time for mapfrom datamovement, measured from dev
+	 *     acc_kernel_exe_event_index+2 - xxxx: The time for each mapfrom datamovement, measured from dev (total num_mapfrom events)
+	 * xxxx: The time for cleanup resources (stream, event, data unmarshalling, etc), measured from host
+	 * xxxx: The time for barrier wait (for other kernel to complete), measured from host
+	 */
+
+	int devid = dev->id;
+	int num_events;
+	omp_event_t *events;
+	num_events = num_mis_events + misc_event_index_start; /* the max posibble # of events to be used */
+	events = (omp_event_t *) malloc(sizeof(omp_event_t) * num_events); /**TODO: free this memory somewhere later */
+	omp_event_init(&events[total_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "OFF_TOTAL",
+				   "Total offloading time (everything) on dev: %d", devid);
+
+	omp_event_init(&events[timing_init_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_0",
+				   "Time for initialization of stream and event", devid);
+	omp_event_init(&events[total_event_accumulated_index], dev, OMP_EVENT_HOST_RECORD, NULL, "ACCU_TOTAL",
+				   "Total ACCUMULATED time on dev: %d", devid);
+	omp_event_init(&events[map_init_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_0.1",
+				   "Time for init map data structure");
+	omp_event_init(&events[map_dist_alloc_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "INIT_1",
+				   "Time for data dist, memory allocation, and data marshalling");
+	omp_event_init(&events[runtime_dist_modeling_index], dev, OMP_EVENT_HOST_RECORD, NULL, "MODELING",
+				   "Runtime modeling cost");
+	omp_event_init(&events[sync_cleanup_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "FINI_1",
+				   "Time for dev sync and cleaning (event/stream/map, deallocation/unmarshalling)");
+	omp_event_init(&events[barrier_wait_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "BAR_FINI_2",
+				   "Time for barrier wait for other to complete");
+	omp_event_init(&events[acc_mapto_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "ACC_MAPTO",
+				   "Accumulated time for mapto data movement for all array");
+	omp_event_init(&events[acc_kernel_exe_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "KERN",
+				   "Time for kernel execution");
+	omp_event_init(&events[acc_mapfrom_event_index], dev, OMP_EVENT_DEV_RECORD, stream, "ACC_MAPFROM",
+				   "Accumulated time for mapfrom data movement for all array");
+	omp_event_init(&events[acc_ex_pre_barrier_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "PRE_BAR_X",
+				   "Time for barrier sync before data exchange between devices");
+	omp_event_init(&events[acc_ex_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "DATA_X",
+				   "Time for data exchange between devices");
+	omp_event_init(&events[acc_ex_post_barrier_event_index], dev, OMP_EVENT_HOST_RECORD, NULL, "POST_BAR_X",
+				   "Time for barrier sync after data exchange between devices");
+
+	int i;
+	for (i = misc_event_index_start; i < num_events; i++) {
+		//printf("init misc event: %d by dev: %d\n", i, dev->id);
+		omp_event_init(&events[i], dev, OMP_EVENT_DEV_RECORD, NULL, NULL, NULL, 0);
+	}
+}
 
 #if defined (OMP_BREAKDOWN_TIMING)
 /**
@@ -2058,7 +2119,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
 		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.2f\t\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
 		float percentage = 100*((float)off->loop_dist[0].total_length/(float) full_length);
-		printf("\t%d\t\t%.1f%%", off->loop_dist[0].total_length, percentage);
+		printf("\t%d(%d)\t\t%.1f%%(%d)", off->loop_dist[0].total_length/count, count, percentage/count, count);
 
 		ev = &off->events[runtime_dist_modeling_index];
 		if (ev->event_name != NULL) {
@@ -2127,7 +2188,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 			fprintf(report_cvs_file, ",\t");
 			lastdevid++;
 		}
-		fprintf(report_cvs_file, "%d", off->loop_dist[0].total_length);
+		fprintf(report_cvs_file, "%d", off->loop_dist[0].total_length/count);
 	}
 	fprintf(report_cvs_file, "\n");
 	lastdevid = 0;
@@ -2142,7 +2203,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		}
 //		printf("%d:%d,", off->loop_dist[0].length, length);
 		float percentage = 100*((float)off->loop_dist[0].total_length/(float) full_length);
-		fprintf(report_cvs_file, "%.1f\%", percentage);
+		fprintf(report_cvs_file, "%.1f%%", percentage/count);
 	}
 	fprintf(report_cvs_file, "\n");
 	lastdevid = 0;

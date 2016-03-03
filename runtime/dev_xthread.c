@@ -6,6 +6,29 @@
 #include "homp.h"
 
 /**
+ * dist_info->start is the only variable that are modified by multiple dev threads
+ * we need to reset this to off_info->offset in order to rerun the same offloading_info;
+ *
+ */
+static void omp_reset_dist_start(omp_offloading_info_t * off_info) {
+	int i;
+	omp_dist_info_t * dist_info;
+	for (i=0; i<off_info->loop_depth; i++) {
+		dist_info = &off_info->loop_dist_info[i];
+		dist_info->start = dist_info->offset;
+	}
+
+	for (i=0; i<off_info->num_mapped_vars; i++) {
+		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
+		int j;
+		for (j=0; j<map_info->num_dims; j++) {
+			dist_info = &map_info->dist_info[j];
+			dist_info->start = dist_info->offset;
+		}
+	}
+}
+
+/**
  * notifying the helper threads to work on the offloading specified in off_info arg
  * It always start with copyto and may stops after copyto for target data
  * master is just the thread that will store
@@ -13,6 +36,8 @@
 void omp_offloading_start(omp_offloading_info_t *off_info) {
 	omp_grid_topology_t * top = off_info->top;
     /* generate master trace file */
+
+	//if (off_info->count > 0) omp_reset_dist_start(off_info);
 
 	off_info->start_time = read_timer_ms(); /* only for the first time */
 
@@ -49,7 +74,6 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 	if (off_info->loop_redist_needed) total = omp_loop_iteration_dist(off);
 	if (total == 0) return 0;
 	//case OMP_OFFLOADING_MAPMEM:
-	off->stage = OMP_OFFLOADING_MAPMEM;
 	/* init data map and dev memory allocation */
 	/***************** for each mapped variable that has to and tofrom, if it has region mapped to this __ndev_i__ id, we need code here *******************************/
 	for (i = 0; i < off->num_maps; i++) {
@@ -72,8 +96,6 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 
 //	case OMP_OFFLOADING_COPYTO:
 	{
-		omp_offloading_copyto:;
-		off->stage = OMP_OFFLOADING_COPYTO;
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_start(&events[acc_mapto_event_index]);
@@ -106,8 +128,6 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 #endif
 	}
 
-	off->stage = OMP_OFFLOADING_KERNEL;
-
 //	case OMP_OFFLOADING_KERNEL:
 	{
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -129,8 +149,7 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 	data_exchange:;
 	/* for data exchange, either a standalone or an appended exchange */
 	if (off_info->halo_x_info != NULL) {
-		omp_stream_sync(
-				off->stream);/* make sure previous operation are complete, should NOT be timed for exchange */
+		omp_stream_sync(off->stream);/* make sure previous operation are complete, should NOT be timed for exchange */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[acc_ex_pre_barrier_event_index]);
 #endif
@@ -168,7 +187,6 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 //	case OMP_OFFLOADING_COPYFROM:
 	{
 		omp_offloading_copyfrom:;
-		off->stage = OMP_OFFLOADING_COPYFROM;
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_start(&events[acc_mapfrom_event_index]);
@@ -217,7 +235,6 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_event_record_stop(&events[sync_cleanup_event_index]);
 #endif
-	off->stage = OMP_OFFLOADING_MDEV_BARRIER;
 	return total;
 }
 
@@ -346,13 +363,17 @@ void omp_offloading_run(omp_device_t * dev) {
 		omp_data_map_info_t *map_info = &off_info->data_map_info[i];
 
 		int inherited = 1;
-		omp_data_map_t *map = omp_map_get_map_inheritance(dev, map_info->source_ptr);
+		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+		if (map == NULL) {
+			map = omp_map_get_map_inheritance(dev, map_info->source_ptr);
+			inherited = 1;
+		}
 		if (map == NULL) { /* here we basically ignore any map specification if it can inherit from ancestor (upper level nested target data) */
 			map = &map_info->maps[seqid];
 			omp_data_map_init_map(map, map_info, dev);
 			inherited = 0;
+			omp_map_append_map_to_offcache(off, map, inherited);
 		}
-		omp_map_append_map_to_offcache(off, map, inherited);
 		//omp_print_data_map(map);
 	}
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -405,9 +426,12 @@ void omp_offloading_run(omp_device_t * dev) {
 			if (map_info->map_direction == OMP_DATA_MAP_TO || map_info->map_direction == OMP_DATA_MAP_TOFROM) {
 #if defined (OMP_BREAKDOWN_TIMING)
 				omp_event_t * ev = &events[misc_event_index++];
-				//if (devid == 0) printf("set misc event att: %d by dev: %d\n", misc_event_index, dev->id);
-				if (ev->event_name == NULL) omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
-//				printf("Dev: %d: MAPTO_%s, %d\n", dev->id, map_info->symbol, misc_event_index-1);
+				if (ev->event_name == NULL) {
+					//if (devid == 0)
+					//printf("set misc event att: %d by dev: %d\n", misc_event_index, dev->id);
+					omp_event_set_attribute(ev, off->stream, "MAPTO_", "Time for mapto data movement for array %s", map_info->symbol);
+				}
+				//if (devid == 0) printf("Dev: %d: MAPTO_%s, %d: off count: %d\n", dev->id, map_info->symbol, misc_event_index-1, off_info->count);
 				omp_event_record_start(ev);
 #endif
 				//omp_print_data_map(map);
@@ -453,8 +477,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	data_exchange:;
 	/* for data exchange, either a standalone or an appended exchange */
 	if (off_info->halo_x_info != NULL) {
-		omp_stream_sync(
-				off->stream);/* make sure previous operation are complete, should NOT be timed for exchange */
+		omp_stream_sync(off->stream);/* make sure previous operation are complete, should NOT be timed for exchange */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[acc_ex_pre_barrier_event_index]);
 #endif
@@ -585,6 +608,7 @@ omp_offloading_sync_cleanup: ;
 
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		}
+		off->num_maps = 0; /* reset this maps to 0 so all the map will be re-inited in the next offloading run */
 #if defined USING_PER_OFFLOAD_STREAM
 		omp_stream_destroy(&off->mystream);
 #endif
