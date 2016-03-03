@@ -297,7 +297,7 @@ REAL sort_ompacc_mdev(int *bufferInt) {
     int it;
     int total_its = 1;
     for (it = 0; it < total_its; it++)
-        omp_offloading_start(__off_info__, it == total_its - 1);
+        omp_offloading_start(__off_info__);
     off_total = (read_timer_ms() - off_total) / total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
     printf("Before profiling thing \n");

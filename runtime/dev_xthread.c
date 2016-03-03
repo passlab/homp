@@ -10,8 +10,7 @@
  * It always start with copyto and may stops after copyto for target data
  * master is just the thread that will store
  */
-void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_completion) {
-	off_info->free_after_completion = free_after_completion;
+void omp_offloading_start(omp_offloading_info_t *off_info) {
 	omp_grid_topology_t * top = off_info->top;
     /* generate master trace file */
 
@@ -40,33 +39,15 @@ void omp_offloading_start(omp_offloading_info_t *off_info, int free_after_comple
 #endif
 }
 
-
 long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t * off, omp_event_t* events, int seqid, int misc_event_index) {
 	int i;
-
-	/* sync stream to wait for completion of the initial offloading */
-	omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
-#if defined (OMP_BREAKDOWN_TIMING)
-	omp_event_record_start(&events[sync_cleanup_event_index]);
-#endif
-	for (i=0; i<off->num_maps; i++) {
-		int inherited;
-		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
-		if (inherited) continue;
-		if (map->info->remap_needed) omp_map_free(map, off);
-	}
-
-#if defined (OMP_BREAKDOWN_TIMING)
-	omp_event_record_stop(&events[sync_cleanup_event_index]);
-#endif
-	off->stage = OMP_OFFLOADING_MDEV_BARRIER;
 
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_event_record_start(&events[map_dist_alloc_event_index]);
 #endif
-    long total;
+    long total = 0;
 	if (off_info->loop_redist_needed) total = omp_loop_iteration_dist(off);
-	else return 0;
+	if (total == 0) return 0;
 	//case OMP_OFFLOADING_MAPMEM:
 	off->stage = OMP_OFFLOADING_MAPMEM;
 	/* init data map and dev memory allocation */
@@ -220,6 +201,23 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 			omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
 	}
+
+	/* sync stream to wait for completion of the initial offloading */
+	omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[sync_cleanup_event_index]);
+#endif
+	for (i=0; i<off->num_maps; i++) {
+		int inherited;
+		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+		if (inherited) continue;
+		if (map->info->remap_needed) omp_map_free(map, off);
+	}
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[sync_cleanup_event_index]);
+#endif
+	off->stage = OMP_OFFLOADING_MDEV_BARRIER;
 	return total;
 }
 
@@ -522,8 +520,24 @@ void omp_offloading_run(omp_device_t * dev) {
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_stop(&events[acc_mapfrom_event_index]);
 #endif
-		off->stage = OMP_OFFLOADING_SECONDARY_OFFLOADING;
 	}
+
+omp_offloading_sync_cleanup: ;
+	/* sync stream to wait for completion of the initial offloading */
+	omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_start(&events[sync_cleanup_event_index]);
+#endif
+	for (i=0; i<off->num_maps; i++) {
+		int inherited;
+		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+		if (inherited) continue;
+		omp_map_free(map, off);
+	}
+
+#if defined (OMP_BREAKDOWN_TIMING)
+	omp_event_record_stop(&events[sync_cleanup_event_index]);
+#endif
 
 	runtime_profile_elapsed =read_timer_ms() - runtime_profile_elapsed;
 	off->runtime_profile_elapsed = runtime_profile_elapsed;
@@ -551,12 +565,8 @@ void omp_offloading_run(omp_device_t * dev) {
 		}
 	}
 
-	//case OMP_OFFLOADING_SYNC:
-	//case OMP_OFFLOADING_SYNC_CLEANUP:
 	{
-omp_offloading_sync_cleanup: ;
 		/* sync stream to wait for completion */
-		omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_start(&events[sync_cleanup_event_index]);
 #endif
@@ -575,16 +585,9 @@ omp_offloading_sync_cleanup: ;
 
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		}
-		if (off_info->free_after_completion) {
-			for (i=0; i<off->num_maps; i++) {
-				int inherited;
-				omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
-				if (!inherited) omp_map_free(map, off);
-			}
 #if defined USING_PER_OFFLOAD_STREAM
-			omp_stream_destroy(&off->mystream);
+		omp_stream_destroy(&off->mystream);
 #endif
-		}
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[sync_cleanup_event_index]);
 #endif

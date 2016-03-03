@@ -227,7 +227,7 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
 
     double off_copyto_time = read_timer_ms();
     double start_time = off_copyto_time;
-    omp_offloading_start(__copy_data_off_info__, 0);
+    omp_offloading_start(__copy_data_off_info__);
     off_copyto_time = read_timer_ms() - off_copyto_time;
 
     omp_print_map_info(__u_map_info__);
@@ -238,12 +238,12 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
     double off_kernel_time = read_timer_ms();
     int it;
     int num_runs = 1;
-    for (it=0; it< num_runs; it++) omp_offloading_start(__off_info__, it== num_runs -1);
+    for (it=0; it< num_runs; it++) omp_offloading_start(__off_info__);
     off_kernel_time = (read_timer_ms() - off_kernel_time)/ num_runs;
 
     /* copy back u from each device and free others */
     double off_copyfrom_time = read_timer_ms();
-    omp_offloading_start(__copy_data_off_info__, 1);
+    omp_offloading_start(__copy_data_off_info__);
     off_copyfrom_time = read_timer_ms() - off_copyfrom_time;
 
 
