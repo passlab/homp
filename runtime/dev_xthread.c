@@ -555,7 +555,7 @@ omp_offloading_sync_cleanup: ;
 		int inherited;
 		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
 		if (inherited) continue;
-		omp_map_free(map, off);
+		if (map->info->remap_needed) omp_map_free(map, off);
 	}
 
 #if defined (OMP_BREAKDOWN_TIMING)
@@ -607,6 +607,12 @@ omp_offloading_sync_cleanup: ;
 			}
 
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
+		}
+		for (i=0; i<off->num_maps; i++) {
+			int inherited;
+			omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+			if (inherited) continue;
+			if (!map->info->remap_needed) omp_map_free(map, off);
 		}
 		off->num_maps = 0; /* reset this maps to 0 so all the map will be re-inited in the next offloading run */
 #if defined USING_PER_OFFLOAD_STREAM

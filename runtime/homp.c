@@ -17,7 +17,7 @@
 omp_dist_policy_argument_t omp_dist_policy_args[num_allowed_dist_policies] = {
 		{OMP_DIST_POLICY_BLOCK,              -1,   "even distribution",              "BLOCK"},
 		{OMP_DIST_POLICY_SCHED_DYNAMIC,      100,  "each dev picks chunks and chunk size does not change",      "SCHED_DYNAMIC"},
-		{OMP_DIST_POLICY_SCHED_GUIDED,       100,  "each dev picks chunks and chunk sizes reduces each time",       "SCHED_GUIDED"},
+		{OMP_DIST_POLICY_SCHED_GUIDED,       100,  "each dev picks chunks and chunk sizes reduce each time",       "SCHED_GUIDED"},
 		{OMP_DIST_POLICY_SCHED_PROFILE_AUTO, 100,  "each dev pick the same amount of chunks, runtime profiles and then dist the rest based on profiling", "SCHED_PROFILE_AUTO"},
 		{OMP_DIST_POLICY_MODEL_AUTO,         -1,   "dist all iterations using analytical model",         "MODEL_AUTO"},
 		{OMP_DIST_POLICY_MODEL_PROFILE_AUTO, 100,  "dist the first chunk among devs using analytical model, runtime profiles, and then dist the rest based on profiling", "MODEL_PROFILE_AUTO"},
