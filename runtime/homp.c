@@ -151,6 +151,7 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 		off->events == NULL;
 		off->num_events = 0;
 		off->loop_dist_done = loop_dist_done;
+		off->last_total = 1; /* this serve as flag to see whether re-dist should be done or not */
 	}
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
@@ -826,11 +827,16 @@ static void omp_dist_profile_auto(omp_dist_info_t *dist_info, long start, long f
 	*myratio = 0.0;
 	for (i =0; i <off_info->top->nnodes; i++) {
 		omp_offloading_t * anoff = &off_info->offloadings[i];
+		if (anoff->last_total == 0) continue; /* this one will not participating */
 		double Ti = anoff->runtime_profile_elapsed;
 		double ratio = 0.0;
 		int j;
+		int last_dev;
 		for (j=0; j<off_info->top->nnodes; j++) {
+			anoff = &off_info->offloadings[j];
+			if (anoff->last_total == 0) continue; /* this one will not participating */
 			ratio += Ti/off_info->offloadings[j].runtime_profile_elapsed;
+			last_dev = j;
 		}
 		ratio = 1.0/ratio;
 		//	printf("Dev %d: Ti: %f, ratio: %f\n", dev->id, Ti, ratio);
@@ -839,7 +845,7 @@ static void omp_dist_profile_auto(omp_dist_info_t *dist_info, long start, long f
 
 		if (length <= 0) length = 0;
 		if (length >= full_length) length = full_length;
-		if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
+		if (i == last_dev && offset + length != full_length) { /* fix rounding error */
 			length = full_length - offset;
 		}
 		if (seqid == i) {
@@ -1057,7 +1063,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 
 /* return the total amount of distribution */
 long omp_loop_iteration_dist(omp_offloading_t *off) {
-	//if (off->loop_dist_done) return;
+	if (off->last_total == 0) return 0;
 	omp_offloading_info_t *off_info = off->off_info;
 	omp_grid_topology_t * top = off_info->top;
 
@@ -1083,6 +1089,7 @@ long omp_loop_iteration_dist(omp_offloading_t *off) {
 	}
 
 	off->loop_dist_done = 1;
+	off->last_total = total;
 	return total;
 }
 

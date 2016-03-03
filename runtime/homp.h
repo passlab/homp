@@ -713,6 +713,9 @@ struct omp_offloading {
 	omp_kernel_profile_info_t kernel_profile;
 	omp_kernel_profile_info_t per_iteration_profile;
 	int loop_dist_done; /* a flag */
+	long last_total; /* the total amount of iteration assigned to this device last time.
+			  * This is a flag used to check whether we need to do dist or not.
+			  * If last_total is 0, we do not need to dist to this dev anymore */
 
 	/* for profiling purpose */
 	omp_event_t *events;

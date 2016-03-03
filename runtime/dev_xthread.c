@@ -386,8 +386,12 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_event_record_start(&events[map_dist_alloc_event_index]);
 #endif
-	if (!off->loop_dist_done) omp_loop_iteration_dist(off);
-
+	long total = 0;
+	if (!off->loop_dist_done) total = omp_loop_iteration_dist(off);
+	if (total == 0) {
+		off->loop_dist_done = 0;
+		goto second_offloading;
+        }
 	//case OMP_OFFLOADING_MAPMEM:
 	off->stage = OMP_OFFLOADING_MAPMEM;
 	/* init data map and dev memory allocation */
@@ -566,17 +570,17 @@ omp_offloading_sync_cleanup: ;
 #endif
 
 	runtime_profile_elapsed =read_timer_ms() - runtime_profile_elapsed;
+second_offloading: ;
 	off->runtime_profile_elapsed = runtime_profile_elapsed;
 	{
 		omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
 		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED ) {
-			long num_iterations = 0;
-			do {
+			while (total) {
 #if defined (OMP_BREAKDOWN_TIMING)
 				omp_accumulate_elapsed_ms(events, num_events);
 #endif
-				num_iterations = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
-			} while (num_iterations);
+				total = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
+			}
 		} else if (loop_dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO || loop_dist_policy == OMP_DIST_POLICY_MODEL_PROFILE_AUTO) {
 #if defined (OMP_BREAKDOWN_TIMING)
 			off->runtime_profile_elapsed = omp_accumulate_elapsed_ms(events, num_events);
@@ -595,7 +599,7 @@ omp_offloading_sync_cleanup: ;
 			omp_event_record_stop(&events[profiling_barrier_wait_event_index]);
 #endif
 //			printf("dev %d wait in barrier for the secondary offloading\n", dev->id);
-			secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
+			if (total) secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 		}
 	}
 
@@ -619,11 +623,13 @@ omp_offloading_sync_cleanup: ;
 
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		}
-		for (i=0; i<off->num_maps; i++) {
-			int inherited;
-			omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
-			if (inherited) continue;
-			if (!map->info->remap_needed) omp_map_free(map, off);
+		if (total) {
+			for (i=0; i<off->num_maps; i++) {
+				int inherited;
+				omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+				if (inherited) continue;
+				if (!map->info->remap_needed) omp_map_free(map, off);
+			}
 		}
 		off->num_maps = 0; /* reset this maps to 0 so all the map will be re-inited in the next offloading run */
 #if defined USING_PER_OFFLOAD_STREAM
