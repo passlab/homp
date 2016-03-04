@@ -151,6 +151,7 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 		off->events == NULL;
 		off->num_events = 0;
 		off->loop_dist_done = loop_dist_done;
+		off->runtime_profile_elapsed = -1.0;
 	}
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
@@ -967,6 +968,34 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		dist->length = length;
 		//printf("SCHED_DYNAMIC: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_GUIDED) { /* only for loop */
+		if (dist_info->chunk_size < 0)
+			/* the percentage of left-over, not the total */
+			length = (0 - dist_info->chunk_size) * (dist_info->end - dist_info->start) / 100;
+		else
+			length = dist_info->chunk_size/(dist->counter + 1);
+
+		if (length < 100) length = 100; /* minimum 10 iterations per chunk */
+		if (length > dist_info->length) {
+			printf("Posibblly because of data race\n");
+			abort();
+		}
+		do {
+			offset = dist_info->start;
+			int new_start = offset + length;
+			if (new_start > dist_info->end) {
+				length = dist_info->end - offset;
+				if (length <= 0) {
+					length = 0;
+					break;
+				}
+				new_start = dist_info->end;
+			}
+			if (__homp_cas(&dist_info->start, offset, new_start)) break;
+		} while (1);
+		dist->offset = offset;
+		dist->length = length;
+//		printf("SCHED_GUIDE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
+	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_FEEDBACK) { /* only for loop */
 		if (dist_info->chunk_size < 0)
 			/* the percentage of left-over, not the total */
 			length = (0 - dist_info->chunk_size) * (dist_info->end - dist_info->start) / 100;

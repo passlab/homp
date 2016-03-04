@@ -250,7 +250,7 @@ void stencil2d_seq_normal(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	int coeff_dimX = 2*radius+1;
 	REAL *uold = (REAL*)malloc(sizeof(REAL)*u_dimX * u_dimY);
 	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY);
-	coeff = coeff + (2*radius+1) * radius + radius; /* let coeff point to the center element */
+	coeff = coeff + coeff_dimX * radius + radius; /* let coeff point to the center element */
 	REAL * uold_save = uold;
 	REAL * u_save = u;
 	int count = 4*radius+1;
@@ -263,8 +263,9 @@ void stencil2d_seq_normal(long n, long m, REAL *u, int radius, REAL *coeff, int 
 
 		for (ix = 0; ix < n; ix++) {
 			for (iy = 0; iy < m; iy++) {
-				REAL * temp_u = &u[(ix+radius)*u_dimY+radius+iy];
-				REAL * temp_uold = &uold[(ix+radius)*u_dimY+radius+iy];
+				int offset = (ix+radius)*u_dimY+radius+iy;
+				REAL * temp_u = &u[offset];
+				REAL * temp_uold = &uold[offset];
 				REAL result = temp_uold[0] * coeff[0];
 				/* 2/4 way loop unrolling */
 				for (ir = 1; ir <= radius; ir++) {

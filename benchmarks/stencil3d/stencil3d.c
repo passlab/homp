@@ -119,11 +119,6 @@ int main(int argc, char * argv[]) {
 	REAL * u_omp_mdev_iterate = (REAL *)omp_unified_malloc(sizeof(REAL)* u_volumn);
 	REAL *coeff = (REAL *) omp_unified_malloc(sizeof(REAL)*coeff_volumn);
 
-	REAL u[n][m][k];
-	REAL u_omp[n][m][k];
-	REAL u_omp_mdev[n][m][k];
-	REAL u_omp_mdev_iterate[n][m][k];
-
 	srand(0);
 	init_array(u_volumn, u, 0.0, 1.0);
 	init_array(coeff_volumn, coeff, 0.0, 1.0);
@@ -182,6 +177,11 @@ int main(int argc, char * argv[]) {
 	return 0;
 }
 
+#define OFFSET_3D(x, y, z, dimX, dimY, dimZ) (x)*(dimY)*(dimZ)+(y)*(dimZ)+(z)
+
+#define STRIDE_3DX(dimX, dimY, dimZ) ((dimY*dimZ))
+#define STRIDE_3DY(dimX, dimY, dimZ) ((dimZ))
+#define STRIDE_3DZ(dimX, dimY, dimZ) ((1))
 
 void stencil3d_seq(long n, long m, long k, REAL *u, int radius, REAL *coeff, int num_its) 
 {
@@ -190,9 +190,16 @@ void stencil3d_seq(long n, long m, long k, REAL *u, int radius, REAL *coeff, int
 	long u_dimY = m + 2 * radius;
     long u_dimZ = k + 2 * radius;
 	int coeff_dimX = 2*radius+1;
+	long u_strideX = STRIDE_3DX(u_dimX, u_dimY, u_dimZ);
+	long u_strideY = STRIDE_3DY(u_dimX, u_dimY, u_dimZ);
+	long u_strideZ = STRIDE_3DZ(u_dimX, u_dimY, u_dimZ);
+
+	long coeff_strideX = STRIDE_3DX(coeff_dimX, coeff_dimX, coeff_dimX);
+	long coeff_strideY = STRIDE_3DY(coeff_dimX, coeff_dimX, coeff_dimX);
+	long coeff_strideZ = STRIDE_3DZ(coeff_dimX, coeff_dimX, coeff_dimX);
 	REAL *uold = (REAL*)malloc(sizeof(REAL)*u_dimX * u_dimY * u_dimZ);
 	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY*u_dimZ);
-	coeff = coeff + coeff_dimX*coeff_dimX*radius * radius + (2*radius+1) * radius + radius; /* let coeff point to the center element */
+	coeff = coeff + OFFSET_3D(radius, radius, radius, coeff_dimX, coeff_dimX, coeff_dimX);/* let coeff point to the center element */
 	REAL * uold_save = uold;
 	REAL * u_save = u;
 	int count = 6*radius+1;
@@ -205,17 +212,20 @@ void stencil3d_seq(long n, long m, long k, REAL *u, int radius, REAL *coeff, int
 
 		for (ix = 0; ix < n; ix++) {
 		 for (iy = 0; iy < m; iy++) {
+			 long offset = OFFSET_3D(ix, iy, 0, u_dimX, u_dimY, u_dimZ);
+			 REAL * temp_u = &u[offset];
+			 REAL * temp_uold = &uold[offset];
              for (iz = 0; iz < k; iz++) {
-				   REAL result = temp_uold[(ix+radius)] * coeff[0];//the coeff will now provide the supporting lenght
-				   /* 2/4 way loop unrolling */ // in 3D the progression on the Z direction is same as that of Y 
-				   for (ir = 1; ir <= radius; ir++) 
-				   {
-					    result += coeff[ir] * temp_uold[ir];           		//horizontal right
-					    result += coeff[-ir]* temp_uold[-ir];                  // horizontal left
-						result += coeff[-ir*coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up in Y
-						result += coeff[ir*coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom in Y
-						result += coeff[-ir*coeff_dimX] * temp_uold[-ir * u_dimZ]; //vertical up in Z
-						result += coeff[ir*coeff_dimX] * temp_uold[ir * u_dimZ]; // vertical bottom in Z
+				 REAL result = temp_uold[0] * coeff[0];
+				 /* 2/4 way loop unrolling */ // in 3D the progression on the Z direction is same as that of Y
+				 for (ir = 1; ir <= radius; ir++)
+				 {
+					    result += coeff[ir] * temp_uold[ir];           		//The Z direction, stideZ is 1
+					    result += coeff[-ir]* temp_uold[-ir];                  // Z direction
+						result += coeff[-ir*coeff_strideY] * temp_uold[-ir * u_strideY]; // Y direction
+						result += coeff[ir*coeff_strideY] * temp_uold[ir * u_strideY]; // Y direction
+						result += coeff[-ir*coeff_strideX] * temp_uold[-ir * u_strideX]; // X direction
+						result += coeff[ir*coeff_strideX] * temp_uold[ir * u_strideX]; // X direction
 						#ifdef SQUARE_SETNCIL
 						result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
 						result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
@@ -236,69 +246,6 @@ void stencil3d_seq(long n, long m, long k, REAL *u, int radius, REAL *coeff, int
 		uold = u;
 		u = tmp;
 	}/*  End iteration loop */ //NOTE: confirm with the concept
-	free(uold_save);
-}
-
-void stencil3d_omp(long n, long m, long k, REAL *u, int radius, REAL *coeff, int num_its) {
-	long it; /* iteration */
-	long u_dimX = n + 2 * radius;
-	long u_dimY = m + 2 * radius;
-  long u_dimZ = k + 2 * radius;
-	int coeff_dimX = 2 * radius + 1;
-	REAL *uold = (REAL *) malloc(sizeof(REAL) * u_dimX * u_dimY * u_dimZ);
-	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY*u_dimZ);
-	coeff = coeff + (2 * radius + 1) * radius + radius; /* let coeff point to the center element */
-	int count = 6*radius+1;
-#ifdef SQUARE_SETNCIL
-	count = coeff_dimX * coeff_dimX * coeff_dimX;
-#endif
-
-	REAL * uold_save = uold;
-	REAL * u_save = u;
-#pragma omp parallel shared(n, m, k, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX, count) firstprivate(u, uold) private(it)
-	{
-		int ix, iy, iz, ir;
-		for (it = 0; it < num_its; it++) 
-	 {
-        #pragma omp for
-		for (ix = 0; ix < n; ix++) 
-		{
-				REAL *temp_u = &u[(ix + radius) * u_dimY+radius];
-				REAL *temp_uold = &uold[(ix + radius) * u_dimY+radius];
-		    for (iy = 0; iy < m; iy++) 
-			{
-                for (iz = 0; iz < k; iz++) 
-			    {
-					REAL result = temp_uold[0] * coeff[0];
-					/* 2/4 way loop unrolling */
-					for (ir = 1; ir <= radius; ir++) 
-					{
-						result += coeff[ir] * temp_uold[ir];                //horizontal right
-						result += coeff[-ir] * temp_uold[-ir];                  // horizontal left
-						result += coeff[-ir * coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up in Y
-						result += coeff[ir * coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom in Y
-                        result += coeff[-ir * coeff_dimX] * temp_uold[-ir * u_dimZ]; //vertical up in Z
-						result += coeff[ir * coeff_dimX] * temp_uold[ir * u_dimZ]; // vertical bottom in Z
-                        #ifdef SQUARE_SETNCIL
-						result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
-						result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
-						result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir] // left bottom corner in Y
-						result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner in Y
-                        result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimZ]-ir] // left bottom corner in Z
-						result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimZ]+ir] // right bottom corner in Z        
-                        #endif
-					}//end of radi 
-					*temp_u = result/count;       
-					temp_u++;
-					temp_uold++;
-		        }//end of z 
-			      REAL *tmp = uold;
-			      uold = u;
-			      u = tmp;
-            }//y end
-        }//x end
-      }/*  End iteration loop */
-	}
 	free(uold_save);
 }
 
