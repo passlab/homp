@@ -386,10 +386,12 @@ void omp_offloading_run(omp_device_t * dev) {
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_event_record_start(&events[map_dist_alloc_event_index]);
 #endif
-    int total = 0;
+	long total = 0;
 	if (!off->loop_dist_done) total = omp_loop_iteration_dist(off);
-	if (total == 0) goto second_offloading;
-
+	if (total == 0) {
+		off->loop_dist_done = 0;
+		goto second_offloading;
+        }
 	//case OMP_OFFLOADING_MAPMEM:
 	off->stage = OMP_OFFLOADING_MAPMEM;
 	/* init data map and dev memory allocation */
@@ -623,11 +625,13 @@ second_offloading: ;
 
 			off->stage = OMP_OFFLOADING_SYNC_CLEANUP;
 		}
-		for (i=0; i<off->num_maps; i++) {
-			int inherited;
-			omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
-			if (inherited) continue;
-			if (!map->info->remap_needed) omp_map_free(map, off);
+		if (total) {
+			for (i=0; i<off->num_maps; i++) {
+				int inherited;
+				omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
+				if (inherited) continue;
+				if (!map->info->remap_needed) omp_map_free(map, off);
+			}
 		}
 		off->num_maps = 0; /* reset this maps to 0 so all the map will be re-inited in the next offloading run */
 #if defined USING_PER_OFFLOAD_STREAM
