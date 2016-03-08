@@ -391,6 +391,7 @@ typedef struct omp_dist_info {
 	 * For example, if this dist aligns with another one that keep changing, e.g. SCHEDULE or PROFILE_AUTO policy
 	 * we will set this flag so realignment will be performed */
 	int redist_needed;
+	volatile dist_race; /* counter to see current position in the race for scheduling */
 } omp_dist_info_t;
 
 typedef enum omp_dist_halo_edging_type {

@@ -122,6 +122,7 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 				misc_event_index++;
 			}
 		}
+		omp_stream_sync(off->stream);
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_stop(&events[acc_mapto_event_index]);
@@ -139,6 +140,7 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 		if (args == NULL) args = off->args;
 		if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
 		kernel_launcher(off, args);
+		omp_stream_sync(off->stream);
 		off->loop_dist_done = 0; /* reset for the next dist if there is */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_kernel_exe_event_index]);
@@ -449,6 +451,7 @@ void omp_offloading_run(omp_device_t * dev) {
 #endif
 			}
 		}
+		omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_stop(&events[acc_mapto_event_index]);
@@ -475,6 +478,7 @@ void omp_offloading_run(omp_device_t * dev) {
 		if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
 		kernel_launcher(off, args);
 		off->loop_dist_done = 0; /* reset for the next if there is */
+		omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_kernel_exe_event_index]);
 #endif
@@ -573,13 +577,14 @@ second_offloading: ;
 	off->runtime_profile_elapsed = runtime_profile_elapsed;
 	{
 		omp_dist_policy_t loop_dist_policy = off_info->loop_dist_info[0].policy;
-		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED ) {
-			while (total) {
+		if (loop_dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC || loop_dist_policy == OMP_DIST_POLICY_SCHED_GUIDED || loop_dist_policy == OMP_DIST_POLICY_SCHED_FEEDBACK) {
+			while (total > 0) {
 				runtime_profile_elapsed =read_timer_ms() - runtime_profile_elapsed;
 #if defined (OMP_BREAKDOWN_TIMING)
 				off->runtime_profile_elapsed = omp_accumulate_elapsed_ms(events, num_events);
 #endif
-				off->runtime_profile_elapsed = off->runtime_profile_elapsed/off->loop_dist[0].length;
+				off->runtime_profile_elapsed = off->runtime_profile_elapsed/total;
+
 				runtime_profile_elapsed =read_timer_ms();
 				total = secondary_offload_cycle(off_info, off, events, seqid, misc_event_index_start);
 			}
@@ -590,7 +595,7 @@ second_offloading: ;
 //			printf("Device %d, profile time: %f using events vs %f using timer\n", dev->id, off->runtime_profile_elapsed, runtime_profile_elapsed);
 #endif
             //printf("elapsed: %f, per iteration: %f of total iteration: %d\n", off->runtime_profile_elapsed, off->runtime_profile_elapsed/off->loop_dist[0].length, off->loop_dist[0].length);
-			off->runtime_profile_elapsed = off->runtime_profile_elapsed/off->loop_dist[0].length;
+			off->runtime_profile_elapsed = off->runtime_profile_elapsed/total;
 			/* we need barrier here to make sure every device finishes its portion for collective profiling and ratio modeling */
 
 #if defined (OMP_BREAKDOWN_TIMING)

@@ -288,6 +288,7 @@ void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dis
 	omp_init_dist_info(dist_info, dist_policy, offset, length, chunk_size, topdim);
 	if (dist_policy == OMP_DIST_POLICY_SCHED_DYNAMIC ||
 		dist_policy == OMP_DIST_POLICY_SCHED_GUIDED ||
+		dist_policy == OMP_DIST_POLICY_SCHED_FEEDBACK ||
 		dist_policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO ||
 		dist_policy == OMP_DIST_POLICY_MODEL_PROFILE_AUTO) {
 		dist_info->redist_needed = 1; /* multiple distributions are needed after the initial one */
@@ -828,15 +829,15 @@ static void omp_dist_profile_auto(omp_dist_info_t *dist_info, long start, long f
 	*myratio = 0.0;
 	for (i =0; i <off_info->top->nnodes; i++) {
 		omp_offloading_t * anoff = &off_info->offloadings[i];
-		if (anoff->last_total == 0) continue; /* this one will not participating */
+		if (anoff->last_total == 0 || anoff->runtime_profile_elapsed <= 0.0) continue; /* this one will not participating */
 		double Ti = anoff->runtime_profile_elapsed;
 		double ratio = 0.0;
 		int j;
 		int last_dev;
 		for (j=0; j<off_info->top->nnodes; j++) {
 			anoff = &off_info->offloadings[j];
-			if (anoff->last_total == 0) continue; /* this one will not participating */
-			ratio += Ti/off_info->offloadings[j].runtime_profile_elapsed;
+			if (anoff->last_total == 0 || anoff->runtime_profile_elapsed <= 0.0) continue; /* this one will not participating */
+			ratio += Ti/anoff->runtime_profile_elapsed;
 			last_dev = j;
 		}
 		ratio = 1.0/ratio;
@@ -1030,9 +1031,6 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		dist->length = length;
 //		printf("SCHED_GUIDE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) { /* only for loop */
-#ifndef OMP_BREAKDOWN_TIMING
-		printf("OMP_BREAKDOWN_TIMING must be set to use OMP_DIST_POLICY_SCHED_PROFILE_AUTO policy\n");
-#endif
         /* two dists are needed for this policy and we use counter for that */
 		if (dist->counter == 0) { /* SCHEDULE_STATIC policy */
 			if (dist_info->chunk_size < 0)
