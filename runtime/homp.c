@@ -2174,7 +2174,9 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
 	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, full_length, time_buff);
 	int events_to_print[misc_event_index_start];
-	int num_events_to_print = 7;
+	int num_events_to_print = misc_event_index_start;
+#ifdef SELECTIVE_EVENT_TO_PRINT
+    num_events_to_print = 7;
 	events_to_print[0] = total_event_accumulated_index;
 	events_to_print[1] = acc_mapto_event_index;
 	events_to_print[2] = acc_kernel_exe_event_index;
@@ -2182,7 +2184,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	events_to_print[4] = acc_ex_event_index;
 	events_to_print[5] = total_event_index;
 	events_to_print[6] = runtime_dist_modeling_index;
-
+#endif
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		int devid = dev->id;
@@ -2198,7 +2200,11 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		for (j=0; j<info->top->nnodes; j++) {
 			omp_offloading_t *off = &info->offloadings[j];
 			int devid = off->dev->id;
-			omp_event_t * ev = &off->events[events_to_print[i]];
+			int evindex = i;
+#ifdef SELECTIVE_EVENT_TO_PRINT
+            evindex = events_to_print[i];
+#endif
+			omp_event_t * ev = &off->events[evindex];
 			if (ev->event_name == NULL) continue;
 			int count = ev->count;
 			double time_ms = (count != 0) ? omp_event_get_elapsed(ev)/count: 0;

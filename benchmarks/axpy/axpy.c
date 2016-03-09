@@ -67,12 +67,12 @@ int main(int argc, char *argv[]) {
     //axpy(x, y, n, a);
     omp_time = (read_timer_ms() - omp_time);
 
+    int i;
     /* run only on NVGPU */
     int num_active_devs = omp_get_num_active_devices();
     int targets[num_active_devs];
-    int num_targets = 1;
+    int num_targets;
     double ompacc_time;
-#if 0
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
@@ -89,6 +89,7 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
 
+#if 0
     /* one ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
@@ -148,13 +149,12 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
-#endif
 
     /* run on all devices */
     num_targets = num_active_devs;
-    int i;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
+#endif
 
     omp_fini_devices();
     REAL cksm = check(y, y_ompacc, n);
