@@ -387,11 +387,16 @@ void omp_offloading_run(omp_device_t * dev) {
 	omp_event_record_start(&events[map_dist_alloc_event_index]);
 #endif
 	long total = 0;
-	if (!off->loop_dist_done) total = omp_loop_iteration_dist(off);
-	if (total == 0) {
-		off->loop_dist_done = 0;
-		goto second_offloading;
-        }
+	if (off_info->type == OMP_OFFLOADING_DATA_CODE || off_info->type == OMP_OFFLOADING_CODE) {
+		if (!off->loop_dist_done) total = omp_loop_iteration_dist(off);
+		if (total == 0) {
+			off->loop_dist_done = 0;
+			goto second_offloading;
+		}
+	} else if (off_info->type == OMP_OFFLOADING_DATA && off_info->count % 2 == 0) {
+		/** always odd count: copyto, even count: copyfrom */
+		goto omp_offloading_copyfrom;
+	}
 	//case OMP_OFFLOADING_MAPMEM:
 	off->stage = OMP_OFFLOADING_MAPMEM;
 	/* init data map and dev memory allocation */
@@ -413,9 +418,6 @@ void omp_offloading_run(omp_device_t * dev) {
 
 	int misc_event_index = misc_event_index_start;
 	if (off_info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE) goto data_exchange;
-	if (off_info->type == OMP_OFFLOADING_DATA && off_info->count > 1) {
-		goto omp_offloading_copyfrom;
-	}
 
 //	case OMP_OFFLOADING_COPYTO:
 	{
