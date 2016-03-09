@@ -964,6 +964,7 @@ void omp_map_memcpy_from_async(void *dst, const void *src, omp_device_t *srcdev,
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
 		cudaError_t result;
 		result = cudaMemcpyAsync((void *)dst,(const void *)src,size, cudaMemcpyDeviceToHost, stream->systream.cudaStream);
+//	printf("memcpyfrom_async: dev: %d, %X->%X\n", srcdev->id, src, dst);
 		devcall_nvgpu_cuda_assert(result);
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
@@ -1428,7 +1429,7 @@ int omp_get_max_teams_per_league(omp_device_t *dev) {
     omp_device_type_t devtype = dev->type;
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
-		return 	((struct cudaDeviceProp*)dev->dev_properties)->maxGridSize[0]/2;
+		return 2048; //	((struct cudaDeviceProp*)dev->dev_properties)->maxGridSize[0]/2;
 #endif
     } else if (devtype == OMP_DEVICE_THSIM || devtype == OMP_DEVICE_HOSTCPU) {
         return 1;
@@ -1442,6 +1443,7 @@ int omp_get_max_teams_per_league(omp_device_t *dev) {
 int omp_get_optimal_teams_per_league(omp_device_t *dev, int threads_per_team, int total) {
     int teams_per_league = (total + threads_per_team - 1) / threads_per_team;
     int max_teams_per_league = omp_get_max_teams_per_league(dev);
+    //printf("dev: %d max teams: %d\n", dev->id, max_teams_per_league);
     if (teams_per_league > max_teams_per_league) return max_teams_per_league;
     else return teams_per_league;
 }

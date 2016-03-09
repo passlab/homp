@@ -8,7 +8,7 @@ void axpy(REAL *x, REAL *y, long n, REAL a) {
     long i;
     for (i = 0; i < n; ++i) {
         y[i] += a * x[i];
-//	printf("x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
+	//printf("host: x[%d]: %f, y[%d]: %f\n", i, x[i], i, y[i]);
     }
 }
 
@@ -33,6 +33,8 @@ REAL check(REAL *A, REAL *B, long n) {
     REAL sum = 0.0;
     for (i = 0; i < n; i++) {
 //	printf("A[%d]: %f, B[%d]: %f\n", i, A[i], i, B[i]);
+	REAL diff = fabs(A[i] - B[i]);
+//	if (diff > 1.0) printf("diff at %d: %f\n", i, diff);
         sum += fabs(A[i] - B[i]);
     }
     return sum;
@@ -62,7 +64,7 @@ int main(int argc, char *argv[]) {
     memcpy(y_ompacc, y, n * sizeof(REAL));
     REAL omp_time = read_timer_ms();
     // reference serial execution for error checking  
-    axpy(x, y, n, a);
+    //axpy(x, y, n, a);
     omp_time = (read_timer_ms() - omp_time);
 
     /* run only on NVGPU */
