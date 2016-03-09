@@ -4,14 +4,13 @@
 #include <omp.h>
 #include <sys/time.h>
 #include "homp.h"
-#include "stencil2d.h"
-
+#include "bm2d.h"
 #include "xomp_cuda_lib_inlined.cu"
 
 //#define LOOP_COLLAPSE 1
 #if !LOOP_COLLAPSE
 
-__global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u,
+__global__ void bm2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u,
                                        REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
     long ix, iy, ir;
     int count = 4*radius+1;
@@ -43,7 +42,7 @@ __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, i
 
 #else
 /* this works only for 1-d row-wise partition */
-__global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
+__global__ void bm2d_nvgpu_kernel(int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
     long ix, iy, ir;
     long ixy;
     long ixy_lower, ixy_upper;
@@ -100,3 +99,14 @@ __global__ void stencil2d_nvgpu_kernel(int start_n, int len_n, long n, long m, i
 }
 
 #endif /* LOOP_CLAPSE */
+
+
+void bm2d_nvgpu_cuda_wrapper(omp_offloading_t *off, int start, int len, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int radius, int coeff_dimX, REAL *coeff) {
+    dim3 threads_per_team(16, 16);
+    dim3 teams_per_league((len + threads_per_team.x - 1) / threads_per_team.x,
+                          (m + threads_per_team.y - 1) / threads_per_team.y); /* we assume dividable */
+    bm2d_nvgpu_kernel<<<teams_per_league, threads_per_team, 0, off->stream->systream.cudaStream>>>
+                                                                       (start, len, n, m, u_dimX, u_dimY, u, uold, radius, coeff_dimX, coeff);
+}
+
+
