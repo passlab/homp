@@ -22,6 +22,14 @@ set(AXPY_SOURCE_FILES
     benchmarks/axpy/axpy_nvgpu_cuda_kernel.cu
     benchmarks/axpy/axpy_itlmic_kernel.c)
 
+set(SUM_SOURCE_FILES
+        benchmarks/sum/sum.c
+        benchmarks/sum/sum.h
+        benchmarks/sum/sum_ompacc.c
+        benchmarks/sum/sum_cpu_omp_kernel.c
+        benchmarks/sum/sum_nvgpu_cuda_kernel.cu
+        benchmarks/sum/sum_itlmic_kernel.c)
+
 set(MATVEC_SOURCE_FILES
     benchmarks/matvec/matvec.c
     benchmarks/matvec/matvec.h
@@ -73,6 +81,7 @@ set(JACOBI_SOURCE_FILES
 include_directories("runtime")
 
 add_executable(axpy-cpu ${RUNTIME_SOURCE_FILES} ${AXPY_SOURCE_FILES})
+add_executable(sum-cpu ${RUNTIME_SOURCE_FILES} ${SUM_SOURCE_FILES})
 add_executable(matvec-cpu ${RUNTIME_SOURCE_FILES} ${MATVEC_SOURCE_FILES})
 add_executable(matmul-cpu ${RUNTIME_SOURCE_FILES} ${MATMUL_SOURCE_FILES})
 add_executable(radix-cpu ${RUNTIME_SOURCE_FILES} ${RADIX_SOURCE_FILES})
