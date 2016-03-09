@@ -106,10 +106,10 @@ static void axpy_dev_kernel_demux(omp_offloading_t *off, void *args) {
     REAL * x = (REAL *)map_x->map_dev_ptr;
     REAL * y = (REAL *)map_y->map_dev_ptr;
     
-    omp_loop_get_range(off, 0, &start_n, &length_n);
+    long abs_off = omp_loop_get_range(off, 0, &start_n, &length_n);
 
 	//long omp_loop_get_range(omp_offloading_t * off, int loop_depth, long * start, long* length) {
-    //printf("devseqid: %d, start_n: %d, length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, length_n, x, y);
+    printf("devseqid: %d, start_n: %d (%d), length_n: %d, x: %X, y: %X\n", off->devseqid, start_n, abs_off, length_n, x, y);
 	omp_device_type_t devtype = off->dev->type;
 	if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)

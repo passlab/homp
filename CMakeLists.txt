@@ -52,6 +52,16 @@ set(STENCIL2D_SOURCE_FILES
         benchmarks/stencil2d/stencil2d_nvgpu_cuda_kernel.cu
         )
 
+set(STENCIL3D_SOURCE_FILES
+        benchmarks/stencil3d/stencil3d_mdev.c
+        benchmarks/stencil3d/stencil3d_mdev_iteration.c
+        benchmarks/stencil3d/stencil3d.h
+        benchmarks/stencil3d/stencil3d.c
+        benchmarks/stencil3d/stencil3d_cpu_omp_kernel.c
+        benchmarks/stencil3d/stencil3d_itlmic_kernel.c
+        benchmarks/stencil3d/stencil3d_nvgpu_cuda_kernel.cu
+        )
+
 set(JACOBI_SOURCE_FILES
         benchmarks/jacobi/jacobi_ompacc_mdev.c
         benchmarks/jacobi/jacobi.h
