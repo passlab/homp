@@ -122,7 +122,6 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 				misc_event_index++;
 			}
 		}
-		omp_stream_sync(off->stream);
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_stop(&events[acc_mapto_event_index]);
@@ -140,7 +139,6 @@ long secondary_offload_cycle (omp_offloading_info_t * off_info, omp_offloading_t
 		if (args == NULL) args = off->args;
 		if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
 		kernel_launcher(off, args);
-		omp_stream_sync(off->stream);
 		off->loop_dist_done = 0; /* reset for the next dist if there is */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_kernel_exe_event_index]);
@@ -451,7 +449,6 @@ void omp_offloading_run(omp_device_t * dev) {
 #endif
 			}
 		}
-		omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
 #if defined (OMP_BREAKDOWN_TIMING)
 		if (off_info->num_mapped_vars > 0)
 			omp_event_record_stop(&events[acc_mapto_event_index]);
@@ -478,7 +475,6 @@ void omp_offloading_run(omp_device_t * dev) {
 		if (kernel_launcher == NULL) kernel_launcher = off->kernel_launcher;
 		kernel_launcher(off, args);
 		off->loop_dist_done = 0; /* reset for the next if there is */
-		omp_stream_sync(off->stream); /*NOTE: we should NOT time this call as the event system already count in as previous async kernel or async memcpy */
 #if defined (OMP_BREAKDOWN_TIMING)
 		omp_event_record_stop(&events[acc_kernel_exe_event_index]);
 #endif
