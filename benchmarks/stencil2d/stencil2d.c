@@ -292,56 +292,6 @@ void stencil2d_seq_normal(long n, long m, REAL *u, int radius, REAL *coeff, int 
 	free(uold_save);
 }
 
-void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
-	long it; /* iteration */
-	long u_dimX = n + 2 * radius;
-	long u_dimY = m + 2 * radius;
-	int coeff_dimX = 2*radius+1;
-	REAL *uold = (REAL*)malloc(sizeof(REAL)*u_dimX * u_dimY);
-	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY);
-	coeff = coeff + (2*radius+1) * radius + radius; /* let coeff point to the center element */
-	REAL * uold_save = uold;
-	REAL * u_save = u;
-	int count = 4*radius+1;
-#ifdef SQUARE_SETNCIL
-	count = coeff_dimX * coeff_dimX;
-#endif
-
-	for (it = 0; it < num_its; it++) {
-		int ix, iy, ir;
-
-		for (ix = 0; ix < n; ix++) {
-			REAL * temp_u = &u[(ix+radius)*u_dimY+radius];
-			REAL * temp_uold = &uold[(ix+radius)*u_dimY+radius];
-			for (iy = 0; iy < m; iy++) {
-				REAL result = temp_uold[0] * coeff[0];
-				/* 2/4 way loop unrolling */
-				for (ir = 1; ir <= radius; ir++) {
-					result += coeff[ir] * temp_uold[ir];           		//horizontal right
-					result += coeff[-ir]* temp_uold[-ir];                  // horizontal left
-					result += coeff[-ir*coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up
-					result += coeff[ir*coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom
-#ifdef SQUARE_SETNCIL
-					result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
-					result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
-					result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir] // left bottom corner
-					result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
-#endif
-				}
-				*temp_u = result/count;
-				temp_u++;
-				temp_uold++;
-			}
-		}
-		REAL * tmp = uold;
-		uold = u;
-		u = tmp;
-//		if (it % 500 == 0)
-//			printf("Finished %d iteration\n", it);
-	} /*  End iteration loop */
-	free(uold_save);
-}
-
 void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
 	long it; /* iteration */
 	long u_dimX = n + 2 * radius;
