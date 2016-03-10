@@ -60,6 +60,16 @@ set(STENCIL2D_SOURCE_FILES
         benchmarks/stencil2d/stencil2d_nvgpu_cuda_kernel.cu
         )
 
+set(BM2D_SOURCE_FILES
+        benchmarks/bm2d/bm2d_mdev.c
+        benchmarks/bm2d/bm2d_mdev_iteration.c
+        benchmarks/bm2d/bm2d.h
+        benchmarks/bm2d/bm2d.c
+        benchmarks/bm2d/bm2d_cpu_omp_kernel.c
+        benchmarks/bm2d/bm2d_itlmic_kernel.c
+        benchmarks/bm2d/bm2d_nvgpu_cuda_kernel.cu
+        )
+
 set(STENCIL3D_SOURCE_FILES
         benchmarks/stencil3d/stencil3d_mdev.c
         benchmarks/stencil3d/stencil3d_mdev_iteration.c
@@ -86,6 +96,7 @@ add_executable(matvec-cpu ${RUNTIME_SOURCE_FILES} ${MATVEC_SOURCE_FILES})
 add_executable(matmul-cpu ${RUNTIME_SOURCE_FILES} ${MATMUL_SOURCE_FILES})
 add_executable(radix-cpu ${RUNTIME_SOURCE_FILES} ${RADIX_SOURCE_FILES})
 add_executable(stencil2d-cpu ${RUNTIME_SOURCE_FILES} ${STENCIL2D_SOURCE_FILES})
+add_executable(bm2d-cpu ${RUNTIME_SOURCE_FILES} ${BM2D_SOURCE_FILES})
 add_executable(jacobi-cpu ${RUNTIME_SOURCE_FILES} ${JACOBI_SOURCE_FILES})
 target_link_libraries(axpy-cpu pthread m)
 target_link_libraries(matvec-cpu pthread m)
