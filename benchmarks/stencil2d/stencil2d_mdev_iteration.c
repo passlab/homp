@@ -176,6 +176,10 @@ double stencil2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL 
 #endif
 
    /* AUTO_ALIGN */
+    if (LOOP_DIST_POLICY != OMP_DIST_POLICY_BLOCK && LOOP_DIST_POLICY != OMP_DIST_POLICY_MODEL_AUTO) {
+        fprintf(stderr, "only OMP_DIST_POLICY_BLOCK and OMP_DIST_POLICY_MODEL_AUTO dist policy are supported by stencil2d, set it to OMP_DIST_POLICY_MODEL_AUTO\n");
+        LOOP_DIST_POLICY = OMP_DIST_POLICY_MODEL_AUTO;
+    }
     omp_loop_dist_init_info(__off_info__, 0, LOOP_DIST_POLICY, 0, n, LOOP_DIST_CHUNK_SIZE, 0);
     omp_data_map_dist_align_with_loop(__u_map_info__, 0, radius, __off_info__, 0);
     //printf("AUTO dist policy for loop dist and array align with loops\n");

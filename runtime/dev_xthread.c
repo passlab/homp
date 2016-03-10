@@ -389,6 +389,7 @@ void omp_offloading_run(omp_device_t * dev) {
 	long total = 0;
 	if (off_info->type == OMP_OFFLOADING_DATA_CODE || off_info->type == OMP_OFFLOADING_CODE) {
 		if (!off->loop_dist_done) total = omp_loop_iteration_dist(off);
+		else total = off->last_total;
 		if (total == 0) {
 			off->loop_dist_done = 0;
 			goto second_offloading;
@@ -636,7 +637,6 @@ second_offloading: ;
 				if (!map->info->remap_needed) omp_map_free(map, off);
 			}
 		}
-		off->num_maps = 0; /* reset this maps to 0 so all the map will be re-inited in the next offloading run */
 #if defined USING_PER_OFFLOAD_STREAM
 		omp_stream_destroy(&off->mystream);
 #endif

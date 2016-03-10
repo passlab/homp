@@ -545,7 +545,7 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 	}
 
 	/* STEP 3: seach the offloading stack if this inherits data map from previous data offloading */
-//	printf("omp_map_get_map: off: %X, off_info: %X, host_ptr: %X\n", off, off_info, host_ptr);
+	//printf("omp_map_get_map: off: %X, devid: %d, off_info: %X, host_ptr: %X\n", off, off->devseqid, off_info, host_ptr);
 	map = omp_map_get_map_inheritance (off->dev, host_ptr);
 	if (map != NULL) omp_map_append_map_to_offcache(off, map, 1);
 
