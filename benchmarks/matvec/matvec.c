@@ -67,7 +67,8 @@ int main(int argc, char *argv[]) {
     memcpy(y_ompacc, y, (n * sizeof(REAL)));
     REAL omp_time = read_timer_ms();
     // reference serial execution for error checking
-    int i; int num_its = 20; for (i=0;i<num_its;i++)matvec(a, x,y,n);
+    int i; int num_its = 20; 
+    //for (i=0;i<num_its;i++)matvec(a, x,y,n);
     omp_time = (read_timer_ms() - omp_time)/num_its;
 
     int num_active_devs = omp_get_num_active_devices();
@@ -79,6 +80,7 @@ int main(int argc, char *argv[]) {
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+#endif
  
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
@@ -88,10 +90,15 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
+    /* three NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 3);
+    ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+
     /* four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
 
+#if 0
     /* one ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
@@ -152,16 +159,16 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
-#endif
 
     /* run on all devices */
     num_targets = num_active_devs;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
     ompacc_time = matvec_ompacc_mdev(num_targets, targets, a, x, y_ompacc, n);
+#endif
 
     omp_fini_devices();
     REAL cksm;
-    cksm = check(y,y_ompacc,n) ;
+    //cksm = check(y,y_ompacc,n) ;
     printf("matvec(%d): checksum: %g; time(ms):\tSerial\t\tOMPACC(%d devices)\n", n, cksm,
            omp_get_num_active_devices());
     printf("\t\t\t\t\t\t%4f\t%4f\n", omp_time, ompacc_time);

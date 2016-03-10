@@ -73,16 +73,22 @@ int main(int argc, char *argv[]) {
     int targets[num_active_devs];
     int num_targets;
     double ompacc_time;
+#if 0
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
-  
+#endif
+ 
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
 
     /* two NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
+    ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
+    
+    /* three NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 3);
     ompacc_time = axpy_ompacc_mdev(num_targets, targets, x, y_ompacc, n, a);
     
     /* four NVGPU */

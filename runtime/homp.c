@@ -2206,7 +2206,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #endif
 			omp_event_t * ev = &off->events[evindex];
 			if (ev->event_name == NULL) continue;
-			int count = ev->count;
+			int count = 1; // ev->count;
 			double time_ms = (count != 0) ? omp_event_get_elapsed(ev)/count: 0;
 			if (j == 0) fprintf(report_cvs_file, "%s", ev->event_name);
 			while(lastdevid <= devid) {
