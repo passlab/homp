@@ -73,7 +73,7 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
     for (it = 0; it < num_its; it++) {
         omp_event_record_start(&events[acc_kernel_exe_event_index]);
         REAL * uu;
-        REAL ** uuold;
+        REAL * uuold;
         omp_data_map_t * halo_map;
         if (it % 2 == 0) {
             uu = u;
