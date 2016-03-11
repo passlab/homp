@@ -232,7 +232,7 @@ double bm2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL *u, i
 #if defined (OMP_BREAKDOWN_TIMING)
     /* not reporting status for data copy */
     //omp_offloading_info_report_profile(__copy_data_off_info__);
-    omp_offloading_info_report_profile(__off_info__);
+    omp_offloading_info_report_profile(__off_info__, 0);
     //omp_offloading_info_t *infos[2];
     //infos[0] = __copy_data_off_info__;
     //infos[1] = __off_info__;

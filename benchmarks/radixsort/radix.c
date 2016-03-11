@@ -302,7 +302,7 @@ REAL sort_ompacc_mdev(int *bufferInt) {
 #if defined (OMP_BREAKDOWN_TIMING)
     printf("Before profiling thing \n");
     omp_print_map_info(__bufferInt_map_info__);
-	omp_offloading_info_report_profile(__off_info__);
+    omp_offloading_info_report_profile(__off_info__, 0);
 #endif
 
     omp_offloading_fini_info(__off_info__);

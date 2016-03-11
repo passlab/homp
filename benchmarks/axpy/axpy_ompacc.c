@@ -188,7 +188,7 @@ double axpy_ompacc_mdev(int ndevs, int *targets, REAL *x, REAL *y, long n, REAL 
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_print_map_info(__x_map_info__);
 	omp_print_map_info(__y_map_info__);
-	omp_offloading_info_report_profile(__off_info__);
+	omp_offloading_info_report_profile(__off_info__, 0);
 #endif
 
 	omp_offloading_fini_info(__off_info__);

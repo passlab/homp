@@ -117,10 +117,11 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 	}
 	info->name = name;
 	info->top = top;
-	info->count = recurring == 0? 0 : 1;
+	info->recurring = recurring;
+	info->count = 0;
 	info->type = off_type;
 	if (off_type == OMP_OFFLOADING_DATA) { /* we handle offloading data as two steps, thus a recurring offloading */
-		info->count = 1;
+		info->recurring = 1;
 	}
 	info->num_mapped_vars = num_maps;
 	info->kernel_launcher = kernel_launcher;
@@ -137,9 +138,6 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 
 	//memset(info->offloadings, NULL, sizeof(omp_offloading_t)*top->nnodes);
 	/* we move the off initialization from each device thread here, i.e. we serialized this */
-	int loop_dist_done = 0;
-	if (info->type == OMP_OFFLOADING_DATA || info->type == OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE)
-		loop_dist_done = 1;
 	for (i=0; i<top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		omp_device_t * dev = &omp_devices[top->idmap[i]];
@@ -150,10 +148,12 @@ omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topo
 		off->stage = OMP_OFFLOADING_INIT;
 		off->events == NULL;
 		off->num_events = 0;
-		off->loop_dist_done = loop_dist_done;
+		off->loop_dist_done = 0;
 		off->runtime_profile_elapsed = -1.0;
 		off->last_total = 1; /* this serve as flag to see whether re-dist should be done or not */
 	}
+
+	info->nums_run = 1;
 
 	pthread_barrier_init(&info->barrier, NULL, top->nnodes+1);
 	pthread_barrier_init(&info->inter_dev_barrier, NULL, top->nnodes);
@@ -175,7 +175,8 @@ omp_offloading_info_t * omp_offloading_standalone_data_exchange_init_info(const 
 
 	info->name = name;
 	info->top = top;
-	info->count = recurring == 0? 0 : 1;
+	info->recurring = recurring;
+	info->count = 0;
 	info->type = OMP_OFFLOADING_STANDALONE_DATA_EXCHANGE;
 	info->num_mapped_vars = 0;
 	info->halo_x_info = halo_x_info;
@@ -565,11 +566,10 @@ void omp_map_add_halo_region(omp_data_map_info_t *info, int dim, int left, int r
  */
 void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_device_t *dev) {
 //	if (map->access_level >= OMP_DATA_MAP_ACCESS_LEVEL_INIT) return;
-	map->info = info;
 	map->dev = dev; /* mainly use as cache so we save one pointer deference */
 	map->mem_noncontiguous = 0;
 	map->map_type = info->map_type;
-	map->counter = 0;
+	map->dist_counter = 0;
 	map->next = NULL;
 	map->total_map_size = 0;
 	map->total_map_wextra_size = 0;
@@ -590,8 +590,10 @@ void omp_data_map_init_map(omp_data_map_t *map, omp_data_map_info_t *info, omp_d
 	for (i=0; i<info->num_dims; i++) {
 		map->map_dist[i].counter = 0;
 		map->map_dist[i].next = NULL;
+		if (map->info == NULL) map->map_dist[i].acc_total_length = 0; /* a strange way to use this as a flag */
 		map->map_dist[i].total_length = 0;
 	}
+	map->info = info;
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_INIT;
 }
 
@@ -1090,7 +1092,6 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 
 /* return the total amount of distribution */
 long omp_loop_iteration_dist(omp_offloading_t *off) {
-	if (off->last_total == 0) return 0;
 	omp_offloading_info_t *off_info = off->off_info;
 	omp_grid_topology_t * top = off_info->top;
 
@@ -1113,6 +1114,8 @@ long omp_loop_iteration_dist(omp_offloading_t *off) {
 		 */
 		if (dist_info->redist_needed) off->loop_dist[i].total_length += off->loop_dist[i].length;
 		else off->loop_dist[i].total_length = off->loop_dist[i].length;
+
+		off->loop_dist[i].acc_total_length += off->loop_dist[i].length;
 	}
 
 	off->loop_dist_done = 1;
@@ -1158,12 +1161,11 @@ long omp_data_map_dist(omp_data_map_t *map, int seqid) {
 		/* if this is the first time, we need to dist */
 		if (map->access_level < OMP_DATA_MAP_ACCESS_LEVEL_DIST) {
 			map->map_dist[i].info = dist_info;
-			omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, i);
-			map->map_dist[i].total_length += map->map_dist[i].length;
-		} else if (dist_info->redist_needed) {/* if this is align and we are re-enter,  we need to dist regardless of whatever */
-			omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, i);
-			map->map_dist[i].total_length += map->map_dist[i].length;
 		}
+		omp_dist(dist_info, &map->map_dist[i], top, coords, seqid, i);
+		map->map_dist[i].total_length += map->map_dist[i].length;
+		map->map_dist[i].acc_total_length += map->map_dist[i].length;
+
 
 		long length = map->map_dist[i].length;
 		long offset = map->map_dist[i].offset;
@@ -1208,7 +1210,7 @@ long omp_data_map_dist(omp_data_map_t *map, int seqid) {
 	map->total_map_size += map_size;
 	map->total_map_wextra_size += map_wextra_size;
 
-	if (total > 0) map->counter++;
+	if (total > 0) map->dist_counter++;
 	map->access_level = OMP_DATA_MAP_ACCESS_LEVEL_DIST;
 	return total;
 }
@@ -1420,7 +1422,7 @@ void omp_print_data_map(omp_data_map_t * map) {
 	//for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
 	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].total_length);
 
-	printf(", size: %d, size wextra: %d (accumulated %d times)\n",map->total_map_size, map->total_map_wextra_size, map->counter);
+	printf(", size: %d, size wextra: %d (accumulated %d times)\n",map->total_map_size, map->total_map_wextra_size, map->dist_counter);
 	printf("\t\tsrc ptr: %X, src wextra ptr: %X, dev ptr: %X, dev wextra ptr: %X (last)\n", map->map_source_ptr, map->map_source_wextra_ptr, map->map_dev_ptr, map->map_dev_wextra_ptr);
 	if (info->num_halo_dims) {
 		//printf("\t\thalo memory:\n");
@@ -2021,7 +2023,7 @@ char *colors[] = {
 		"#000080", /* Navy */
 };
 #endif
-void omp_offloading_info_report_profile(omp_offloading_info_t * info) {
+void omp_offloading_info_report_profile(omp_offloading_info_t *info, int count) {
 	int i, j;
 #if defined(PROFILE_PLOT)
 	char plotscript_filename[128];
@@ -2085,7 +2087,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 */
 #endif
 
-	int count = info->count==0? 1:info->count-1;
+	count *= info->count;
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		int devid = off->dev->id;
@@ -2152,8 +2154,8 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		//	events = &events[total_event_accumulated_index];
 		//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
 		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.2f\t\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
-		float percentage = 100*((float)off->loop_dist[0].total_length/(float) full_length);
-		printf("\t%d(%d)\t\t%.1f%%(%d)", off->loop_dist[0].total_length/count, count, percentage/count, count);
+		float percentage = 100*((float)off->loop_dist[0].acc_total_length/(float)(full_length*count));
+		printf("\t%d(%d)\t\t%.1f%%(%d)", off->loop_dist[0].acc_total_length/count, count, percentage, count);
 
 		ev = &off->events[runtime_dist_modeling_index];
 		if (ev->event_name != NULL) {
@@ -2206,9 +2208,9 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 #endif
 			omp_event_t * ev = &off->events[evindex];
 			if (ev->event_name == NULL) continue;
-			int count = 1; // ev->count;
-			double time_ms = (count != 0) ? omp_event_get_elapsed(ev)/count: 0;
-			if (j == 0) fprintf(report_cvs_file, "%s", ev->event_name);
+			int thiscount = ev->count<count?ev->count:count;
+			double time_ms = omp_event_get_elapsed(ev)/thiscount;
+			if (j == 0) fprintf(report_cvs_file, "%s(%d)", ev->event_name, thiscount);
 			while(lastdevid <= devid) {
 				fprintf(report_cvs_file, ",\t");
 				lastdevid++;
@@ -2228,7 +2230,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 			fprintf(report_cvs_file, ",\t");
 			lastdevid++;
 		}
-		fprintf(report_cvs_file, "%d", off->loop_dist[0].total_length/count);
+		fprintf(report_cvs_file, "%d", off->loop_dist[0].acc_total_length/count);
 	}
 	fprintf(report_cvs_file, "\n");
 	lastdevid = 0;
@@ -2242,8 +2244,8 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 			lastdevid++;
 		}
 //		printf("%d:%d,", off->loop_dist[0].length, length);
-		float percentage = 100*((float)off->loop_dist[0].total_length/(float) full_length);
-		fprintf(report_cvs_file, "%.1f%%", percentage/count);
+		float percentage = 100*((float)off->loop_dist[0].acc_total_length/((float) count* full_length));
+		fprintf(report_cvs_file, "%.1f%%", percentage);
 	}
 	fprintf(report_cvs_file, "\n");
 	lastdevid = 0;

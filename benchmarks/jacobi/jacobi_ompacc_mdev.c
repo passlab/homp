@@ -855,9 +855,9 @@ loop1:for (i=0;i<n;i++) {
 
 #if defined (OMP_BREAKDOWN_TIMING)
 	int num_infos = 3;
-	omp_offloading_info_report_profile(&__copy_data_off_info__);
-	omp_offloading_info_report_profile(&__uuold_exchange_off_info__);
-	omp_offloading_info_report_profile(&__jacobi_off_info__);
+	omp_offloading_info_report_profile(&__copy_data_off_info__, 0);
+	omp_offloading_info_report_profile(&__uuold_exchange_off_info__, 0);
+	omp_offloading_info_report_profile(&__jacobi_off_info__, 0);
 #if defined (STANDALONE_DATA_X)
 	num_infos = 4;
 	omp_offloading_info_report_profile(&uuold_halo_x_off_info);
@@ -871,7 +871,7 @@ loop1:for (i=0;i<n;i++) {
 	infos[3] = &uuold_halo_x_off_inf;
 #endif
 	omp_offloading_info_sum_profile(infos, num_infos, start_time, compl_time);
-	omp_offloading_info_report_profile(&__copy_data_off_info__);
+	omp_offloading_info_report_profile(&__copy_data_off_info__, 0);
 #endif
 	omp_offloading_fini_info(&__uuold_exchange_off_info__);
 	omp_offloading_fini_info(&__jacobi_off_info__);
