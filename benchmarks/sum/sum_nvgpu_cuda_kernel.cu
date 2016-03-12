@@ -3,7 +3,7 @@
 #include <cublas_v2.h>
 
 #include "xomp_cuda_lib_inlined.cu"
-__global__ void axpy_nvgpu_cuda_kernel( long start_n,  long length_n,REAL a,REAL *x,REAL *y, REAL *block_result)
+__global__ void sum_nvgpu_cuda_kernel( long start_n,  long length_n, REAL *x,REAL *y, REAL *block_result)
 {
   long i;
   long _dev_lower;
@@ -34,7 +34,7 @@ void sum_nvgpu_cuda_wrapper(omp_offloading_t *off, long start_n,  long length_n,
 	REAL * _dev_per_block_result = (REAL*)omp_map_malloc_dev(off->dev, NULL, teams_per_league * sizeof(REAL));
 	//printf("dev: %d teams per league, err block mem: %X\n", teams_per_league, _dev_per_block_result);
 	REAL _host_per_block_result[teams_per_league];
-    sum_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, 0, off->stream->systream.cudaStream>>>(start_n, length_n,x,y,_dev_per_block_result);
+    sum_nvgpu_cuda_kernel<<<teams_per_league,threads_per_team, (threads_per_team * sizeof(REAL)), off->stream->systream.cudaStream>>>(start_n, length_n,x,y,_dev_per_block_result);
 
 	/* copy back the results of reduction in blocks */
 	//printf("copy back reduced result: %X <-- %X\n", _host_per_block_result, _dev_per_block_result);

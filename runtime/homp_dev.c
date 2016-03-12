@@ -1442,7 +1442,7 @@ int omp_get_max_teams_per_league(omp_device_t *dev) {
 
 int omp_get_optimal_teams_per_league(omp_device_t *dev, int threads_per_team, int total) {
     int teams_per_league = (total + threads_per_team - 1) / threads_per_team;
-    int max_teams_per_league = omp_get_max_teams_per_league(dev);
+    int max_teams_per_league = 2048; // omp_get_max_teams_per_league(dev);
     //printf("dev: %d max teams: %d\n", dev->id, max_teams_per_league);
     if (teams_per_league > max_teams_per_league) return max_teams_per_league;
     else return teams_per_league;

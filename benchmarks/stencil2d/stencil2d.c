@@ -133,7 +133,7 @@ int main(int argc, char * argv[]) {
 //	REAL mdev_elapsed = 0.0;
 //	mdev_elapsed = stencil2d_omp_mdev(n, m, u_omp_mdev, radius, coeff, num_its);
 
-	printf("OMP mdev iterate execution\n");
+//	printf("OMP mdev iterate execution\n");
 	REAL mdev_iterate_elapsed = 0.0;
 
 	int num_active_devs = omp_get_num_active_devices();
