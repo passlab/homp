@@ -227,7 +227,8 @@ int main(int argc, char *argv[]) {
     seq_elapsed = read_timer_ms();
     int i;
     int num_its = 10;
-    //for (i=0; i<num_its;i++) iter_matmul(A, B, C_seq, n);
+    //for (i=0; i<num_its;i++)
+    iter_matmul(A, B, C_seq, n);
     seq_elapsed = (read_timer_ms() - seq_elapsed)/num_its;
     // print_array("Array C_seq", "C", C_seq, n, n);
 #if defined(DEVICE_ITLMIC_SUPPORT)
@@ -252,7 +253,6 @@ int main(int argc, char *argv[]) {
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
-#endif
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
     /* four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
-#if 0
+
     /* one ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
@@ -325,11 +325,11 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
 
+#endif
     /* run on all devices */
     num_targets = num_active_devs;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
     ompacc_elapsed = matmul_ompacc_mdev(num_targets, targets, A, B, C_ompacc, n);
-#endif
 
     //print_array("Array C_ompacc", "C", C_ompacc, n, n);
     omp_fini_devices();
@@ -433,7 +433,7 @@ double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, lo
     /* we use universal args and launcher because matmul can do it */
     struct OUT__1__11058__args args;
     args.i = n;args.j = n;args.k = n;args.A = A;args.B = B;args.C = C;
-    omp_offloading_info_t * __off_info__ = omp_offloading_init_info("matmul_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE, __num_maps__, OUT__1__11058__launcher, &args, 1);
+    omp_offloading_info_t * __off_info__ = omp_offloading_init_info("matmul_kernel", __top__, 0, OMP_OFFLOADING_DATA_CODE, __num_maps__, OUT__1__11058__launcher, &args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, 2*n*n, 2*n*n, n);
 
     /* A map info */
@@ -515,15 +515,17 @@ double matmul_ompacc_mdev(int ndevs, int *targets, REAL *A, REAL *B, REAL *C, lo
     /* here we do not need sync start */
     double off_total = read_timer_ms();
     int it;
-    int total_its = 1;
-    for (it = 0; it < total_its; it++)
+    int total_its = 4;
+    for (it = 0; it < total_its; it++) {
+        __off_info__->count = 0;
         omp_offloading_start(__off_info__);
+    }
     off_total = (read_timer_ms() - off_total) / total_its;
 #if defined (OMP_BREAKDOWN_TIMING)
     omp_print_map_info(__A_map_info__);
     omp_print_map_info(__B_map_info__);
     omp_print_map_info(__C_map_info__);
-	omp_offloading_info_report_profile(__off_info__);
+    omp_offloading_info_report_profile(__off_info__, total_its);
 #endif
     omp_offloading_fini_info(__off_info__);
     omp_grid_topology_fini(__top__);

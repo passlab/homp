@@ -508,8 +508,10 @@ typedef struct omp_dist {
 	 * The same approaches are used in data maps
 	 */
 	int counter;
+	int redist_needed;
 	struct omp_dist * next;
 	long total_length;
+	long acc_total_length; /* accumulated total length from multiple run */
 
 	char padding[CACHE_LINE_SIZE];
 } omp_dist_t;
@@ -529,7 +531,7 @@ struct omp_data_map {
 	 *
 	 * total_map_size and total_map_wextra_size store the sizes of all the mapped data regions
 	 */
-	int counter;
+	int dist_counter;
 	struct omp_data_map * next;
 	long total_map_size;
 	long total_map_wextra_size;
@@ -647,10 +649,13 @@ struct omp_offloading_info {
 	omp_grid_topology_t * top; /* target devices */
 	const char * name; /* kernel name */
 
+	int recurring;
 	volatile int count; /* if an offload is within a loop (while/for, etc and with goto) of a function, it is a recurring */
 	double start_time;
 	double compl_time;
 	double elapsed;
+
+	int nums_run; /* for experimental purpose so we can run the same offloading mulitple time for performance collection */
 
 	omp_offloading_type_t type; /* what to offload: data, code, or both*/
 	int num_mapped_vars;
@@ -716,6 +721,7 @@ struct omp_offloading {
 	omp_kernel_profile_info_t kernel_profile;
 	omp_kernel_profile_info_t per_iteration_profile;
 	int loop_dist_done; /* a flag */
+	int dist_counter; /* this counter should be the same as the counter of the map of this off so we keep track the data and computation */
 	long last_total; /* the total amount of iteration assigned to this device last time.
 			  * This is a flag used to check whether we need to do dist or not.
 			  * If last_total is 0, we do not need to dist to this dev anymore */
@@ -766,7 +772,7 @@ extern omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_gr
 extern void omp_offloading_append_profile_per_iteration(omp_offloading_info_t *info, long num_fp_operations,
 														long num_loads, long num_stores);
 extern void omp_offloading_fini_info(omp_offloading_info_t * info);
-extern void omp_offloading_info_report_profile(omp_offloading_info_t * info);
+extern void omp_offloading_info_report_profile(omp_offloading_info_t *info, int count);
 
 extern void omp_offloading_append_data_exchange_info (omp_offloading_info_t * info, omp_data_map_halo_exchange_info_t * halo_x_info, int num_maps_halo_x);
 extern omp_offloading_info_t * omp_offloading_standalone_data_exchange_init_info(const char *name, omp_grid_topology_t *top, int recurring,

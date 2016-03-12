@@ -94,34 +94,29 @@ double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwi
 
     int __num_maps__ = 3; /* u, uold and the coeff */ /* XXX: need compiler output */
 
-    /* data copy offloading */
-    omp_offloading_info_t *__copy_data_off_info__ =
-            omp_offloading_init_info("data_copy", __top__, 1, OMP_OFFLOADING_DATA, __num_maps__, NULL, NULL, 0);
-
     /* stencil kernel offloading */
     struct bm2d_off_args off_args;
     off_args.n = n; off_args.m = m; off_args.u = u; off_args.maxwin = maxwin; off_args.coeff = coeff; off_args.num_its = num_its;
     off_args.uold = uold; off_args.coeff_center = coeff_center; off_args.coeff_dimX = coeff_dimX; off_args.u_dimX = u_dimX; off_args.u_dimY = u_dimY;
-    omp_offloading_info_t * __off_info__ =
-            omp_offloading_init_info("bm2d_kernel", __top__, 1, OMP_OFFLOADING_CODE, 0,
+    omp_offloading_info_t * __off_info__ = omp_offloading_init_info("bm2d_kernel", __top__, 1, OMP_OFFLOADING_CODE, __num_maps__,
                                      bm2d_omp_mdev_launcher, &off_args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, 13*u_dimY, 7, 1);
 
     //printf("data copy off: %X, bm2d off: %X\n", __copy_data_off_info__, __off_info__);
 
     /* u map info */
-    omp_data_map_info_t *__u_map_info__ = &__copy_data_off_info__->data_map_info[0];
-    omp_data_map_init_info("u", __u_map_info__, __copy_data_off_info__, u, 2, sizeof(REAL), OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO);
+    omp_data_map_info_t *__u_map_info__ = &__off_info__->data_map_info[0];
+    omp_data_map_init_info("u", __u_map_info__, __off_info__, u, 2, sizeof(REAL), OMP_DATA_MAP_TOFROM, OMP_DATA_MAP_AUTO);
     omp_data_map_info_set_dims_2d(__u_map_info__, u_dimX, u_dimY);
 
     /* uold map info */
-    omp_data_map_info_t *__uold_map_info__ = &__copy_data_off_info__->data_map_info[1];
-    omp_data_map_init_info("uold", __uold_map_info__, __copy_data_off_info__, uold, 2, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
+    omp_data_map_info_t *__uold_map_info__ = &__off_info__->data_map_info[1];
+    omp_data_map_init_info("uold", __uold_map_info__, __off_info__, uold, 2, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
     omp_data_map_info_set_dims_2d(__uold_map_info__, u_dimX, u_dimY);
 
     /* coeff map info */
-    omp_data_map_info_t *__coeff_map_info__ = &__copy_data_off_info__->data_map_info[2];
-    omp_data_map_init_info("coeff", __coeff_map_info__, __copy_data_off_info__, coeff, 2, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
+    omp_data_map_info_t *__coeff_map_info__ = &__off_info__->data_map_info[2];
+    omp_data_map_init_info("coeff", __coeff_map_info__, __off_info__, coeff, 2, sizeof(REAL), OMP_DATA_MAP_TO, OMP_DATA_MAP_AUTO);
     omp_data_map_info_set_dims_2d(__coeff_map_info__, coeff_dimX, coeff_dimX);
 
     omp_data_map_dist_init_info(__coeff_map_info__, 0, OMP_DIST_POLICY_FULL, 0, coeff_dimX, 0, 0);
@@ -174,14 +169,6 @@ double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwi
 #if DEBUG_MSG
 	printf("=========================================== offloading to %d targets ==========================================\n", __num_target_devices__);
 #endif
-    double off_copyto_time = read_timer_ms();
-    double start_time = off_copyto_time;
-    omp_offloading_start(__copy_data_off_info__);
-    omp_print_map_info(__u_map_info__);
-    omp_print_map_info(__uold_map_info__);
-    omp_print_map_info(__coeff_map_info__);
-    off_copyto_time = read_timer_ms() - off_copyto_time;
-//	printf("offloading from stencil now\n");
     double off_kernel_time = read_timer_ms();
     int it;
     for (it = 0; it < num_its; it++) {
@@ -189,28 +176,16 @@ double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwi
         omp_offloading_start(__off_info__);
     }
     off_kernel_time = (read_timer_ms() - off_kernel_time);
-    /* copy back u from each device and free others */
-    double off_copyfrom_time = read_timer_ms();
-    omp_offloading_start(__copy_data_off_info__);
-    off_copyfrom_time = read_timer_ms() - off_copyfrom_time;
-    double off_total = off_init_time + off_copyto_time + off_copyfrom_time + off_kernel_time;
-    printf("blackbox measurement(ms): off_init: %0.4f, off_copyto: %.4f, off_kernel: %.4f, off_copyfrom: %.4f\n",
-           off_init_time, off_copyto_time, off_kernel_time, off_copyfrom_time);
+    omp_print_map_info(__u_map_info__);
+    omp_print_map_info(__uold_map_info__);
+    omp_print_map_info(__coeff_map_info__);
 #if defined (OMP_BREAKDOWN_TIMING)
-    omp_offloading_info_report_profile(__copy_data_off_info__);
-    omp_offloading_info_report_profile(__off_info__);
-    int num_offs = 2;
-    omp_offloading_info_t *infos[num_offs];
-    infos[0] = __copy_data_off_info__;
-    infos[1] = __off_info__;
-    omp_offloading_info_sum_profile(infos, num_offs, start_time, start_time+off_total);
-    omp_offloading_info_report_profile(__copy_data_off_info__);
+    omp_offloading_info_report_profile(__off_info__, 0);
 #endif
-    omp_offloading_fini_info(__copy_data_off_info__);
     omp_offloading_fini_info(__off_info__);
     omp_grid_topology_fini(__top__);
 
     omp_unified_free(uold);
 
-    return off_total;
+    return off_kernel_time;
 }
