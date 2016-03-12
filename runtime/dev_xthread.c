@@ -26,13 +26,18 @@ static void omp_reset_dist_for_rerun(omp_offloading_info_t *off_info) {
 			dist_info->start = dist_info->offset;
 		}
 	}
-    for (i=0; i<off_info->top->nnodes; i++) { /* this could be performed by each proxy thread after the offloading */
-        omp_offloading_t * off = &off_info->offloadings[i];
-        off->loop_dist_done = 0;
-        off->runtime_profile_elapsed = -1.0;
-        off->last_total = 1; /* this serve as flag to see whether re-dist should be done or not */
-    }
+}
 
+static inline void omp_off_init_before_run(omp_offloading_t * off) {
+    off->loop_dist_done = 0;
+    off->runtime_profile_elapsed = -1.0;
+    off->last_total = 1; /* this serve as flag to see whether re-dist should be done or not */
+    off->loop_dist[0].total_length = 0;
+    off->loop_dist[1].total_length = 0;
+    off->loop_dist[2].total_length = 0;
+    off->loop_dist[0].counter = 0;
+    off->loop_dist[1].counter = 0;
+    off->loop_dist[2].counter = 0;
 }
 
 /**
@@ -487,6 +492,7 @@ void omp_offloading_data_copyto(omp_device_t * dev) {
 		omp_init_off_stream_events(off);
         //off_info->count <= 1; /* assertation */
 	}
+    omp_off_init_before_run(off);
 	omp_event_t * events = off->events;
 	omp_event_record_start(&events[total_event_index]);
 #endif
@@ -589,6 +595,7 @@ void omp_offloading_run(omp_device_t * dev) {
     int num_events = off->num_events;
     omp_event_t *events = off->events;
 	omp_event_record_start(&events[total_event_index]);
+    omp_off_init_before_run(off);
 #endif
 
 	double runtime_profile_elapsed =read_timer_ms();

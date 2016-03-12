@@ -508,6 +508,7 @@ typedef struct omp_dist {
 	 * The same approaches are used in data maps
 	 */
 	int counter;
+	int redist_needed;
 	struct omp_dist * next;
 	long total_length;
 	long acc_total_length; /* accumulated total length from multiple run */

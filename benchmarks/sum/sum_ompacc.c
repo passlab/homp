@@ -92,7 +92,7 @@ double sum_ompacc_mdev(int ndevs, int *targets, long n, REAL *x, REAL *y, REAL *
 	args.n = n;
 	args.x = x;
 	args.y = y;
-	omp_offloading_info_t *__off_info__ = omp_offloading_init_info("sum_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE,
+	omp_offloading_info_t *__off_info__ = omp_offloading_init_info("sum_kernel", __top__, 0, OMP_OFFLOADING_DATA_CODE,
 																   __num_maps__, sum_dev_kernel_demux, &args, 1);
 	omp_offloading_append_profile_per_iteration(__off_info__, 2, 2, 1);
 
@@ -131,7 +131,7 @@ double sum_ompacc_mdev(int ndevs, int *targets, long n, REAL *x, REAL *y, REAL *
 	//  printf("init time: %fs\n", ompacc_init_time);
 	/* here we do not need sync start */
 	double off_total = read_timer_ms();
-	int total_its = 1;
+	int total_its = 10;
 	for (i =0; i < total_its; i++) {
 		omp_offloading_start(__off_info__);
 	}
@@ -144,7 +144,7 @@ double sum_ompacc_mdev(int ndevs, int *targets, long n, REAL *x, REAL *y, REAL *
 #if defined (OMP_BREAKDOWN_TIMING)
 	omp_print_map_info(__x_map_info__);
 	omp_print_map_info(__y_map_info__);
-	omp_offloading_info_report_profile(__off_info__, 0);
+	omp_offloading_info_report_profile(__off_info__, total_its);
 #endif
 
 	omp_offloading_fini_info(__off_info__);
