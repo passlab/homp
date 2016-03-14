@@ -983,13 +983,17 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		dist->length = length;
 		//printf("SCHED_DYNAMIC: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_GUIDED) { /* only for loop */
+		full_length = dist_info->end - dist_info->offset;
 		if (dist_info->chunk_size < 0)
 			/* the percentage of left-over, not the total */
-			length = (0 - dist_info->chunk_size) * (dist_info->end - dist_info->start) / 100;
+			length = (0 - dist_info->chunk_size) * full_length / 100;
 		else
-			length = dist_info->chunk_size/(dist->counter + 1);
+			length = dist_info->chunk_size;
 
-		if (length < 100) length = 100; /* minimum 10 iterations per chunk */
+		length = length / (dist->counter + 1);
+		long min = full_length * 0.01; /* the min length */
+
+		if (length < min) length = min; /* minimum 10 iterations per chunk */
 		if (length > dist_info->length) {
 			printf("Posibblly because of data race\n");
 			abort();
@@ -1009,7 +1013,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		} while (1);
 		dist->offset = offset;
 		dist->length = length;
-//		printf("SCHED_GUIDE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
+		//printf("SCHED_GUIDE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_FEEDBACK) { /* only for loop */
 		if (dist_info->chunk_size < 0)
 			/* the percentage of left-over, not the total */
