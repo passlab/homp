@@ -180,7 +180,7 @@ double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwi
     omp_print_map_info(__uold_map_info__);
     omp_print_map_info(__coeff_map_info__);
 #if defined (OMP_BREAKDOWN_TIMING)
-    omp_offloading_info_report_profile(__off_info__, 0);
+    omp_offloading_info_report_profile(__off_info__, num_its);
 #endif
     omp_offloading_fini_info(__off_info__);
     omp_grid_topology_fini(__top__);

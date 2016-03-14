@@ -75,7 +75,7 @@ void bm2d_omp(long n, long m, REAL *u, int maxwin, REAL *coeff, int num_its);
 int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
-	int maxwin = 8;
+	int maxwin = 10;
 	int num_its = 5000;
 
     fprintf(stderr,"Usage: jacobi [<n> <m> <maxwin> <num_its>]\n");

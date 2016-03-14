@@ -139,85 +139,94 @@ int main(int argc, char * argv[]) {
 	int num_active_devs = omp_get_num_active_devices();
 	int targets[num_active_devs];
 	int num_targets = 1;
+
+	double (*stencil2d_omp_mdev_function)(int ndevs, int *targets, long n, long m, REAL *u, int maxwin, REAL *coeff,
+									 int num_its);
+	if (LOOP_DIST_POLICY == OMP_DIST_POLICY_BLOCK || LOOP_DIST_POLICY == OMP_DIST_POLICY_MODEL_AUTO) {
+		stencil2d_omp_mdev_function = stencil2d_omp_mdev_iterate;
+	} else {
+		stencil2d_omp_mdev_function = stencil2d_omp_mdev;
+	}
+	
 #if 0
 	/* one HOSTCPU */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-#endif
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
 	/* one NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* two NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* three NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 3);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 	/* four NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-#if 0
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+
 	/* one ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* one HOSTCPU and one NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* one HOSTCPU and one ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* one NVGPU and one ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 1);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* one HOSTCPU and two NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* one HOSTCPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* two NVGPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* four NVGPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	/* one CPU, two NVGPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 	/* one CPU, four NVGPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
+#endif
 
     /* run on all devices */
     num_targets = num_active_devs;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
-	mdev_iterate_elapsed = stencil2d_omp_mdev_iterate(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-#endif
+	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
 
 	long flops = n*m*radius;
 #ifdef SQUARE_SETNCIL

@@ -230,8 +230,8 @@ double stencil2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int 
     printf("blackbox measurement(ms): off_init: %0.4f, off_copyto: %.4f, off_kernel: %.4f, off_copyfrom: %.4f\n",
            off_init_time, off_copyto_time, off_kernel_time, off_copyfrom_time);
 #if defined (OMP_BREAKDOWN_TIMING)
-    omp_offloading_info_report_profile(__copy_data_off_info__, 0);
-    omp_offloading_info_report_profile(__off_info__, 0);
+    omp_offloading_info_report_profile(__copy_data_off_info__, 1);
+    omp_offloading_info_report_profile(__off_info__, 10);
     int num_offs = 2;
 #if defined STANDALONE_DATA_X
 	omp_offloading_info_report_profile(uuold_halo_x_off_info);

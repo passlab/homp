@@ -807,7 +807,7 @@ void helper_thread_main(void * arg) {
 //		printf("helper threading (devid: %X) offloading  ....\n", dev);
 		omp_offloading_info_t * off_info = dev->offload_request;
 		if (off_info->type == OMP_OFFLOADING_DATA) {
-			if (off_info->count % 2 == 1) /* for copyto */
+			if (off_info->count % 2 == 0) /* for copyto */
 				omp_offloading_data_copyto(dev);
 			else omp_offloading_data_copyfrom(dev);
 		} else omp_offloading_run(dev);
