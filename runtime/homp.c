@@ -1065,12 +1065,12 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			} while (1);
 			dist->offset = offset;
 			dist->length = length;
-			printf("SCHED_PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, full_length);
+			//printf("SCHED_PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, full_length);
 		} else { /* similar to ratio policy */
 			float profile_performance, myratio;
 
 			omp_dist_profile_auto(dist_info, dist_info->start, full_length, seqid, &dist->offset, &dist->length, &myratio, &profile_performance);
-			printf("SCHED_PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d (%.2f%%) of total length: %d based on my profiling performance: %f\n", dev->id, dist->offset, dist->length, myratio*100.0, full_length, profile_performance);
+			//printf("SCHED_PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d (%.2f%%) of total length: %d based on my profiling performance: %f\n", dev->id, dist->offset, dist->length, myratio*100.0, full_length, profile_performance);
 			//dist->counter = 0; /* reset dist->counter for the future call of the same offloading */
 		}
 	} else if (dist_info->policy == OMP_DIST_POLICY_MODEL_PROFILE_AUTO) {
@@ -1082,7 +1082,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		if (dist->counter == 0) {
 			omp_dist_model(OMP_DIST_POLICY_MODEL_2_AUTO, dist_info, dist_info->start, length, top, coords, seqid,
 						   &dist->offset, &dist->length);
-			printf("MODEL_PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, length);
+			//printf("MODEL_PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, length);
 		} else {
 			float profile_performance, myratio;
 
@@ -1090,7 +1090,7 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 			offset = dist_info->start + length; /* here we did not update the dist_info->start. If to do it, we need a single thread to do that in the previous stage */
 
 			omp_dist_profile_auto(dist_info, offset, full_length, seqid, &dist->offset, &dist->length, &myratio, &profile_performance);
-			printf("MODEL_PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d (%.2f%%) of total length: %d based on my profiling performance: %f\n", dev->id, dist->offset, dist->length, myratio*100.0, full_length, profile_performance);
+			//printf("MODEL_PROFILE_AUTO, AUTO:    Dev %d: offset: %d, length: %d (%.2f%%) of total length: %d based on my profiling performance: %f\n", dev->id, dist->offset, dist->length, myratio*100.0, full_length, profile_performance);
 			//dist->counter = 0; /* reset dist->counter for the future call of the same offloading */
 		}
 	} else {
