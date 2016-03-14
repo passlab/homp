@@ -38,7 +38,7 @@ void omp_print_dist_policy_options() {
 	printf("Loop distribution policy can be specified by setting LOOP_DIST_POLICY environment variable to one of the following:\n");
 	printf("  The first number is the policy id, and the second number is the chunk size or chunk percentage. If it is -1, the chunk size is not used.\n");
 	for (i=0; i < num_allowed_dist_policies; i++) {
-		printf("\t%d,<n>:\t%s: %s, default n: %d\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name, omp_dist_policy_args[i].chunk);
+		printf("\t%2d,<n>:\t%s: %s, default n: %d\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name, omp_dist_policy_args[i].chunk);
 	}
 	i= default_dist_policy_index;
 	printf("-------------------------------------------------------------------------------------------------------------------------------\n");
