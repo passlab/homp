@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
-  
+#endif  
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
@@ -83,10 +83,14 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
     
+    /* three NVGPU */
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 3);
+    ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
+
     /* four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
-
+#if 0
     /* one ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
@@ -147,11 +151,11 @@ int main(int argc, char *argv[]) {
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
 
-#endif
     /* run on all devices */
     num_targets = num_active_devs;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
+#endif
 
     omp_fini_devices();
     REAL cksm = serial_sum - mdev_sum;
