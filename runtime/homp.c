@@ -2100,8 +2100,13 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
 
 	/* write the report to a CSV file */
-	char report_cvs_filename[128];
-	sprintf(report_cvs_filename, "%s.csv\0", info->name);
+	char report_cvs_filename[256];
+	for (i=0; i<num_allowed_dist_policies; i++) {
+		if (omp_dist_policy_args[i].type == LOOP_DIST_POLICY)
+			break;
+	}
+	if (LOOP_DIST_CHUNK_SIZE < 0) sprintf(report_cvs_filename, "%s-%d-%s,%d%%.csv\0", info->name, full_length, omp_dist_policy_args[i].shortname, 0-LOOP_DIST_CHUNK_SIZE);
+	else sprintf(report_cvs_filename, "%s-%d-%s,%d.csv\0", info->name, full_length, omp_dist_policy_args[i].shortname, LOOP_DIST_CHUNK_SIZE);
 	FILE * report_cvs_file = fopen(report_cvs_filename, "a+");
 	char time_buff[100];
 	time_t now = time (0);
