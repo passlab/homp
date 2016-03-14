@@ -142,7 +142,7 @@ int main(int argc, char * argv[]) {
 
 	double (*stencil2d_omp_mdev_function)(int ndevs, int *targets, long n, long m, REAL *u, int maxwin, REAL *coeff,
 									 int num_its);
-	if (LOOP_DIST_POLICY == OMP_DIST_POLICY_BLOCK || LOOP_DIST_POLICY == OMP_DIST_POLICY_MODEL_AUTO) {
+	if (LOOP_DIST_POLICY == OMP_DIST_POLICY_BLOCK || LOOP_DIST_POLICY == OMP_DIST_POLICY_MODEL_1_AUTO || LOOP_DIST_POLICY == OMP_DIST_POLICY_MODEL_2_AUTO) {
 		stencil2d_omp_mdev_function = stencil2d_omp_mdev_iterate;
 	} else {
 		stencil2d_omp_mdev_function = stencil2d_omp_mdev;

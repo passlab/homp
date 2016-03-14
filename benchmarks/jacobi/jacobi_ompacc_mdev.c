@@ -761,7 +761,7 @@ loop1:for (i=0;i<n;i++) {
 								OMP_DIST_TARGET_DATA_MAP, 0);
 			printf("BLOCK dist policy for arrays, and loop dist align with array A row dist\n");
 		} else if (dist_policy == 3) { /* AUTO_ALIGN */
-			omp_data_map_dist_init_info(&__jacobi_off_loop_dist__[0], 0, OMP_DIST_POLICY_MODEL_AUTO, 0, n, 0, 0);
+			omp_data_map_dist_init_info(&__jacobi_off_loop_dist__[0], 0, OMP_DIST_POLICY_MODEL_1_AUTO, 0, n, 0, 0);
 
 			omp_align_dist_info(&f_dist[0], OMP_DIST_POLICY_ALIGN, &__jacobi_off_info__,
 								OMP_DIST_TARGET_LOOP_ITERATION, 0);

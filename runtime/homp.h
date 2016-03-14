@@ -334,10 +334,13 @@ typedef enum omp_dist_policy {
 							   * from chunk_size field. The algorithm of changing the chunk size is system-specific */
 	OMP_DIST_POLICY_SCHED_FEEDBACK, /* schedule based on previous performance to dynamically adjust the chunk sizes,
  									 * faster dev gets more and more while smaller gets fewers and fewers */
-	OMP_DIST_POLICY_SCHED_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
-	OMP_DIST_POLICY_MODEL_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
+	OMP_DIST_POLICY_MODEL_1_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
                            * model for load balance. The model makes best-efforts and one-time decision
-                           * to distribute all iterations */
+                           * to distribute all iterations, it only consider computation for distribution */
+	OMP_DIST_POLICY_MODEL_2_AUTO, /* the balanced loop distribution so computation is distributed using an analytical
+                           * model for load balance. The model makes best-efforts and one-time decision
+                           * to distribute all iterations, it consider both computation and data movement */
+	OMP_DIST_POLICY_SCHED_PROFILE_AUTO, /* use a small amount of iterations to profile and then do the AUTO based on the profiling info used with iteration dist */
 	OMP_DIST_POLICY_MODEL_PROFILE_AUTO, /* use model to allocate max number of chunks to each device, profile and then distribute the rest according to the normalized performance */
 	OMP_DIST_POLICY_TOTAL_NUMS,
 } omp_dist_policy_t;

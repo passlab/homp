@@ -12,15 +12,16 @@
 #include <time.h>
 #include "homp.h"
 
-#define num_allowed_dist_policies 6
+#define num_allowed_dist_policies 7
 #define default_dist_policy_index 0
 omp_dist_policy_argument_t omp_dist_policy_args[num_allowed_dist_policies] = {
-		{OMP_DIST_POLICY_BLOCK,              -1,   "even distribution",              "BLOCK"},
-		{OMP_DIST_POLICY_SCHED_DYNAMIC,      100,  "each dev picks chunks and chunk size does not change",      "SCHED_DYNAMIC"},
-		{OMP_DIST_POLICY_SCHED_GUIDED,       100,  "each dev picks chunks and chunk sizes reduce each time",       "SCHED_GUIDED"},
-		{OMP_DIST_POLICY_SCHED_PROFILE_AUTO, 100,  "each dev pick the same amount of chunks, runtime profiles and then dist the rest based on profiling", "SCHED_PROFILE_AUTO"},
-		{OMP_DIST_POLICY_MODEL_AUTO,         -1,   "dist all iterations using analytical model",         "MODEL_AUTO"},
-		{OMP_DIST_POLICY_MODEL_PROFILE_AUTO, 100,  "dist the first chunk among devs using analytical model, runtime profiles, and then dist the rest based on profiling", "MODEL_PROFILE_AUTO"},
+		{OMP_DIST_POLICY_BLOCK,              -1,  "even distribution",                                                                                                   "BLOCK"},
+		{OMP_DIST_POLICY_SCHED_DYNAMIC,      100, "each dev picks chunks and chunk size does not change",                                                                "SCHED_DYNAMIC"},
+		{OMP_DIST_POLICY_SCHED_GUIDED,       100, "each dev picks chunks and chunk sizes reduce each time",                                                              "SCHED_GUIDED"},
+		{OMP_DIST_POLICY_MODEL_1_AUTO,       -1,  "dist all iterations using compute-based analytical model",                                                                          "MODEL_1_AUTO"},
+		{OMP_DIST_POLICY_MODEL_2_AUTO,       -1,  "dist all iterations using compute/data-based analytical model",                                                                          "MODEL_2_AUTO"},
+		{OMP_DIST_POLICY_SCHED_PROFILE_AUTO, 100, "each dev pick the same amount of chunks, runtime profiles and then dist the rest based on profiling",                 "SCHED_PROFILE_AUTO"},
+		{OMP_DIST_POLICY_MODEL_PROFILE_AUTO, 100, "dist the first chunk among devs using analytical model, runtime profiles, and then dist the rest based on profiling", "MODEL_PROFILE_AUTO"},
 };
 
 __attribute__((destructor))
@@ -643,7 +644,8 @@ static __inline__ int __homp_cas(volatile int *ptr, int ag, int x) {
 /**
  * dist according to analytical model
  */
-static void omp_dist_model(omp_dist_info_t *dist_info, long start, long full_length, omp_grid_topology_t *top, int *coords, int seqid, long *myoffset, long *mylength) {
+static void omp_dist_model(omp_dist_policy_t model_algorithm, omp_dist_info_t *dist_info, long start, long full_length,
+						   omp_grid_topology_t *top, int *coords, int seqid, long *myoffset, long *mylength) {
 	long offset = 0;
 	long length = 0;
 	int i;
@@ -667,18 +669,18 @@ static void omp_dist_model(omp_dist_info_t *dist_info, long start, long full_len
 	if (events != NULL)
 		omp_event_record_start(&events[runtime_dist_modeling_index]);
 #endif
-#ifdef LINEAR_MODEL_1
-	/* compute the total capability */
+    if (model_algorithm == OMP_DIST_POLICY_MODEL_1_AUTO) {
+		/* compute the total capability */
 		double total_flops = 0.0;
-		for (i =0; i <off_info->top->nnodes; i++) {
+		for (i = 0; i < off_info->top->nnodes; i++) {
 			double flops = off_info->offloadings[i].dev->total_real_flopss;
 			total_flops += flops;
 		}
 
-		for (i =0; i <off_info->top->nnodes; i++) {
+		for (i = 0; i < off_info->top->nnodes; i++) {
 			double flops = off_info->offloadings[i].dev->total_real_flopss;
-			length = (flops/total_flops) * full_length + 0.5; /* +0.5 is for rounding, so 3.4->4, and 3.5->4 */
-			if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
+			length = (flops / total_flops) * full_length + 0.5; /* +0.5 is for rounding, so 3.4->4, and 3.5->4 */
+			if (i == off_info->top->nnodes - 1 && offset + length != full_length) { /* fix rounding error */
 				length = full_length - offset;
 			}
 			if (off->devseqid == i) {
@@ -689,130 +691,131 @@ static void omp_dist_model(omp_dist_info_t *dist_info, long start, long full_len
 			//printf("MODEL_AUTO: LINEAR_MODEL_1: Dev %d (%f GFlops/s): offset: %d, length: %d of total length: %d\n", i, flops, *myoffset, *mylength, full_length);
 			offset += length;
 		}
-#endif
-/* in LINEAR_MODEL_2, computation and data movement cost are considered */
-#ifdef LINEAR_MODEL_2
-	/* this is more restricted, since now all aligned data map and non-aligned data map in this offloading
-     * has to be took into account for the auto policy. The data movement cost for non-aligned data map will be part
-     * of the constant of a linear equation, and data-movement cost for aligned
-     * data-map will be calculated as part of the coefficient of the model.
-     *
-     * For data movement, the model will be the classical a+b model, i.e. T = a + n*B, where a is latency, n is number of bytes to be transfered
-     * and B is bandwidth.
-     */
+	} else { /* OMP_DIST_POLICY_MODEL_2_AUTO */
+		/* in LINEAR_MODEL_2, computation and data movement cost are considered */
+		/* this is more restricted, since now all aligned data map and non-aligned data map in this offloading
+         * has to be took into account for the auto policy. The data movement cost for non-aligned data map will be part
+         * of the constant of a linear equation, and data-movement cost for aligned
+         * data-map will be calculated as part of the coefficient of the model.
+         *
+         * For data movement, the model will be the classical a+b model, i.e. T = a + n*B, where a is latency, n is number of bytes to be transfered
+         * and B is bandwidth.
+         */
 
-	/* compute constant A and B for T = n*A+B, where n is number of loop iterations. The full model is as follows
-     * T = n * (Sum(S_Ai))/Bandwidth + Sum(S_NAi)/Bandwidth + #arrays * Latency + n*FLOPs/Fp, where S_Ai is the sizes of an array that has
-     * alignment distribtuion with loop auto policy, S_NAi, is the sizes of an array that does not have alignment with loop. # array is equal
-     * to the number of data movment. FLOPs is FLOPs per loop iterations, here we assume same number of iterations of all loop iterations. Fp is
-     * FLOPS/s of the device
-     *
-     * So A = (Sum(S_Ai))/Bandwidth + FLOPs/Fp, B = Sum(S_NAi)/Bandwidth + #arrays * Latency
-     * When we have T = n*A+B, we have n = T/A - B/A for each device, thus we form a linear systems for multiple devices.
-     */
+		/* compute constant A and B for T = n*A+B, where n is number of loop iterations. The full model is as follows
+         * T = n * (Sum(S_Ai))/Bandwidth + Sum(S_NAi)/Bandwidth + #arrays * Latency + n*FLOPs/Fp, where S_Ai is the sizes of an array that has
+         * alignment distribtuion with loop auto policy, S_NAi, is the sizes of an array that does not have alignment with loop. # array is equal
+         * to the number of data movment. FLOPs is FLOPs per loop iterations, here we assume same number of iterations of all loop iterations. Fp is
+         * FLOPS/s of the device
+         *
+         * So A = (Sum(S_Ai))/Bandwidth + FLOPs/Fp, B = Sum(S_NAi)/Bandwidth + #arrays * Latency
+         * When we have T = n*A+B, we have n = T/A - B/A for each device, thus we form a linear systems for multiple devices.
+         */
 
-	/* this serves as fast cache for later alignment */
-	offset = 0;
-	struct align_map {
-		omp_data_map_t * map;
-		omp_dist_t * align_dist;
-	} align_maps[off_info->num_mapped_vars];
-	int num_aligned_maps = 0;
-	double A = 0.0;
-	double B = 0.0;
-	int num_transfer = 0;
-	for (i=0; i<off_info->num_mapped_vars; i++) {
-		omp_data_map_info_t * map_info = &off_info->data_map_info[i];
-		if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TO) {
-			num_transfer++;
-		} else if (map_info->map_type == OMP_DATA_MAP_TOFROM) {
-			num_transfer += 2;
-		} else continue;
+		/* this serves as fast cache for later alignment */
+		offset = 0;
+		struct align_map {
+			omp_data_map_t *map;
+			omp_dist_t *align_dist;
+		} align_maps[off_info->num_mapped_vars];
+		int num_aligned_maps = 0;
+		double A = 0.0;
+		double B = 0.0;
+		int num_transfer = 0;
+		for (i = 0; i < off_info->num_mapped_vars; i++) {
+			omp_data_map_info_t *map_info = &off_info->data_map_info[i];
+			if (map_info->map_type == OMP_DATA_MAP_FROM || map_info->map_type == OMP_DATA_MAP_TO) {
+				num_transfer++;
+			} else if (map_info->map_type == OMP_DATA_MAP_TOFROM) {
+				num_transfer += 2;
+			} else continue;
 
-		omp_data_map_t * map = &map_info->maps[seqid];
-		long map_size = map_info->sizeof_element;
-		align_maps[i].align_dist = NULL;
-		int num_aligned_dims = 0;
-		int j;
-		for (j = 0; j < map_info->num_dims; j++) { /* process each dimension */
-			omp_dist_info_t *andist_info = &map_info->dist_info[j];
-			omp_dist_t * map_dist = &map->map_dist[j];
-			if (andist_info->policy != OMP_DIST_POLICY_ALIGN) { /* all non-auto distribution dimension, we will just do it */
-				omp_dist(andist_info, map_dist, top, coords, seqid, j);
-				map_size *= map_dist->length;
-			} else {/* ALIGN policy, and so far, we only handle one-dimension ALIGN with loop*/
-				align_maps[i].map = map;
-				align_maps[i].align_dist = map_dist;
-				num_aligned_maps++;
-				num_aligned_dims++;
-				if (num_aligned_dims == 2) {
-					//	printf("we only handle one-dimension alignment of array with loops iterations\n");
+			omp_data_map_t *map = &map_info->maps[seqid];
+			long map_size = map_info->sizeof_element;
+			align_maps[i].align_dist = NULL;
+			int num_aligned_dims = 0;
+			int j;
+			for (j = 0; j < map_info->num_dims; j++) { /* process each dimension */
+				omp_dist_info_t *andist_info = &map_info->dist_info[j];
+				omp_dist_t *map_dist = &map->map_dist[j];
+				if (andist_info->policy !=
+					OMP_DIST_POLICY_ALIGN) { /* all non-auto distribution dimension, we will just do it */
+					omp_dist(andist_info, map_dist, top, coords, seqid, j);
+					map_size *= map_dist->length;
+				} else {/* ALIGN policy, and so far, we only handle one-dimension ALIGN with loop*/
+					align_maps[i].map = map;
+					align_maps[i].align_dist = map_dist;
+					num_aligned_maps++;
+					num_aligned_dims++;
+					if (num_aligned_dims == 2) {
+						//	printf("we only handle one-dimension alignment of array with loops iterations\n");
+					}
 				}
 			}
-		}
-		map->map_size = map_size;
-		if (map_info->map_type == OMP_DATA_MAP_TOFROM) {
-			map_size = map_size*2;
-		}
-		if (align_maps[i].align_dist != NULL) { /* we have an alignment */
-			A += map_size;
-		} else {
-			B += map_size;
-		}
-	}
-
-	A = A/(dev->bandwidth*10.0e6); /* bandwidth in MB/s */
-	B = B/(dev->bandwidth*10.0e6);
-	A += off_info->per_iteration_profile.num_fp_operations/(dev->total_real_flopss * 10.0e9); /* FLOPs is in GFLOPs/s */
-	B += num_transfer * (dev->latency * 10.0e-6); /* latency in us */
-	/* here T = n*A+B --> n = T/A - B/A. We have then Ar = 1/A, and Br = -B/A*/
-
-	double Ar = 1.0/A;
-	double Br = 0.0 - B/A;
-	/* broadcast this to other device */
-	off->Ar = Ar;
-	off->Br = Br;
-	/* sync so to make sure all received this info */
-	pthread_barrier_wait(&off_info->inter_dev_barrier);
-	/* solve the linear system */
-	double allArs = 0.0;
-	double allBrs = 0.0;
-	for (i =0; i <off_info->top->nnodes; i++) {
-		omp_offloading_t * anoff = &off_info->offloadings[i];
-		allArs += anoff->Ar;
-		allBrs += anoff->Br;
-	}
-	//printf("allArs: %f, allBrs: %f\n", allArs, allBrs);
-	double T0 = (full_length - allBrs)/allArs; /* the predicted execution time by all the devices of the loop */
-	/* now compute the offset and length for AUTO dist policy */
-	for (i =0; i <off_info->top->nnodes; i++) {
-		omp_offloading_t * anoff = &off_info->offloadings[i];
-		length = (long)(T0*anoff->Ar + anoff->Br + 0.5);
-		if (length <= 0) length = 0;
-		if (length >= full_length) length = full_length;
-		if (i == off_info->top->nnodes-1 && offset + length != full_length) { /* fix rounding error */
-			length = full_length - offset;
-		}
-		if (seqid == i) {
-			*myoffset = offset+start;
-			*mylength = length;
-			break;
-		}
-		offset += length;
-	}
-//		printf("MODEL_AUTO: LINEAR_MODEL_2: Dev %d: offset: %d, length: %d of total length: %d, predicted exe time: %f\n", dev->id, *myoffset, *mylength, full_length, T0);
-#if 0
-	/* do the alignment map for arrays */
-		for (i=0; i<off_info->num_mapped_vars; i++) {
-			omp_dist_t * align_dist = align_maps[i].align_dist;
-			if (align_dist != NULL) {
-				align_dist->length = *mylength;
-				align_dist->offset = *myoffset;
+			map->map_size = map_size;
+			if (map_info->map_type == OMP_DATA_MAP_TOFROM) {
+				map_size = map_size * 2;
+			}
+			if (align_maps[i].align_dist != NULL) { /* we have an alignment */
+				A += map_size;
+			} else {
+				B += map_size;
 			}
 		}
-#endif
 
+		A = A / (dev->bandwidth * 10.0e6); /* bandwidth in MB/s */
+		B = B / (dev->bandwidth * 10.0e6);
+		A += off_info->per_iteration_profile.num_fp_operations /
+			 (dev->total_real_flopss * 10.0e9); /* FLOPs is in GFLOPs/s */
+		B += num_transfer * (dev->latency * 10.0e-6); /* latency in us */
+		/* here T = n*A+B --> n = T/A - B/A. We have then Ar = 1/A, and Br = -B/A*/
+
+		double Ar = 1.0 / A;
+		double Br = 0.0 - B / A;
+		/* broadcast this to other device */
+		off->Ar = Ar;
+		off->Br = Br;
+		/* sync so to make sure all received this info */
+		pthread_barrier_wait(&off_info->inter_dev_barrier);
+		/* solve the linear system */
+		double allArs = 0.0;
+		double allBrs = 0.0;
+		for (i = 0; i < off_info->top->nnodes; i++) {
+			omp_offloading_t *anoff = &off_info->offloadings[i];
+			allArs += anoff->Ar;
+			allBrs += anoff->Br;
+		}
+		//printf("allArs: %f, allBrs: %f\n", allArs, allBrs);
+		double T0 = (full_length - allBrs) / allArs; /* the predicted execution time by all the devices of the loop */
+		/* now compute the offset and length for AUTO dist policy */
+		for (i = 0; i < off_info->top->nnodes; i++) {
+			omp_offloading_t *anoff = &off_info->offloadings[i];
+			length = (long) (T0 * anoff->Ar + anoff->Br + 0.5);
+			if (length <= 0) length = 0;
+			if (length >= full_length) length = full_length;
+			if (i == off_info->top->nnodes - 1 && offset + length != full_length) { /* fix rounding error */
+				length = full_length - offset;
+			}
+			if (seqid == i) {
+				*myoffset = offset + start;
+				*mylength = length;
+				break;
+			}
+			offset += length;
+		}
+//		printf("MODEL_AUTO: LINEAR_MODEL_2: Dev %d: offset: %d, length: %d of total length: %d, predicted exe time: %f\n", dev->id, *myoffset, *mylength, full_length, T0);
+#if 0
+        /* do the alignment map for arrays */
+            for (i=0; i<off_info->num_mapped_vars; i++) {
+                omp_dist_t * align_dist = align_maps[i].align_dist;
+                if (align_dist != NULL) {
+                    align_dist->length = *mylength;
+                    align_dist->offset = *myoffset;
+                }
+            }
 #endif
+	}
+
 #if defined (OMP_BREAKDOWN_TIMING)
 	if (events != NULL)
 		omp_event_record_stop(&events[runtime_dist_modeling_index]);
@@ -933,8 +936,10 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		dist->length = alignee_dist->length;
 		dist->offset = alignee_dist->offset + dist_info->offset;
 //		printf("aligned dist on dev %d: offset: %d, length: %d\n", seqid, alignee_dist->offset, alignee_dist->length);
-	} else if (dist_info->policy == OMP_DIST_POLICY_MODEL_AUTO) {
-		omp_dist_model(dist_info, dist_info->start, full_length, top, coords, seqid, &dist->offset, &dist->length);
+	} else if (dist_info->policy == OMP_DIST_POLICY_MODEL_1_AUTO) {
+		omp_dist_model(OMP_DIST_POLICY_MODEL_1_AUTO, dist_info, dist_info->start, full_length, top, coords, seqid, &dist->offset, &dist->length);
+	} else if (dist_info->policy == OMP_DIST_POLICY_MODEL_2_AUTO) {
+		omp_dist_model(OMP_DIST_POLICY_MODEL_2_AUTO, dist_info, dist_info->start, full_length, top, coords, seqid, &dist->offset, &dist->length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_STATIC_RATIO) { /* simply distribute according to a user specified ratio */
 		/* TODO: we do not have yet a user interface or runtime API for user to use this feature */
 		omp_offloading_info_t * off_info = (omp_offloading_info_t*)dist_info->target;
@@ -1071,7 +1076,8 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 		else
 			length = dist_info->chunk_size;
 		if (dist->counter == 0) {
-			omp_dist_model(dist_info, dist_info->start, length, top, coords, seqid, &dist->offset, &dist->length);
+			omp_dist_model(OMP_DIST_POLICY_MODEL_2_AUTO, dist_info, dist_info->start, length, top, coords, seqid,
+						   &dist->offset, &dist->length);
 			printf("MODEL_PROFILE_AUTO, PROFILE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, dist->offset, dist->length, length);
 		} else {
 			float profile_performance, myratio;
