@@ -2056,109 +2056,59 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 
 	long full_length = info->loop_dist_info[0].length; // - info->loop_dist_info[0].offset;
 
-	printf("\n============ Accumulated total time (ms) (MAPTO, KERN, MAPFROM, and EXCHANGE) shown as average ==============\n");
-	printf("\tDEVICE\t\t\t\tTOTAL\t\tMAPTO(#)\tKERN(#)\t\tMAPFROM(#)\tEXCHANGE(#)\tDIST(%d)\tDIST(\%)\tMODELING OVERHEAD\n", full_length);
-	printf("-------------------------------------------------------------------------------------------------------------\n");
-	for (i=0; i<info->top->nnodes; i++) {
-		omp_offloading_t * off = &info->offloadings[i];
-		int devid = off->dev->id;
-		int devsysid = off->dev->sysid;
-		char * type = omp_get_device_typename(off->dev);
-
-		/* mapto */
-		omp_event_t * ev = &off->events[acc_mapto_event_index];
-		int mapto_count = ev->count<count?ev->count:count;
-		double mapto_time_ms = (mapto_count != 0) ? omp_event_get_elapsed(ev)/mapto_count: 0;
-
-		/* kern */
-		ev = &off->events[acc_kernel_exe_event_index];
-		int kernel_count = ev->count<count?ev->count:count;
-		double kern_time_ms = (kernel_count != 0) ? omp_event_get_elapsed(ev)/kernel_count: 0;
-
-		/* mapfrom */
-		ev = &off->events[acc_mapfrom_event_index];
-		int mapfrom_count = ev->count<count?ev->count:count;
-		double mapfrom_time_ms = (mapfrom_count != 0) ? omp_event_get_elapsed(ev)/mapfrom_count: 0;
-
-		/* data exchange */
-		ev = &off->events[acc_ex_event_index];
-		int ex_count = ev->count<count?ev->count:count;
-		double ex_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev)/ex_count: 0;
-
-		double accu_total_ms = mapto_time_ms + kern_time_ms + mapfrom_time_ms + ex_time_ms;
-
-		//	events = &events[total_event_accumulated_index];
-		//	printf("%s dev %d (sysid: %d): %.4f\n", type, devid, devsysid, events->elapsed_host/events->count);
-		printf("%s dev %d (sysid: %d, %.1f GFLOPS):\t%.2f\t\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)\t%.2f(%d)", type, devid, devsysid, off->dev->total_real_flopss, accu_total_ms, mapto_time_ms, mapto_count, kern_time_ms, kernel_count, mapfrom_time_ms, mapfrom_count, ex_time_ms, ex_count);
-		float percentage = 100*((float)off->loop_dist[0].acc_total_length/(float)(count * full_length));
-		printf("\t%d(%d)\t\t%.1f%%(%d)", off->loop_dist[0].acc_total_length/count, count, percentage, count);
-
-		ev = &off->events[runtime_dist_modeling_index];
-		if (ev->event_name != NULL) {
-			int modeling_count = ev->count<count?ev->count:count;
-			double modeling_time_ms = (ex_count != 0) ? omp_event_get_elapsed(ev) / modeling_count : 0;
-			printf("\t%.1f(%d) %.1f%%\n", modeling_time_ms, modeling_count, (modeling_time_ms/accu_total_ms)*100.0);
-		}
-		printf("\n");
-	}
-	printf("--------------------------- End Accumulated total time report -----------------------------------------------\n\n");
-
 	/* write the report to a CSV file */
-	char report_cvs_filename[256];
+	char report_csv_filename[256];
+	char dist_policy_chunk_str[128];
 	for (i=0; i<num_allowed_dist_policies; i++) {
 		if (omp_dist_policy_args[i].type == LOOP_DIST_POLICY)
 			break;
 	}
-	if (LOOP_DIST_CHUNK_SIZE < 0) sprintf(report_cvs_filename, "%s-%d-%s,%d%%.csv\0", info->name, full_length, omp_dist_policy_args[i].shortname, 0-LOOP_DIST_CHUNK_SIZE);
-	else sprintf(report_cvs_filename, "%s-%d-%s,%d.csv\0", info->name, full_length, omp_dist_policy_args[i].shortname, LOOP_DIST_CHUNK_SIZE);
-	FILE * report_cvs_file = fopen(report_cvs_filename, "w+");
+	if (LOOP_DIST_CHUNK_SIZE < 0)
+		sprintf(dist_policy_chunk_str, "%s,%d%%", omp_dist_policy_args[i].shortname, 0-LOOP_DIST_CHUNK_SIZE);
+	else sprintf(dist_policy_chunk_str, "%s,%d", omp_dist_policy_args[i].shortname, LOOP_DIST_CHUNK_SIZE);
+
+	sprintf(report_csv_filename, "%s-%d-%ddevs-%s.csv\0", info->name, full_length, info->top->nnodes, dist_policy_chunk_str);
+	FILE * report_csv_file = fopen(report_csv_filename, "w+");
 	char time_buff[100];
 	time_t now = time (0);
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
-	fprintf(report_cvs_file, "%s on %d devices: size: %d, %s\n", info->name, info->top->nnodes, full_length, time_buff);
-	int events_to_print[misc_event_index_start];
-	int num_events_to_print = misc_event_index_start;
-#ifdef SELECTIVE_EVENT_TO_PRINT
-    num_events_to_print = 7;
-	events_to_print[0] = total_event_accumulated_index;
-	events_to_print[1] = acc_mapto_event_index;
-	events_to_print[2] = acc_kernel_exe_event_index;
-	events_to_print[3] = acc_mapfrom_event_index;
-	events_to_print[4] = acc_ex_event_index;
-	events_to_print[5] = total_event_index;
-	events_to_print[6] = runtime_dist_modeling_index;
-#endif
+	fprintf(report_csv_file, "\"%s size: %d on %d devices, %s policy, %s\"\n", info->name, full_length, info->top->nnodes, dist_policy_chunk_str, time_buff);
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		int devid = dev->id;
 		int devsysid = dev->sysid;
 		char * type = omp_get_device_typename(dev);
-		fprintf(report_cvs_file, ",%s:%d(sysid:%d)", type, devid, devsysid);
+		fprintf(report_csv_file, ",\"%s:%d(sysid:%d)\"", type, devid, devsysid);
 	}
-	fprintf(report_cvs_file, "\n");
+	fprintf(report_csv_file, ",%d DEVs ACCU, %% ACCU", info->top->nnodes);
+	fprintf(report_csv_file, "\n");
 	int lastdevid = 0;
-	for (i=0; i<num_events_to_print; i++) {
+	double acc_total = 0.0;
+	double acc_time[misc_event_index_start];
+	for (i=0; i<misc_event_index_start; i++) {
 		int j;
 		lastdevid = 0;
+		double acc_temp = 0.0;
 		for (j=0; j<info->top->nnodes; j++) {
 			omp_offloading_t *off = &info->offloadings[j];
 			int devid = off->dev->id;
-			int evindex = i;
-#ifdef SELECTIVE_EVENT_TO_PRINT
-            evindex = events_to_print[i];
-#endif
-			omp_event_t * ev = &off->events[evindex];
+			omp_event_t * ev = &off->events[i];
 			if (ev->event_name == NULL) continue;
 			int thiscount = ev->count<count?ev->count:count;
 			double time_ms = thiscount > 0 ? omp_event_get_elapsed(ev)/thiscount : 0;
-			if (j == 0) fprintf(report_cvs_file, "%s(%d)", ev->event_name, thiscount);
+			acc_temp += time_ms;
+			if (j == 0) fprintf(report_csv_file, "%s(%d)", ev->event_name, thiscount);
 			while(lastdevid <= devid) {
-				fprintf(report_cvs_file, ",\t");
+				fprintf(report_csv_file, ",\t");
 				lastdevid++;
 			}
-			fprintf(report_cvs_file, "%.4f", time_ms);
+			fprintf(report_csv_file, "%.2f", time_ms);
 		}
-		fprintf(report_cvs_file, "\n");
+		acc_time[i] = acc_temp;
+		fprintf(report_csv_file, ",%.2f", acc_temp);
+		if (i == total_event_index) acc_total = acc_temp;
+		fprintf(report_csv_file, ",%.2f%%", 100.0 * acc_temp / acc_total);
+		fprintf(report_csv_file, "\n");
 	}
 
 	lastdevid = 0;
@@ -2166,44 +2116,88 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		omp_offloading_t *off = &info->offloadings[j];
 
 		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DIST(%d)", full_length);
+		if (j == 0) fprintf(report_csv_file, "DIST(%d)", full_length);
 		while(lastdevid <= devid) {
-			fprintf(report_cvs_file, ",\t");
+			fprintf(report_csv_file, ",\t");
 			lastdevid++;
 		}
-		fprintf(report_cvs_file, "%d", off->loop_dist[0].acc_total_length/count);
+		fprintf(report_csv_file, "%d", off->loop_dist[0].acc_total_length/count);
 	}
-	fprintf(report_cvs_file, "\n");
+	fprintf(report_csv_file, "\n");
 	lastdevid = 0;
 	for (j=0; j<info->top->nnodes; j++) {
 		omp_offloading_t *off = &info->offloadings[j];
 
 		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DIST(\%)");
+		if (j == 0) fprintf(report_csv_file, "DIST(\%)");
 		while(lastdevid <= devid) {
-			fprintf(report_cvs_file, ",\t");
+			fprintf(report_csv_file, ",\t");
 			lastdevid++;
 		}
 //		printf("%d:%d,", off->loop_dist[0].length, length);
 		float percentage = 100*((float)off->loop_dist[0].acc_total_length/((float) count * full_length));
-		fprintf(report_cvs_file, "%.1f%%", percentage);
+		fprintf(report_csv_file, "%.1f%%", percentage);
 	}
-	fprintf(report_cvs_file, "\n");
+	fprintf(report_csv_file, "\n");
 	lastdevid = 0;
 	for (j=0; j<info->top->nnodes; j++) {
 		omp_offloading_t *off = &info->offloadings[j];
 		int devid = off->dev->id;
-		if (j == 0) fprintf(report_cvs_file, "DEV GFLOPS");
+		if (j == 0) fprintf(report_csv_file, "DEV GFLOPS");
 		while(lastdevid <= devid) {
-			fprintf(report_cvs_file, ",\t");
+			fprintf(report_csv_file, ",\t");
 			lastdevid++;
 		}
-		fprintf(report_cvs_file, "%.1f", off->dev->total_real_flopss);
+		fprintf(report_csv_file, "%.1f", off->dev->total_real_flopss);
 	}
-	fprintf(report_cvs_file, "\n");
+	fprintf(report_csv_file, "\n");
 
-	fprintf(report_cvs_file, "-------------------------------------------------------------------------------------------------\n\n");
-	fclose(report_cvs_file);
+	fprintf(report_csv_file, "-------------------------------------------------------------------------------------------------\n\n");
+	fclose(report_csv_file);
+
+	/* another form of the csv file, it is the transposed version of the previous one */
+	char report_csv_transpose[256];
+	sprintf(report_csv_transpose, "%s-%d-%ddevs.csv\0", info->name, full_length, info->top->nnodes);
+	FILE * report_csv_transpose_file = fopen(report_csv_transpose, "a+");
+	fprintf(report_csv_transpose_file, "\"%s, size: %d on %d devices, %s policy, %s\"\n", info->name, full_length, info->top->nnodes, dist_policy_chunk_str, time_buff);
+
+	omp_offloading_t *off = &info->offloadings[0];
+	fprintf(report_csv_transpose_file, "DIST POLICY,Device");
+	for (j=0; j<misc_event_index_start; j++) {
+		omp_event_t * ev = &off->events[j];
+		if (ev->event_name == NULL) continue;
+		int thiscount = ev->count<count?ev->count:count;
+		fprintf(report_csv_transpose_file, ",%s(%d)", ev->event_name, thiscount);
+	}
+	fprintf(report_csv_transpose_file, ", DIST(%d), DIST(%%)\n", count);
+
+	for (i=0; i<info->top->nnodes;i++) {
+		int j;
+		omp_offloading_t *off = &info->offloadings[i];
+		int devid = off->dev->id;
+		int devsysid = off->dev->sysid;
+		char * type = omp_get_device_typename(off->dev);
+
+		fprintf(report_csv_transpose_file, ", %s dev %d sysid: %d %.1f GFLOPS", type, devid, devsysid, off->dev->total_real_flopss);
+		for (j=0; j<misc_event_index_start; j++) {
+			omp_event_t * ev = &off->events[j];
+			if (ev->event_name == NULL) continue;
+			int thiscount = ev->count<count?ev->count:count;
+			double time_ms = thiscount > 0 ? omp_event_get_elapsed(ev)/thiscount : 0;
+			fprintf(report_csv_transpose_file, ",%.2f", time_ms);
+		}
+		float percentage = 100*((float)off->loop_dist[0].acc_total_length/(float)(count * full_length));
+		fprintf(report_csv_transpose_file, ",%d(%d),%.1f%%(%d)", off->loop_dist[0].acc_total_length/count, count, percentage, count);
+		fprintf(report_csv_transpose_file, "\n");
+	}
+
+	fprintf(report_csv_transpose_file, "\"%s\", %d DEVs ACCU", dist_policy_chunk_str, info->top->nnodes);
+	for (j=0; j<misc_event_index_start; j++) {
+		fprintf(report_csv_transpose_file, ",%.2f(%.2f%%)", acc_time[j], 100.0*acc_time[j]/acc_total);
+	}
+
+	fprintf(report_csv_transpose_file, "\n\n");
+	fclose(report_csv_transpose_file);
 
 #if defined(PROFILE_PLOT)
 	fprintf(plotscript_file, "plot 0\n");
