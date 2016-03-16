@@ -1044,7 +1044,6 @@ void omp_dist(omp_dist_info_t *dist_info, omp_dist_t *dist, omp_grid_topology_t 
 //		printf("SCHED_GUIDE: Dev %d: offset: %d, length: %d of total length: %d\n", dev->id, offset, length, full_length);
 	} else if (dist_info->policy == OMP_DIST_POLICY_SCHED_PROFILE_AUTO) { /* only for loop */
         /* two dists are needed for this policy and we use counter for that */
-		printf("%d counter: %d\n", dev->id, dist->counter);
 		if (dist->counter == 0) { /* SCHEDULE_STATIC policy */
 			if (dist_info->chunk_size < 0)
 				/* the percentage of total iterations, not the left-over */
