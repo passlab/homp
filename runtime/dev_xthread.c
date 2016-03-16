@@ -367,7 +367,9 @@ static inline void omp_off_init_maps(omp_offloading_info_t * off_info, omp_offlo
 			//omp_print_data_map(map);
 		}
 		if (!inherited) {
-			if (map_info->remap_needed || off_info->count < 1) omp_data_map_init_map(map, map_info, off->dev);
+			/* if this is remap is needed, or the first time */
+			//if (map_info->remap_needed || off_info->count < 1 )
+			omp_data_map_init_map(map, map_info, off->dev);
 		}
 	}
 }
@@ -379,7 +381,8 @@ static inline void omp_off_map_dist(omp_offloading_info_t * off_info, omp_offloa
 		int inherited = 1;
 		omp_data_map_t *map = omp_map_offcache_iterator(off, i, &inherited);
 		if (inherited) continue;
-		if (map->info->remap_needed || off_info->count < 1) omp_data_map_dist(map, seqid); /* handle all unmapped variable */
+		//if (map->info->remap_needed || off_info->count < 1)
+		omp_data_map_dist(map, seqid); /* handle all unmapped variable */
 		if (map->access_level != OMP_DATA_MAP_ACCESS_LEVEL_MALLOC) omp_map_malloc(map, off);
 	}
 }

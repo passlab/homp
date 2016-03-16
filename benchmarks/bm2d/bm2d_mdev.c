@@ -98,7 +98,7 @@ double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwi
     struct bm2d_off_args off_args;
     off_args.n = n; off_args.m = m; off_args.u = u; off_args.maxwin = maxwin; off_args.coeff = coeff; off_args.num_its = num_its;
     off_args.uold = uold; off_args.coeff_center = coeff_center; off_args.coeff_dimX = coeff_dimX; off_args.u_dimX = u_dimX; off_args.u_dimY = u_dimY;
-    omp_offloading_info_t * __off_info__ = omp_offloading_init_info("bm2d_kernel", __top__, 1, OMP_OFFLOADING_CODE, __num_maps__,
+    omp_offloading_info_t * __off_info__ = omp_offloading_init_info("bm2d_kernel", __top__, 1, OMP_OFFLOADING_DATA_CODE, __num_maps__,
                                      bm2d_omp_mdev_launcher, &off_args, 1);
     omp_offloading_append_profile_per_iteration(__off_info__, 13*u_dimY, 7, 1);
 
@@ -175,7 +175,7 @@ double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwi
     for (it=0; it< num_runs; it++) {
         int i;
         for (i = 0; i < num_its; i++) {
-            off_args.it_num = it;
+            off_args.it_num = i;
             omp_offloading_start(__off_info__);
         }
     }

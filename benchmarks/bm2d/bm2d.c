@@ -148,7 +148,7 @@ int main(int argc, char * argv[]) {
 	/* one HOSTCPU */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
-#endif
+
 	/* one NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
@@ -165,7 +165,6 @@ int main(int argc, char * argv[]) {
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
 
-#if 0
 	/* one ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
@@ -220,11 +219,11 @@ int main(int argc, char * argv[]) {
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
 
+#endif
     /* run on all devices */
     num_targets = num_active_devs;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
-#endif
 
 	long flops = n*m*maxwin;
 #ifdef SQUARE_SETNCIL
