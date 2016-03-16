@@ -2023,7 +2023,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 */
 #endif
 
-	int count = info->count * num;
+	int count = num; //info->count * num;
 	for (i=0; i<info->top->nnodes; i++) {
 		omp_offloading_t * off = &info->offloadings[i];
 		int devid = off->dev->id;
@@ -2067,8 +2067,8 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		sprintf(dist_policy_chunk_str, "%s,%d%%", omp_dist_policy_args[i].shortname, 0-LOOP_DIST_CHUNK_SIZE);
 	else sprintf(dist_policy_chunk_str, "%s,%d", omp_dist_policy_args[i].shortname, LOOP_DIST_CHUNK_SIZE);
 
-	sprintf(report_csv_filename, "%s-%d-%ddevs-%s.csv\0", info->name, full_length, info->top->nnodes, dist_policy_chunk_str);
-	FILE * report_csv_file = fopen(report_csv_filename, "w+");
+	sprintf(report_csv_filename, "%s-%d-%s.csv\0", info->name, full_length, dist_policy_chunk_str);
+	FILE * report_csv_file = fopen(report_csv_filename, "a+");
 	char time_buff[100];
 	time_t now = time (0);
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
