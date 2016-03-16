@@ -171,16 +171,20 @@ double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwi
 #endif
     double off_kernel_time = read_timer_ms();
     int it;
-    for (it = 0; it < num_its; it++) {
-        off_args.it_num = it;
-        omp_offloading_start(__off_info__);
+    int num_runs = 10;
+    for (it=0; it< num_runs; it++) {
+        int i;
+        for (i = 0; i < num_its; i++) {
+            off_args.it_num = it;
+            omp_offloading_start(__off_info__);
+        }
     }
-    off_kernel_time = (read_timer_ms() - off_kernel_time);
+    off_kernel_time = (read_timer_ms() - off_kernel_time)/num_runs;
     omp_print_map_info(__u_map_info__);
     omp_print_map_info(__uold_map_info__);
     omp_print_map_info(__coeff_map_info__);
 #if defined (OMP_BREAKDOWN_TIMING)
-    omp_offloading_info_report_profile(__off_info__, num_its);
+    omp_offloading_info_report_profile(__off_info__, num_runs);
 #endif
     omp_offloading_fini_info(__off_info__);
     omp_grid_topology_fini(__top__);

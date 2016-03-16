@@ -218,7 +218,7 @@ double bm2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL *u, i
 //	printf("offloading from stencil now\n");
     double off_kernel_time = read_timer_ms();
     int it;
-    int num_runs = 5;
+    int num_runs = 10;
     for (it=0; it< num_runs; it++) omp_offloading_start(__off_info__);
     off_kernel_time = (read_timer_ms() - off_kernel_time)/ num_runs;
 
@@ -232,7 +232,7 @@ double bm2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL *u, i
 #if defined (OMP_BREAKDOWN_TIMING)
     /* not reporting status for data copy */
     //omp_offloading_info_report_profile(__copy_data_off_info__);
-    omp_offloading_info_report_profile(__off_info__, num_runs*num_its);
+    omp_offloading_info_report_profile(__off_info__, num_runs);
     //omp_offloading_info_t *infos[2];
     //infos[0] = __copy_data_off_info__;
     //infos[1] = __off_info__;
