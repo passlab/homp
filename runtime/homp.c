@@ -1807,6 +1807,18 @@ void omp_topology_print(omp_grid_topology_t * top) {
 	printf("\n");
 }
 
+void omp_topology_pretty_print(omp_grid_topology_t * top, char * buffer) {
+	int i, offset;
+	for (i=0; i<top->nnodes; i++) {
+		int devid = top->idmap[i];
+		omp_device_t * dev = &omp_devices[devid];
+		offset = strlen(buffer);
+		sprintf(buffer + offset, "%d(%s:%d)-", devid, omp_get_device_typename(dev), dev->sysid);
+	}
+	offset = strlen(buffer);
+	buffer[offset-1] = '\0'; /* remove the last - */
+}
+
 void omp_topology_get_neighbors(omp_grid_topology_t * top, int seqid, int topdim, int cyclic, int* left, int* right) {
 	if (seqid < 0 || seqid > top->nnodes) {
 		*left = -1;
@@ -2059,6 +2071,8 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	/* write the report to a CSV file */
 	char report_csv_filename[256];
 	char dist_policy_chunk_str[128];
+	char targets_str[128]; targets_str[0] = '\0';
+	omp_topology_pretty_print(info->top, targets_str);
 	for (i=0; i<num_allowed_dist_policies; i++) {
 		if (omp_dist_policy_args[i].type == LOOP_DIST_POLICY)
 			break;
@@ -2072,7 +2086,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	char time_buff[100];
 	time_t now = time (0);
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
-	fprintf(report_csv_file, "\"%s size: %d on %d devices, %s policy, %s\"\n", info->name, full_length, info->top->nnodes, dist_policy_chunk_str, time_buff);
+	fprintf(report_csv_file, "\"%s size: %d on %d devs(%s), %s policy, %s\"\n", info->name, full_length, info->top->nnodes, targets_str, dist_policy_chunk_str, time_buff);
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		int devid = dev->id;
@@ -2157,7 +2171,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 
 	/* another form of the csv file, it is the transposed version of the previous one */
 	char report_csv_transpose[256];
-	sprintf(report_csv_transpose, "%s-%d-%ddevs.csv\0", info->name, full_length, info->top->nnodes);
+	sprintf(report_csv_transpose, "%s-%d-%ddevs(%s).csv\0", info->name, full_length, info->top->nnodes, targets_str);
 	FILE * report_csv_transpose_file = fopen(report_csv_transpose, "a+");
 	fprintf(report_csv_transpose_file, "\"%s, size: %d on %d devices, %s policy, %s\"\n", info->name, full_length, info->top->nnodes, dist_policy_chunk_str, time_buff);
 
