@@ -2195,6 +2195,13 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	for (j=0; j<misc_event_index_start; j++) {
 		fprintf(report_csv_transpose_file, ",%.2f(%.2f%%)", acc_time[j], 100.0*acc_time[j]/acc_total);
 	}
+	fprintf(report_csv_transpose_file, "\n\n");
+	/* percentge only */
+	fprintf(report_csv_transpose_file, "\"%s\", %d DEVs ACCU %%", dist_policy_chunk_str, info->top->nnodes);
+	fprintf(report_csv_transpose_file, ",%.2f", acc_total);
+	for (j=1; j<misc_event_index_start; j++) {
+		fprintf(report_csv_transpose_file, ",%.2f%%", 100.0*acc_time[j]/acc_total);
+	}
 
 	fprintf(report_csv_transpose_file, "\n\n");
 	fclose(report_csv_transpose_file);
