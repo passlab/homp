@@ -2,7 +2,8 @@
 #include <offload.h>
 #include <homp.h>
 
-void bm2d_itlmic_wrapper(omp_offloading_t *off, int start, int len, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int maxwin,int coeff_dimX, REAL *coeff)
+void bm2d_itlmic_wrapper(omp_offloading_t *off, long start, long len, long n, long m, long u_dimX, long u_dimY, REAL *u,
+                         REAL *uold, int maxwin, int coeff_dimX, REAL *coeff)
 {
     int ix, iy, ir;
 

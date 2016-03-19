@@ -45,8 +45,8 @@ void bm2d_omp_mdev_launcher(omp_offloading_t * off, void *args) {
 #endif
 
     omp_device_type_t devtype = off->dev->type;
-    void (*bm2d_kernel_wrapper)(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u,
-                                REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
+    void (*bm2d_kernel_wrapper)(omp_offloading_t *off, long start_n, long len_n, long n, long m, long u_dimX,
+                                long u_dimY, REAL *u, REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
     if (devtype == OMP_DEVICE_NVGPU) {
 #if defined (DEVICE_NVGPU_CUDA_SUPPORT)
         bm2d_kernel_wrapper = bm2d_nvgpu_cuda_wrapper;

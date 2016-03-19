@@ -28,9 +28,12 @@ extern int dist_policy;
 extern double bm2d_omp_mdev_iterate(int ndevs, int *targets, long n, long m, REAL *u, int maxwin, REAL *coeff, int num_its);
 extern double bm2d_omp_mdev(int ndevs, int *targets, long n, long m, REAL *u, int maxwin, REAL *coeff, int num_its);
 
-extern void bm2d_cpu_omp_wrapper(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
-extern void bm2d_nvgpu_cuda_wrapper(omp_offloading_t *off, int start_n, int len_n, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
-extern void bm2d_itlmic_wrapper(omp_offloading_t *off, int start, int len, long n, long m, int u_dimX, int u_dimY, REAL *u, REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
+extern void bm2d_cpu_omp_wrapper(omp_offloading_t *off, long start_n, long len_n, long n, long m, long u_dimX,
+                                 long u_dimY, REAL *u, REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
+extern void bm2d_nvgpu_cuda_wrapper(omp_offloading_t *off, long start_n, long len_n, long n, long m, long u_dimX,
+                                    long u_dimY, REAL *u, REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
+extern void bm2d_itlmic_wrapper(omp_offloading_t *off, long start, long len, long n, long m, long u_dimX, long u_dimY,
+                                REAL *u, REAL *uold, int maxwin, int coeff_dimX, REAL *coeff);
 
 #ifdef __cplusplus
  }
