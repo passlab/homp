@@ -64,7 +64,6 @@ void stencil2d_omp_mdev_iteration_launcher(omp_offloading_t *off, void *args) {
         abort();
     }
     //printf("dev: %d, offset: %d, length: %d, local start: %d, u: %X, uold: %X, coeff-center: %X\n", off->devseqid, offset, len, start, u, uold, coeff);
-//#pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX) private(it) firstprivate(u, uold)
     omp_event_t *events = off->events;
     omp_dev_stream_t *stream = off->stream;
     omp_offloading_info_t * off_info = off->off_info;

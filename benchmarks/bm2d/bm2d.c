@@ -144,11 +144,10 @@ int main(int argc, char * argv[]) {
 	} else {
 		bm2d_omp_mdev_function = bm2d_omp_mdev;
 	}
-#if 0
 	/* one HOSTCPU */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
-#endif
+#if 0
 	/* one NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
@@ -164,7 +163,7 @@ int main(int argc, char * argv[]) {
 	/* four NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
-#if 0
+#endif
 	/* one ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
@@ -172,7 +171,7 @@ int main(int argc, char * argv[]) {
 	/* two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 2);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
-
+#if 0
 	/* one HOSTCPU and one NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
@@ -192,12 +191,12 @@ int main(int argc, char * argv[]) {
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 2);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
-
+#endif
 	/* one HOSTCPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
 	mdev_elapsed = bm2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, maxwin, coeff, num_its);
-
+#if 0
 	/* two NVGPU and two ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);

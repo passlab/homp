@@ -70,11 +70,10 @@ int main(int argc, char *argv[]) {
     int targets[num_active_devs];
     int num_targets;
     double ompacc_time;
-#if 0
     /* one HOSTCPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
-#endif  
+#if 0
     /* one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
@@ -90,7 +89,7 @@ int main(int argc, char *argv[]) {
     /* four NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
-#if 0
+#endif  
     /* one ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
@@ -99,6 +98,7 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 2);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
 
+#if 0
     /* one HOSTCPU and one NVGPU */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 1);
@@ -123,16 +123,16 @@ int main(int argc, char *argv[]) {
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
-
+#endif
     /* one HOSTCPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
     num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
     ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
-
+#if 0
     /* two NVGPU and two ITLMIC */
-    //num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
-    //num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
-    //ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
+    num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 2);
+    num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
+    ompacc_time = sum_ompacc_mdev(num_targets, targets, n, x, y, &mdev_sum);
 
     /* four NVGPU and two ITLMIC */
     num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);

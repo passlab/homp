@@ -76,7 +76,7 @@ int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
 	int radius = 3;
-	int num_its = 5000;
+	int num_its = 1000;
 
     fprintf(stderr,"Usage: jacobi [<n> <m> <radius> <num_its>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
@@ -147,12 +147,11 @@ int main(int argc, char * argv[]) {
 	} else {
 		stencil2d_omp_mdev_function = stencil2d_omp_mdev;
 	}
-	
 #if 0
 	/* one HOSTCPU */
 	num_targets = omp_get_devices(OMP_DEVICE_HOSTCPU, targets, 1);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-#endif
+
 	/* one NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 1);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
@@ -167,7 +166,7 @@ int main(int argc, char * argv[]) {
 	/* four NVGPU */
 	num_targets = omp_get_devices(OMP_DEVICE_NVGPU, targets, 4);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-#if 0
+
 	/* one ITLMIC */
 	num_targets = omp_get_devices(OMP_DEVICE_ITLMIC, targets, 1);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
@@ -221,12 +220,11 @@ int main(int argc, char * argv[]) {
 	num_targets += omp_get_devices(OMP_DEVICE_NVGPU, targets+num_targets, 4);
 	num_targets += omp_get_devices(OMP_DEVICE_ITLMIC, targets+num_targets, 2);
 	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-
+#endif
     /* run on all devices */
     num_targets = num_active_devs;
     for (i=0;i<num_active_devs;i++) targets[i] = i;
 	mdev_iterate_elapsed = stencil2d_omp_mdev_function(num_targets, targets, n, m, u_omp_mdev_iterate, radius, coeff, num_its);
-#endif
 
 	long flops = n*m*radius;
 #ifdef SQUARE_SETNCIL
@@ -243,7 +241,7 @@ int main(int argc, char * argv[]) {
 	printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
 	printf("omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
 //	printf("omp_mdev: \t%4f\t%4f \t\t%g\n", mdev_elapsed, flops / (1.0e-3 * mdev_elapsed), check_accdiff(u, u_omp_mdev, n, m, radius, 0.00001f));
-	printf("omp_mdev_it: \t%4f\t%4f \t\t%g\n", mdev_iterate_elapsed, flops / (1.0e-3 * mdev_iterate_elapsed), check_accdiff(u, u_omp_mdev_iterate, n, m, radius, 0.00001f));
+	printf("omp_mdev_it: \t%4f\t%4f \t\t%g\n\n", mdev_iterate_elapsed, flops / (1.0e-3 * mdev_iterate_elapsed), check_accdiff(u, u_omp_mdev_iterate, n, m, radius, 0.00001f));
 
 	free(u);
 	free(u_omp);

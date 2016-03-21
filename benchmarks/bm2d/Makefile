@@ -35,7 +35,8 @@ bm2d-nvgpu-itlmic: cleanobj
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ${RUNTIME_SOURCES} bm2d.c bm2d_mdev.c bm2d_mdev_iteration.c -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) ../../runtime/homp_dev.c -c
 #	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) -Xcompiler -fopenmp bm2d_cpu_omp_kernel.c -c
-	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp bm2d_cpu_omp_kernel.c -c
+	/opt/gcc-5.3.0-install/bin/gcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) -fopenmp bm2d_cpu_omp_kernel.c -c
+#	icc $(BASE_CFLAGS) $(ICC_CFLAGS) -openmp bm2d_cpu_omp_kernel.c -c
 	nvcc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS) bm2d_nvgpu_cuda_kernel.cu -c
 	icc $(BASE_CFLAGS) $(NVCC_CFLAGS) $(ICC_CFLAGS)  -openmp bm2d_itlmic_kernel.c -c
 	icc -openmp -g *.o -o $@ -L${CUDA_PATH}/lib64 -lcudart -lpthread -lcublas

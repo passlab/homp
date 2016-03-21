@@ -15,9 +15,9 @@ void bm2d_cpu_omp_wrapper(omp_offloading_t *off, long start, long len, long n, l
 #endif
 
     int ix, iy, ir;
-#pragma omp parallel for private(ix, iy, ir)
+#pragma omp parallel for private(ix, iy, ir) default(shared)
     for (ix = start; ix < start+len; ix++) {
-        #pragma simd
+//        #pragma simd
         for (iy = 0; iy < m; iy++) {
             int radius = drand48() * maxwin;
             if (radius < 1) continue;

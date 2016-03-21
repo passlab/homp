@@ -9,30 +9,30 @@
 # 13,<n>:	SCHED_PROFILE_AUTO: each dev pick the same amount of chunks, runtime profiles and then dist the rest based on profiling, default n: 100
 # 14,<n>:	MODEL_PROFILE_AUTO: dist the first chunk among devs using analytical model, runtime profiles, and then dist the rest based on profiling, default n: 100
 
-export OMP_DEV_SPEC_FILE=../fornax-4gpu.ini
+export OMP_DEV_SPEC_FILE=../fornax-2cpu-2mic.ini
 export LOOP_DIST_POLICY=1,10
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=8,10%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=8,5%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=8,2%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=9,15%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=11,15%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=12,15%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=13,5%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
 
 export LOOP_DIST_POLICY=14,5%
-./sum-nvgpu-itlmic 500000000
+./sum-nvgpu-itlmic 300000000
