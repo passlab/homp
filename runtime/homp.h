@@ -347,7 +347,8 @@ typedef enum omp_dist_policy {
 
 typedef struct omp_dist_policy_argument {
 	omp_dist_policy_t type;
-	int chunk;
+	float chunk; /* chunk size in integer or in percentage, if it is negative, it is percentage */
+	float cutoff_ratio;
 	char *name;
 	char *shortname;
 } omp_dist_policy_argument_t;
@@ -368,7 +369,9 @@ typedef struct omp_dist_info {
 	long length;   /* the total # element to be distributed */
 	long stride; /* stride between ele, default 1 of course */
 	omp_dist_policy_t policy; /* the dist policy */
-	long chunk_size; /* initial chunk size for OMP_DIST_POLICY_SCHED_DYNAMIC policy */
+	float chunk_size; /* initial chunk size for OMP_DIST_POLICY_SCHED_DYNAMIC policy. If it is negative, we use it as percentage
+                       * the reason to use float is because we may use it as 0.1%, which will be stored in -0.1 in this variable
+                       */
 
 	int dim_index; /* the index of top dim to apply dist, for block, duplicate, auto. For ALIGN, this is dim at the alignee*/
 
@@ -763,10 +766,11 @@ extern void omp_warmup_device(omp_device_t * dev);
 
 extern void omp_print_homp_usage();
 extern void omp_print_dist_policy_options();
-extern omp_dist_policy_t omp_read_dist_policy_options(int *chunk_size);
+extern omp_dist_policy_t omp_read_dist_policy_options(float *chunk_size, float *cutoff_ratio);
 /* The use of the two global variables is an easy way to pass env setting to user program */
 extern omp_dist_policy_t LOOP_DIST_POLICY;
-extern int LOOP_DIST_CHUNK_SIZE;
+extern float LOOP_DIST_CHUNK_SIZE;
+extern float LOOP_DIST_CUTOFF_RATIO;
 
 extern omp_offloading_info_t * omp_offloading_init_info(const char *name, omp_grid_topology_t *top, int recurring,
 														omp_offloading_type_t off_type, int num_maps,
@@ -818,9 +822,10 @@ extern void omp_data_map_info_set_dims_3d(omp_data_map_info_t * info, long dim0,
 extern void omp_print_map_info(omp_data_map_info_t * info);
 
 extern void omp_data_map_dist_init_info(omp_data_map_info_t *map_info, int dim, omp_dist_policy_t dist_policy,
-										long offset, long length, int chunk_size, int topdim);
-extern void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy, long offset,
-									long length, int chunk_size, int topdim);
+										long offset, long length, float chunk_size, int topdim);
+extern void omp_loop_dist_init_info(omp_offloading_info_t *off_info, int level, omp_dist_policy_t dist_policy,
+									long offset,
+									long length, float chunk_size, int topdim);
 extern void omp_data_map_dist_align_with_data_map_with_halo(omp_data_map_info_t *map_info, int dim, long offset,
                                                      omp_data_map_info_t *alignee, int alignee_dim);
 extern void omp_data_map_dist_align_with_data_map(omp_data_map_info_t *map_info, int dim, long offset,

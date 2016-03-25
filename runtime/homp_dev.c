@@ -542,9 +542,6 @@ void omp_probe_devices() {
     }
 }
 
-
-omp_dist_policy_t LOOP_DIST_POLICY;
-int LOOP_DIST_CHUNK_SIZE;
 /* init the device objects, num_of_devices, helper threads, default_device_var ICV etc
  *
  */
@@ -641,7 +638,7 @@ int omp_init_devices() {
         }
     }
     pthread_barrier_wait(&all_dev_sync_barrier);
-    LOOP_DIST_POLICY = omp_read_dist_policy_options(&LOOP_DIST_CHUNK_SIZE);
+    LOOP_DIST_POLICY = omp_read_dist_policy_options(&LOOP_DIST_CHUNK_SIZE, &LOOP_DIST_CUTOFF_RATIO);
     omp_print_homp_usage();
     return omp_num_devices;
 }
