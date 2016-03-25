@@ -118,7 +118,7 @@ omp_dist_policy_t omp_read_dist_policy_options(float *chunk_size, float *cutoff_
 //	printf("Dist policy: %d,%d: %s, full name: %s\n", omp_dist_policy_args[i].type, *chunk_size, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name);
 	printf("--------------------------------------------------------------------------------------------------------------------\n");
 	printf("Current dist policy is set and stored in the following global variables that can be used in the program.\n");
-	printf("\tLOOP_DIST_POLICY       = %d (%s)\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].name);
+	printf("\tLOOP_DIST_POLICY       = %d %s(%s)\n", omp_dist_policy_args[i].type, omp_dist_policy_args[i].shortname, omp_dist_policy_args[i].name);
 	printf("\tLOOP_DIST_CHUNK_SIZE   = %.2f", *chunk_size); if (use_percentage) printf("%%"); printf("\n");
 	printf("\tLOOP_DIST_CUTOFF_RATIO = %.2f%%", *cutoff_ratio);
 	printf("\n");
@@ -701,6 +701,7 @@ static void omp_dist_with_cutoff(int ndev, float *ratios, float cutoff_ratio, lo
 #endif
     int fatest = 0;
 	float fatest_ratio = - 100.0;
+	int num_cutoff = 0.0;
 	for (i=0; i< ndev; i++) {
 		float rat = ratios[i];
 		if (rat > fatest_ratio) {
@@ -710,13 +711,17 @@ static void omp_dist_with_cutoff(int ndev, float *ratios, float cutoff_ratio, lo
 		if (rat < cutoff_ratio) {
 			ratios [i] = 0.0;
 			rat = 0;
+			num_cutoff++;
 		} else last_dev = i;
 		total_ratios += rat;
 	}
 
 	/* in rare case, if the cutoff is inappropriately set and everybody is cut off, we will choose the fastest one */
-	ratios[fatest] = fatest_ratio;
-	total_ratios = fatest_ratio;
+
+	if (num_cutoff == ndev) {
+		ratios[fatest] = fatest_ratio;
+		total_ratios = fatest_ratio;
+	}
 
 #ifdef DEBUG_CUTOFF
 	if (seqid == 0) {
