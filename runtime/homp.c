@@ -927,21 +927,22 @@ static void omp_dist_profile_auto(omp_dist_info_t *dist_info, long start, long f
 	float ratios[ndev];
 	for (i =0; i <ndev; i++) {
 		omp_offloading_t *anoff = &off_info->offloadings[i];
-		if (anoff->last_total == 0 || anoff->runtime_profile_elapsed <= 0.0)
-			continue; /* this one will not participating */
 		double Ti = anoff->runtime_profile_elapsed;
 		float ratio = 0.0;
-		int j;
-		for (j = 0; j < ndev; j++) {
-			anoff = &off_info->offloadings[j];
-			if (anoff->last_total == 0 || anoff->runtime_profile_elapsed <= 0.0)
-				continue; /* this one will not participating */
-			ratio += Ti / anoff->runtime_profile_elapsed;
+		if (anoff->last_total == 0 || anoff->runtime_profile_elapsed <= 0.0) {
+			/* this one will not participating */
+		} else {
+			int j;
+			for (j = 0; j < ndev; j++) {
+				anoff = &off_info->offloadings[j];
+				if (anoff->last_total == 0 || anoff->runtime_profile_elapsed <= 0.0)
+					continue; /* this one will not participating */
+				ratio += Ti / anoff->runtime_profile_elapsed;
+			}
+			ratio = 1.0 / ratio;
 		}
-		ratio = 1.0 / ratio;
 		ratios[i] = ratio;
 		//	printf("Dev %d: Ti: %f, ratio: %f\n", dev->id, Ti, ratio);
-
 	}
 
 	omp_dist_with_cutoff(ndev, ratios, cutoff_ratio, full_length, seqid, start, myoffset, mylength);
