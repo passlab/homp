@@ -699,14 +699,24 @@ static void omp_dist_with_cutoff(int ndev, float *ratios, float cutoff_ratio, lo
 		printf("\n");
 	}
 #endif
+    int fatest = 0;
+	float fatest_ratio = - 100.0;
 	for (i=0; i< ndev; i++) {
 		float rat = ratios[i];
+		if (rat > fatest_ratio) {
+			fatest = i;
+			fatest_ratio = rat;
+		}
 		if (rat < cutoff_ratio) {
 			ratios [i] = 0.0;
 			rat = 0;
 		} else last_dev = i;
 		total_ratios += rat;
 	}
+
+	/* in rare case, if the cutoff is inappropriately set and everybody is cut off, we will choose the fastest one */
+	ratios[fatest] = fatest_ratio;
+	total_ratios = fatest_ratio;
 
 #ifdef DEBUG_CUTOFF
 	if (seqid == 0) {
@@ -2154,7 +2164,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 
 	/* write the report to a CSV file */
 	char report_csv_filename[256];
-	char dist_policy_chunk_str[128];
+	char dist_policy_str[128];
 	char targets_str[128]; targets_str[0] = '\0';
 	omp_topology_pretty_print(info->top, targets_str);
 	for (i=0; i<num_allowed_dist_policies; i++) {
@@ -2162,15 +2172,16 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 			break;
 	}
 	if (LOOP_DIST_CHUNK_SIZE < 0)
-		sprintf(dist_policy_chunk_str, "%s,%d%%", omp_dist_policy_args[i].shortname, 0-LOOP_DIST_CHUNK_SIZE);
-	else sprintf(dist_policy_chunk_str, "%s,%d", omp_dist_policy_args[i].shortname, LOOP_DIST_CHUNK_SIZE);
+		sprintf(dist_policy_str, "%s,%.2f%%,%.2f%%", omp_dist_policy_args[i].shortname, 0 - LOOP_DIST_CHUNK_SIZE, LOOP_DIST_CUTOFF_RATIO);
+	else sprintf(dist_policy_str, "%s,%.2f,%.2f%%", omp_dist_policy_args[i].shortname, LOOP_DIST_CHUNK_SIZE, LOOP_DIST_CUTOFF_RATIO);
 
-	sprintf(report_csv_filename, "%s-%d-%s.csv\0", info->name, full_length, dist_policy_chunk_str);
+	sprintf(report_csv_filename, "%s-%d-%s.csv\0", info->name, full_length, dist_policy_str);
 	FILE * report_csv_file = fopen(report_csv_filename, "a+");
 	char time_buff[100];
 	time_t now = time (0);
 	strftime (time_buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
-	fprintf(report_csv_file, "\"%s size: %d on %d devs(%s), %s policy, %s\"\n", info->name, full_length, info->top->nnodes, targets_str, dist_policy_chunk_str, time_buff);
+	fprintf(report_csv_file, "\"%s size: %d on %d devs(%s), %s policy, %s\"\n", info->name, full_length, info->top->nnodes, targets_str,
+			dist_policy_str, time_buff);
 	for (i=0; i<omp_num_devices; i++) {
 		omp_device_t * dev = &omp_devices[i];
 		int devid = dev->id;
@@ -2257,7 +2268,8 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	char report_csv_transpose[256];
 	sprintf(report_csv_transpose, "%s-%d-%ddevs(%s).csv\0", info->name, full_length, info->top->nnodes, targets_str);
 	FILE * report_csv_transpose_file = fopen(report_csv_transpose, "a+");
-	fprintf(report_csv_transpose_file, "\"%s, size: %d on %d devices, %s policy, %s\"\n", info->name, full_length, info->top->nnodes, dist_policy_chunk_str, time_buff);
+	fprintf(report_csv_transpose_file, "\"%s, size: %d on %d devices, policy: %s, %s\"\n", info->name, full_length, info->top->nnodes,
+			dist_policy_str, time_buff);
 
 	omp_offloading_t *off = &info->offloadings[0];
 	fprintf(report_csv_transpose_file, "DIST POLICY,Device");
@@ -2289,13 +2301,13 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 		fprintf(report_csv_transpose_file, "\n");
 	}
 
-	fprintf(report_csv_transpose_file, "\"%s\", %d DEVs ACCU", dist_policy_chunk_str, info->top->nnodes);
+	fprintf(report_csv_transpose_file, "\"%s\", %d DEVs ACCU", dist_policy_str, info->top->nnodes);
 	for (j=0; j<misc_event_index_start; j++) {
 		fprintf(report_csv_transpose_file, ",%.2f(%.2f%%)", acc_time[j], 100.0*acc_time[j]/acc_total);
 	}
 	fprintf(report_csv_transpose_file, "\n\n");
 	/* percentge only */
-	fprintf(report_csv_transpose_file, "\"%s\", %d DEVs ACCU %%", dist_policy_chunk_str, info->top->nnodes);
+	fprintf(report_csv_transpose_file, "\"%s\", %d DEVs ACCU %%", dist_policy_str, info->top->nnodes);
 	fprintf(report_csv_transpose_file, ",%.2f", acc_total);
 	for (j=1; j<misc_event_index_start; j++) {
 		fprintf(report_csv_transpose_file, ",%.2f%%", 100.0*acc_time[j]/acc_total);
