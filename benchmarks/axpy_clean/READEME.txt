@@ -1,0 +1,10 @@
+git clone https://<githubid>@github.com/passlab/homp
+
+cd homp/benchmarks/axpy_clean
+
+make axpy-cpu
+
+/* you can change the configuration of devices in the file */
+export OMP_DEV_SPEC_FIL=./host-thsim.ini
+
+./axpy-cpu 1000000
