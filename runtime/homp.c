@@ -2276,7 +2276,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	fprintf(report_csv_transpose_file, "\"%s, size: %d on %d devices, policy: %s, %s\"\n", info->name, full_length, info->top->nnodes,
 			dist_policy_str, time_buff);
 
-	omp_offloading_t *off = &info->offloadings[0];
+	off = &info->offloadings[0];
 	fprintf(report_csv_transpose_file, "DIST POLICY,Device");
 	for (j=0; j<misc_event_index_start; j++) {
 		omp_event_t * ev = &off->events[j];
