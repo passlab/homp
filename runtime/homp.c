@@ -2072,6 +2072,7 @@ char *colors[] = {
 #endif
 void omp_offloading_info_report_profile(omp_offloading_info_t *info, int num) {
 	int i, j;
+	omp_offloading_t *off;
 #if defined(PROFILE_PLOT)
 	char plotscript_filename[128];
 	omp_offloading_info_report_filename(info, plotscript_filename);
@@ -2094,7 +2095,6 @@ void omp_offloading_info_report_profile(omp_offloading_info_t *info, int num) {
 	fprintf(plotscript_file, "unset key\n");
 	fprintf(plotscript_file, "set ytics out nomirror (");
 	int yposoffset = 5;
-	omp_offloading_t *off;
 	for (i=0; i<info->top->nnodes; i++) {
 		off = &info->offloadings[i];
 		int devid = off->dev->id;
