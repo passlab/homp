@@ -583,7 +583,7 @@ omp_data_map_t * omp_map_get_map(omp_offloading_t *off, void * host_ptr, int map
 				map = &dm_info->maps[devseqid];
 				//printf("find a match: %X\n", host_ptr);
 				omp_map_append_map_to_offcache(off, map, 0);
-				//omp_print_data_map(map);
+				//(map);
 				return map;
 			}
 		}
@@ -1487,8 +1487,48 @@ void omp_map_free(omp_data_map_t *map, omp_offloading_t *off) {
 		omp_map_free_dev(map->dev, map->map_dev_wextra_ptr, 0);
 }
 
+/*void omp_yed_graph_plot(omp_data_map_t * map)
+{
+omp_data_map_info_t * info = map->info;
+	char *color,a;
+       FILE *fp;
+
+        fp = fopen("/home/aditi/homp/benchmarks/axpy_clean/graph.graphml", "a+");
+    
+
+ 	if(strcmp(info->symbol,"x") == 0)
+       	color= "#FF9900";
+ 	else
+       	color="#99CCFF";
+
+ fprintf(fp," <node id=\"%s-%d\">\n",info->symbol,map->dev->id);
+ fprintf(fp,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
+ fprintf(fp,"<y:Fill color=\"%s\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n",color);
+ fprintf(fp," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\"> (%s) %s[%d:%d]<y:LabelModel>\n",omp_get_device_typename(map->dev),info->symbol,map->map_dist[0].offset, map->map_dist[0].total_length);
+//THREAD %d map->dev->id,
+ fprintf(fp," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n  </node>");
+
+if(strcmp(info->symbol,"x") == 0)
+{
+fprintf(fp," <node id=\"(%d)\">\n",map->dev->id);
+ fprintf(fp,"<data key=\"d5\"/> \n <data key=\"d6\">\n   <y:ShapeNode> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
+ fprintf(fp,"<y:Fill color=\"#FF9999\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n");
+ fprintf(fp," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\">THREAD %d <y:LabelModel>\n",map->dev->id);
+
+ fprintf(fp," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n  <y:Shape type=\"ellipse\"/>\n </y:ShapeNode> \n </data>\n  </node>\n");
+  
+}
+
+fclose(fp);
+
+}*/
+
 void omp_print_map_info(omp_data_map_info_t * info) {
 	int i;
+ FILE *fp;
+
+	
+        fp = fopen("/home/aditi/homp/benchmarks/axpy_clean/graph.graphml", "a+");
 	printf("MAPS for %s", info->symbol);
 	for (i=0; i<info->num_dims;i++) printf("[%d]", info->dims[i]);
 	printf(", ");
@@ -1500,25 +1540,75 @@ void omp_print_map_info(omp_data_map_info_t * info) {
 	}
 	printf("direction: %d, map_type: %d, ptr: %X\n", info->map_direction, info->map_type, info->source_ptr);
 	for (i=0; i<info->off_info->top->nnodes; i++) {
+		omp_offloading_info_t *off1;
 		printf("\t%d, ", i);
 		omp_print_data_map(&info->maps[i]);
+		//omp_yed_graph_plot(&info->maps[i]);
+		//omp_yed_edge(&info->maps[i]);	
+		                
 	}
 }
+
+/*omp_yed_edge(omp_data_map_t * map)
+{
+	FILE *fp;
+	omp_data_map_info_t * info = map->info;
+        fp = fopen("/home/aditi/homp/benchmarks/axpy_clean/graph.graphml", "a+");
+	if(strcmp(info->symbol,"x") == 0)
+	{
+		fprintf(fp,"\n<edge id=\"%s:%d\" source=\"(%d)\" target=\"%s-%d\">\n",info->symbol,map->dev->id,map->dev->id,info->symbol,map->dev->id);
+          	fprintf(fp,"<data key=\"d10\"/>\n");
+ 	     	fprintf(fp,"<data key=\"d11\">\n");
+       		fprintf(fp,"<y:PolyLineEdge>\n");
+          	fprintf(fp,"<y:Path sx=\"0.0\" sy=\"-56.5\" tx=\"0.0\" ty=\"37.5\"/>\n");
+          	fprintf(fp,"<y:LineStyle color=\"#000000\" type=\"line\" width=\"1.0\"/>\n");
+          	fprintf(fp,"<y:Arrows source=\"none\" target=\"standard\"/>\n");
+          	fprintf(fp,"<y:BendStyle smoothed=\"false\"/>\n");
+        	fprintf(fp,"</y:PolyLineEdge>\n");
+      		fprintf(fp,"</data>\n");
+    		fprintf(fp,"</edge>\n");
+	}
+	if(strcmp(info->symbol,"y") == 0)
+	{
+		fprintf(fp,"\n<edge id=\"%s:%d\" source=\"x-%d\" target=\"%s-%d\">\n",info->symbol,map->dev->id,map->dev->id,info->symbol,map->dev->id);
+          	fprintf(fp,"<data key=\"d10\"/>\n");
+ 	     	fprintf(fp,"<data key=\"d11\">\n");
+       		fprintf(fp,"<y:PolyLineEdge>\n");
+          	fprintf(fp,"<y:Path sx=\"0.0\" sy=\"-56.5\" tx=\"0.0\" ty=\"37.5\"/>\n");
+          	fprintf(fp,"<y:LineStyle color=\"#000000\" type=\"line\" width=\"1.0\"/>\n");
+          	fprintf(fp,"<y:Arrows source=\"none\" target=\"standard\"/>\n");
+          	fprintf(fp,"<y:BendStyle smoothed=\"false\"/>\n");
+        	fprintf(fp,"</y:PolyLineEdge>\n");
+      		fprintf(fp,"</data>\n");
+    		fprintf(fp,"</edge>\n");
+	}
+ 
+fclose(fp);
+
+}
+
+*/
 
 void omp_print_data_map(omp_data_map_t * map) {
 	omp_data_map_info_t * info = map->info;
 	char * mem = "COPY";
+        
+ 
 	if (map->map_type == OMP_DATA_MAP_SHARED) {
 		mem = "SHARED";
 	}
 	printf("dev %d(%s), %s, ", map->dev->id, omp_get_device_typename(map->dev), mem);
-	int soe = info->sizeof_element;
+     
+ 	int soe = info->sizeof_element;
 	int i;
 	//for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].offset+map->map_dist[i].length-1);
-	for (i=0; i<info->num_dims;i++) printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].total_length);
+	for (i=0; i<info->num_dims;i++) {
+        printf("[%d:%d]", map->map_dist[i].offset, map->map_dist[i].total_length);
+ 	}
 
 	printf(", size: %d, size wextra: %d (accumulated %d times)\n",map->total_map_size, map->total_map_wextra_size, map->dist_counter);
 	printf("\t\tsrc ptr: %X, src wextra ptr: %X, dev ptr: %X, dev wextra ptr: %X (last)\n", map->map_source_ptr, map->map_source_wextra_ptr, map->map_dev_ptr, map->map_dev_wextra_ptr);
+ 
 	if (info->num_halo_dims) {
 		//printf("\t\thalo memory:\n");
 		omp_data_map_halo_region_mem_t * all_halo_mems = map->halo_mem;
@@ -1527,10 +1617,12 @@ void omp_print_data_map(omp_data_map_t * map) {
 			printf("\t\t%d-d halo, L_IN: %X[%d], L_OUT: %X[%d], R_OUT: %X[%d], R_IN: %X[%d]", i,
 				   halo_mem->left_in_ptr, halo_mem->left_in_size/soe, halo_mem->left_out_ptr, halo_mem->left_out_size/soe,
 				   halo_mem->right_out_ptr, halo_mem->right_out_size/soe, halo_mem->right_in_ptr, halo_mem->right_in_size/soe);
-			//printf(", L_IN_relay: %X, R_IN_relay: %X", halo_mem->left_in_host_relay_ptr, halo_mem->right_in_host_relay_ptr);
+            
 			printf("\n");
 		}
 	}
+
+
 }
 
 void omp_print_off_maps(omp_offloading_t * off) {
@@ -1545,7 +1637,6 @@ void omp_print_off_maps(omp_offloading_t * off) {
  * @param: int dim[ specify which dimension to do the halo region update.
  *      If dim < 0, do all the update of map dimensions that has halo region
  * @param: from_left_right, to do in which direction
-
  *
  */
 #define CORRECTNESS_CHECK 1
@@ -2070,11 +2161,173 @@ char *colors[] = {
 		"#000080", /* Navy */
 };
 #endif
+
+
+void omp_yed_start1()
+{
+      FILE *fp1;
+
+        fp1 = fopen("/home/aditi/homp/graph.graphml", "w");
+        
+        fprintf(fp1,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
+fprintf(fp1,"<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\" xmlns:java=\"http://www.yworks.com/xml/yfiles-common/1.0/java\" xmlns:sys=\"http://www.yworks.com/xml/yfiles-common/markup/primitives/2.0\" xmlns:x=\"http://www.yworks.com/xml/yfiles-common/markup/2.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:y=\"http://www.yworks.com/xml/graphml\" xmlns:yed=\"http://www.yworks.com/xml/yed/3\" xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns http://www.yworks.com/xml/schema/graphml/1.1/ygraphml.xsd\">\n");
+ fprintf(fp1," <!--Created by yEd 3.16.2.1-->");
+ fprintf(fp1," <key for=\"port\" id=\"d0\" yfiles.type=\"portgraphics\"/>\n");
+ fprintf(fp1," <key for=\"port\" id=\"d1\" yfiles.type=\"portgeometry\"/>\n");
+ fprintf(fp1," <key for=\"port\" id=\"d2\" yfiles.type=\"portuserdata\"/>\n");
+ fprintf(fp1," <key attr.name=\"color\" attr.type=\"string\" for=\"node\" id=\"d3\">\n");
+ fprintf(fp1,"<default><![CDATA[yellow]]></default>\n");
+ fprintf(fp1," </key>\n");
+ fprintf(fp1,"<key attr.name=\"url\" attr.type=\"string\" for=\"node\" id=\"d4\"/>\n");
+ fprintf(fp1,"<key attr.name=\"description\" attr.type=\"string\" for=\"node\" id=\"d5\"/>\n");
+ fprintf(fp1," <key for=\"node\" id=\"d6\" yfiles.type=\"nodegraphics\"/>\n");
+ fprintf(fp1,"<key for=\"graphml\" id=\"d7\" yfiles.type=\"resources\"/>\n");
+ fprintf(fp1,"<key attr.name=\"weight\" attr.type=\"double\" for=\"edge\" id=\"d8\"/>\n");
+ fprintf(fp1,"<key attr.name=\"url\" attr.type=\"string\" for=\"edge\" id=\"d9\"/>\n");
+ fprintf(fp1,"<key attr.name=\"description\" attr.type=\"string\" for=\"edge\" id=\"d10\"/>\n");
+ fprintf(fp1,"<key for=\"edge\" id=\"d11\" yfiles.type=\"edgegraphics\"/>\n");
+ fprintf(fp1,"<graph edgedefault=\"directed\" id=\"G\">\n");
+ fclose(fp1);      
+
+}
+void omp_yed_end1()
+{
+FILE *fp1;
+
+        fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+        fprintf(fp1,"\n</graph>\n"); 
+	fprintf(fp1,"<data key=\"d7\">\n");
+    	fprintf(fp1,"<y:Resources/>\n");
+  	fprintf(fp1,"</data>\n");
+	fprintf(fp1,"</graphml>\n");
+	fclose(fp1);
+
+}
+void omp_yed_xml(omp_offloading_info_t *info,int num)
+{
+	
+	FILE *fp1;
+int i,j;
+ fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+
+   for (i=0; i<info->top->nnodes; i++)
+   	{
+	omp_offloading_t *off=&info->offloadings[i]; 
+	
+	fprintf(fp1,"<data key=\"d0\"/>\n<node id=\"(%d)\">\n<data key=\"d5\"/>\n<data key=\"d6\">\n<y:ShapeNode>\n<y:Geometry height=\"88.0\" width=\"161.0\" x=\"555.0\" y=\"195.0\"/>\n",off->dev->id);
+        fprintf(fp1,"<y:Fill color=\"#FFCC00\" transparent=\"false\"/><y:BorderStyle color=\"#000000\" raised=\"false\" type=\"line\" width=\"1.0\"/>\n");
+        fprintf(fp1,"<y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"55.046875\" x=\"52.9765625\" y=\"35.015625\">THREAD %d <y:LabelModel>\n",off->dev->id);
+            fprintf(fp1,"<y:SmartNodeLabelModel distance=\"4.0\"/>\n</y:LabelModel>\n<y:ModelParameter>\n");
+            fprintf(fp1,"<y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n");
+            fprintf(fp1," </y:ModelParameter>\n </y:NodeLabel>\n<y:Shape type=\"ellipse\"/>\n</y:ShapeNode>\n</data>\n </node>\n");              
+	 }
+ 	fclose(fp1);
+
+	omp_offloading_t *off=&info->offloadings;
+	omp_data_map_info_t *info1 = info->data_map_info;
+	//omp_data_map_t *map = info1->maps;
+
+for(j=0;j <= off->num_maps+1;j++)
+{
+omp_data_map_info_t *info1 = &info->data_map_info[j];
+for (i=0; i<info1->off_info->top->nnodes; i++)   				
+		{
+	omp_offloading_t *off=&info->offloadings[i]; 
+	omp_yed_node(&info1->maps[i],off);  
+	
+	        }
+	
+}
+}
+void omp_yed_node(omp_data_map_t * map, omp_offloading_t *off)			/* to display nodes in graphml */
+{
+		FILE *fp1;
+	omp_data_map_info_t * info1 = map->info;
+        fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+	
+	fprintf(fp1," \n<node id=\"%s-%d\">\n",info1->symbol,off->dev->id);
+ fprintf(fp1,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
+ fprintf(fp1,"<y:Fill color=\"#99CCFF\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n");
+ fprintf(fp1," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\"> (%s) %s[%d:%d]<y:LabelModel>\n",omp_get_device_typename(map->dev),info1->symbol,map->map_dist[0].offset, map->map_dist[0].total_length);
+ fprintf(fp1," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n </node>");       
+/*---------------edge printing for each node with the thread node------------------*/
+
+		fprintf(fp1,"\n<edge id=\"%s:%d\" source=\"(%d)\" target=\"%s-%d\">\n",info1->symbol,off->dev->id,map->dev->id,info1->symbol,off->dev->id);
+          	fprintf(fp1,"<data key=\"d10\"/>\n");
+ 	     	fprintf(fp1,"<data key=\"d11\">\n");
+       		fprintf(fp1,"<y:PolyLineEdge>\n");
+          	fprintf(fp1,"<y:Path sx=\"0.0\" sy=\"-56.5\" tx=\"0.0\" ty=\"37.5\"/>\n");
+          	fprintf(fp1,"<y:LineStyle color=\"#000000\" type=\"line\" width=\"1.0\"/>\n");
+          	fprintf(fp1,"<y:Arrows source=\"none\" target=\"standard\"/>\n");
+          	fprintf(fp1,"<y:BendStyle smoothed=\"false\"/>\n");
+        	fprintf(fp1,"</y:PolyLineEdge>\n");
+      		fprintf(fp1,"</data>\n");
+    		fprintf(fp1,"</edge>\n");
+
+       
+fclose(fp1);	
+
+
+}
+
+void omp_yed_for_loop(omp_offloading_info_t *info1)
+{
+	FILE *fp1,*fp2;
+	int i;
+ 	long start,offset;
+    	long len;
+ 	fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+fp2 = fopen("/home/aditi/homp/benchmarks/axpy_clean/test2.graphml", "w+");
+	for (i=0; i<info1->top->nnodes; i++)   				
+		{
+	omp_offloading_t *off= &info1->offloadings[i];
+	omp_dist_t *loopdist = &off->loop_dist[i];	
+	offset = omp_loop_get_range(off, 0, &start, &len);
+ fprintf(fp1," \n<node id=\"%lu\">\n",off->devseqid);
+ fprintf(fp1,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
+ fprintf(fp1,"<y:Fill color=\"#99CCFF\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n");
+ fprintf(fp1," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\">for loop : %lu : %lu (Total: %lu) <y:LabelModel>\n",offset, offset+off->last_total,off->last_total);
+ fprintf(fp1," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n </node>");              
+	
+/*---------------edge printing for each for loop node with the thread node------------------*/
+
+		fprintf(fp1,"\n<edge id=\"%lu\" source=\"(%d)\" target=\"%lu\">\n",off->devseqid,off->dev->id,off->devseqid);
+          	fprintf(fp1,"<data key=\"d10\"/>\n");
+ 	     	fprintf(fp1,"<data key=\"d11\">\n");
+       		fprintf(fp1,"<y:PolyLineEdge>\n");
+          	fprintf(fp1,"<y:Path sx=\"0.0\" sy=\"-56.5\" tx=\"0.0\" ty=\"37.5\"/>\n");
+          	fprintf(fp1,"<y:LineStyle color=\"#000000\" type=\"line\" width=\"1.0\"/>\n");
+          	fprintf(fp1,"<y:Arrows source=\"none\" target=\"standard\"/>\n");
+          	fprintf(fp1,"<y:BendStyle smoothed=\"false\"/>\n");
+        	fprintf(fp1,"</y:PolyLineEdge>\n");
+      		fprintf(fp1,"</data>\n");
+    		fprintf(fp1,"</edge>\n");
+
+	
+	long *length = off->loop_dist[i].length;
+	
+	   
+	fprintf(fp2,"\n----%lu----%lu --%d",offset,length,info1->loop_depth);
+
+	}
+
+  	
+	fclose(fp1);
+
+}
+
+
 void omp_offloading_info_report_profile(omp_offloading_info_t *info, int num) {
+
 	int i, j;
 	omp_offloading_t *off;
 #if defined(PROFILE_PLOT)
 	char plotscript_filename[128];
+	omp_yed_start1();	/* to print the start of graphml file   */    
+	omp_yed_xml(info,num);   /* to print the mid-content of graphml file   */
+	omp_yed_for_loop(info);
+	omp_yed_end1();		/* to print the end of graphml file   */
+		
 	omp_offloading_info_report_filename(info, plotscript_filename);
 	FILE * plotscript_file = fopen(plotscript_filename, "w+");
 	fprintf(plotscript_file, "set title \"Offloading (%s) Profile on %d Devices\"\n", info->name, info->top->nnodes);
@@ -2083,6 +2336,7 @@ void omp_offloading_info_report_profile(omp_offloading_info_t *info, int num) {
 	double yrange = info->top->nnodes*yoffset_per_entry+12;
 	double xrange = yrange * 2.2;
 	double xratio = xrange/xsize; /* so new mapped len will be len*xratio */
+	
 	fprintf(plotscript_file, "set yrange [0:%f]\n", yrange);
 	fprintf(plotscript_file, "set xlabel \"execution time in ms\"\n");
 	fprintf(plotscript_file, "set xrange [0:%f]\n", xrange);
@@ -2325,6 +2579,9 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	fprintf(plotscript_file, "plot 0\n");
 	fclose(plotscript_file);
 #endif
+ /*-------------------------------------------------------------------------------------------------------*/
+
+
 }
 
 void omp_event_print_profile_header() {

@@ -4,6 +4,7 @@
 #define VEC_LEN 1024000 //use a fixed number for now
 
 /* zero out the entire vector */
+
 void axpy(REAL *x, REAL *y, long n, REAL a) {
     long i;
     for (i = 0; i < n; ++i) {
@@ -40,6 +41,8 @@ REAL check(REAL *A, REAL *B, long n) {
     return sum;
 }
 
+
+
 extern int axpy_mdev_v;
 
 int main(int argc, char *argv[]) {
@@ -51,6 +54,7 @@ int main(int argc, char *argv[]) {
     REAL *x;
     REAL a = 123.456;
     n = 500000;
+  
     printf("usage: axpy [n], default n: %d\n", n);
     if (argc >= 2)
         n = atoi(argv[1]);
@@ -170,5 +174,7 @@ int main(int argc, char *argv[]) {
     // I got 1.093e-09
     //assert (cksm< 1.0e-07);
     printf("usage: axpy [n], default n: %d\n", n);
+    
+	
     return 0;
 }

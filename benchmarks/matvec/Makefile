@@ -8,7 +8,7 @@ CFLAGS = ${BASE_CFLAGS}
 # To enable breakdown timing and profiling, to disable, comment the following line
 BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING
 #BASE_CFLAGS += -DDEBUG_CUTOFF=1
-# BASE_CFLAGS += -DPROFILE_PLOT=1
+BASE_CFLAGS += -DPROFILE_PLOT=1
 #
 
 # CFLAGS for NVGPU_CUDA support

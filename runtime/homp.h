@@ -269,7 +269,7 @@ enum event_index {
 };
 
 extern void omp_offloading_info_sum_profile(omp_offloading_info_t ** infos, int count, double start_time, double compl_time);
-
+//extern void omp_offloading_graphml(omp_offloading_info_t ** infos, int count, omp_offloading_t ** info);
 #endif
 /**
  ********************** Compiler notes *********************************************
