@@ -1,0 +1,20 @@
+[Fatal Error] :51:13: The element type "y:GroupNode" must be terminated by the matching end-tag "</y:GroupNode>".
+---> BEGIN ERROR
+Could not import file sample.graphml.
+---> END ERROR
+[Fatal Error] :56:10: Open quote is expected for attribute "id" associated with an  element type  "node".
+---> BEGIN ERROR
+Could not import file graph.graphml.
+---> END ERROR
+[Fatal Error] :56:10: Open quote is expected for attribute "id" associated with an  element type  "node".
+---> BEGIN ERROR
+Could not import file graph.graphml.
+---> END ERROR
+[Fatal Error] :2296:3: The element type "node" must be terminated by the matching end-tag "</node>".
+---> BEGIN ERROR
+Could not import file graph.graphml.
+---> END ERROR
+[Fatal Error] :2296:3: The element type "node" must be terminated by the matching end-tag "</node>".
+---> BEGIN ERROR
+Could not import file graph.graphml.
+---> END ERROR

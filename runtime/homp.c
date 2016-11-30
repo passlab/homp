@@ -10,8 +10,29 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
+#include "inttypes.h"
 #include "homp.h"
+#include <assert.h>
+#include <errno.h>
+#include <utmpx.h>
+#include <utmpx.h>
+#include <numaif.h>
 
+#define PAGEMAP_ENTRY 8
+#define GET_BIT(X,Y) (X & ((uint64_t)1<<Y)) >> Y
+#define GET_PFN(X) X & 0x7FFFFFFFFFFFFF
+
+const int __endian_bit = 1;
+#define is_bigendian() ( (*(char*)&__endian_bit) == 0 )
+
+int i, c, pid, status;
+unsigned long virt_addr; 
+uint64_t read_val, file_offset;
+char path_buf [0x100] = {};
+FILE * f;
+char *end;
+//-----------
 #define num_allowed_dist_policies 7
 #define default_dist_policy_index 0
 omp_dist_policy_argument_t omp_dist_policy_args[num_allowed_dist_policies] = {
@@ -2209,7 +2230,79 @@ void omp_yed_xml(omp_offloading_info_t *info,int num)
 	FILE *fp1;
 int i,j;
  fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+//-------------------------------------
 
+sprintf(path_buf, "/proc/self/maps");				//to get the address range
+freopen("/home/aditi/homp/mapinfo.txt", "w", stdout);
+	 f = fopen(path_buf, "r");      // open the specified file
+    if (f != NULL)
+    {
+        int c;
+
+        while ((c = fgetc(f)) != EOF)     // read character from file until EOF
+        {
+            putchar(c); 
+	 	                  // output character
+        }
+        fclose(f);
+    }
+fclose (stdout);
+freopen("/dev/tty", "w", stdout);
+  fprintf(fp1,"<data key=\"d0\"/>");
+  fprintf(fp1,"\n<node id=\"n0\" yfiles.foldertype=\"group\">\n");
+  fprintf(fp1,"<data key=\"d4\"/>\n");
+  fprintf(fp1,"<data key=\"d5\"/>\n");
+  fprintf(fp1,"<data key=\"d6\">\n");
+  fprintf(fp1,"<y:ProxyAutoBoundsNode>\n");
+  fprintf(fp1,"<y:Realizers active=\"0\">\n");
+  fprintf(fp1,"<y:GroupNode>\n");
+  fprintf(fp1,"<y:Geometry height=\"573\" width=\"639.0\" x=\"70.0\" y=\"-75.96093749999999\"/>\n");
+  fprintf(fp1,"<y:Fill color=\"#F5F5F5\" transparent=\"false\"/>\n");
+  fprintf(fp1,"<y:BorderStyle color=\"#000000\" type=\"dashed\" width=\"1.0\"/>\n");
+  fprintf(fp1,"<y:NodeLabel alignment=\"right\" autoSizePolicy=\"node_width\" backgroundColor=\"#EBEBEB\" borderDistance=\"0.0\" fontFamily=\"Dialog\"\n"); 
+  fprintf(fp1,"fontSize=\"15\" fontStyle=\"plain\" hasLineColor=\"false\" height=\"21.4609375\" horizontalTextPosition=\"center\" iconTextGap=\"4\"\n"); 
+  fprintf(fp1,"modelName=\"internal\" modelPosition=\"t\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\"\n"); 
+  fprintf(fp1,"width=\"639.0\" x=\"0.0\" y=\"0.0\">cpu 0</y:NodeLabel>\n");
+  fprintf(fp1,"<y:Shape type=\"roundrectangle\"/>\n");
+  fprintf(fp1,"<y:State closed=\"false\" closedHeight=\"50.0\" closedWidth=\"50.0\" innerGraphDisplayEnabled=\"false\"/>\n");
+  fprintf(fp1,"<y:Insets bottom=\"15\" bottomF=\"15.0\" left=\"15\" leftF=\"15.0\" right=\"15\" rightF=\"15.0\" top=\"15\" topF=\"15.0\"/>\n");
+  fprintf(fp1,"<y:BorderInsets bottom=\"726\" bottomF=\"726.0\" left=\"0\" leftF=\"0.0\" right=\"1416\" rightF=\"416.064453125\" top=\"0\" topF=\"0.0\"/>\n");
+  fprintf(fp1,"</y:GroupNode>\n");
+  fprintf(fp1,"<y:GroupNode>\n");
+  fprintf(fp1,"<y:Geometry height=\"50.0\" width=\"50.0\" x=\"0.0\" y=\"60.0\"/>\n");
+  fprintf(fp1,"<y:Fill color=\"#F5F5F5\" transparent=\"false\"/>\n");
+  fprintf(fp1,"<y:BorderStyle color=\"#000000\" type=\"dashed\" width=\"1.0\"/>\n");
+  fprintf(fp1,"<y:NodeLabel alignment=\"right\" autoSizePolicy=\"node_width\" backgroundColor=\"#EBEBEB\" borderDistance=\"0.0\"\n"); 
+  fprintf(fp1,"fontFamily=\"Dialog\" fontSize=\"15\" fontStyle=\"plain\" hasLineColor=\"false\" height=\"21.4609375\" horizontalTextPosition=\"center\"\n"); 
+  fprintf(fp1,"iconTextGap=\"4\" modelName=\"internal\" modelPosition=\"t\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\"\n"); 
+  fprintf(fp1,"width=\"65.201171875\" x=\"-7.6005859375\" y=\"0.0\">Folder 1</y:NodeLabel>\n");
+  fprintf(fp1,"<y:Shape type=\"roundrectangle\"/>\n");
+  fprintf(fp1,"<y:State closed=\"true\" closedHeight=\"50.0\" closedWidth=\"50.0\" innerGraphDisplayEnabled=\"false\"/>\n");
+  fprintf(fp1,"<y:Insets bottom=\"5\" bottomF=\"5.0\" left=\"5\" leftF=\"5.0\" right=\"5\" rightF=\"5.0\" top=\"5\" topF=\"5.0\"/>\n");
+  fprintf(fp1,"<y:BorderInsets bottom=\"0\" bottomF=\"0.0\" left=\"0\" leftF=\"0.0\" right=\"0\" rightF=\"0.0\" top=\"0\" topF=\"0.0\"/>\n");
+  fprintf(fp1,"</y:GroupNode>\n");
+  fprintf(fp1,"</y:Realizers>\n");
+  fprintf(fp1,"</y:ProxyAutoBoundsNode>\n");
+  fprintf(fp1,"</data>\n");
+  fprintf(fp1,"<graph edgedefault=\"directed\" id=\"n0:\">\n");
+i=0;
+system("cut -d' ' -f1 /home/aditi/homp/mapinfo.txt > /home/aditi/homp/mapinfo1.txt");		//to select just the first column of the mapinfo.txt file
+FILE* file = fopen("/home/aditi/homp/mapinfo1.txt", "r"); /* should check the result */
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+               printf("%s", line); 	
+	fprintf(fp1," \n<node id= \"n0::n%d\">\n",i);
+ fprintf(fp1,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
+ fprintf(fp1,"<y:Fill color=\"#99CC00\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n");
+ fprintf(fp1," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\"> %s <y:LabelModel>\n" ,line );
+ fprintf(fp1," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n </node>"); 
+i++;
+    }
+fprintf(fp1,"\n</graph>");
+fprintf(fp1,"\n</node>\n");
+     fclose(file);
+
+//-------------------------------------
    for (i=0; i<info->top->nnodes; i++)
    	{
 	omp_offloading_t *off=&info->offloadings[i]; 
@@ -2225,7 +2318,7 @@ int i,j;
 
 	omp_offloading_t *off=&info->offloadings;
 	omp_data_map_info_t *info1 = info->data_map_info;
-	//omp_data_map_t *map = info1->maps;
+	omp_data_map_t *map = info1->maps;
 
 for(j=0;j <= off->num_maps+1;j++)
 {
@@ -2239,6 +2332,71 @@ for (i=0; i<info1->off_info->top->nnodes; i++)
 	
 }
 }
+//------------------
+
+int read_pagemap(char * path_buf, unsigned long virt_addr){
+   printf("Big endian? %d\n", is_bigendian());
+   f = fopen(path_buf, "rb");
+   if(!f){
+      printf("Error! Cannot open %s\n", path_buf);
+      return -1;
+   }
+   
+   //Shifting by virt-addr-offset number of bytes
+   //and multiplying by the size of an address (the size of an entry in pagemap file)
+   file_offset = virt_addr / getpagesize() * PAGEMAP_ENTRY;
+   printf("Vaddr: 0x%lx, Page_size: %d, Entry_size: %d\n", virt_addr, getpagesize(), PAGEMAP_ENTRY);
+   printf("Reading %s at 0x%llx\n", path_buf, (unsigned long long) file_offset);
+   status = fseek(f, file_offset, SEEK_SET);
+   if(status){
+      perror("Failed to do fseek!");
+      return -1;
+   }
+   errno = 0;
+   read_val = 0;
+   unsigned char c_buf[PAGEMAP_ENTRY];
+   for(i=0; i < PAGEMAP_ENTRY; i++){
+      c = getc(f);
+      if(c==EOF){
+         printf("\nReached end of the file\n");
+         return 0;
+      }
+      if(is_bigendian())
+           c_buf[i] = c;
+      else
+           c_buf[PAGEMAP_ENTRY - i - 1] = c;
+      printf("[%d]0x%x ", i, c);
+   }
+   for(i=0; i < PAGEMAP_ENTRY; i++){
+      //printf("%d ",c_buf[i]);
+      read_val = (read_val << 8) + c_buf[i];
+   }
+   printf("\n");
+   printf("Result: 0x%llx\n", (unsigned long long) read_val);
+   //if(GET_BIT(read_val, 63))
+   if(GET_BIT(read_val, 63))
+      printf("PFN: 0x%llx\n",(unsigned long long) GET_PFN(read_val));
+   else
+      printf("Page not present\n");
+   if(GET_BIT(read_val, 62))
+      printf("Page swapped\n");
+   fclose(f);
+   return 0;
+}
+
+void getData(char buff[])		//read csv file
+{
+   char *token = strtok(buff,",");
+   int counter=0;
+ 
+   while( token != NULL ) 
+   {
+ counter++; 
+printf( " %s\n",token);
+      token = strtok(NULL,",");
+   }	  
+}
+
 void omp_yed_node(omp_data_map_t * map, omp_offloading_t *off)			/* to display nodes in graphml */
 {
 		FILE *fp1;
@@ -2249,7 +2407,9 @@ void omp_yed_node(omp_data_map_t * map, omp_offloading_t *off)			/* to display n
  fprintf(fp1,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
  fprintf(fp1,"<y:Fill color=\"#99CCFF\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n");
  fprintf(fp1," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\"> (%s) %s[%d:%d]<y:LabelModel>\n",omp_get_device_typename(map->dev),info1->symbol,map->map_dist[0].offset, map->map_dist[0].total_length);
- fprintf(fp1," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n </node>");       
+ fprintf(fp1," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n </node>"); 
+
+
 /*---------------edge printing for each node with the thread node------------------*/
 
 		fprintf(fp1,"\n<edge id=\"%s:%d\" source=\"(%d)\" target=\"%s-%d\">\n",info1->symbol,off->dev->id,map->dev->id,info1->symbol,off->dev->id);
@@ -2264,7 +2424,113 @@ void omp_yed_node(omp_data_map_t * map, omp_offloading_t *off)			/* to display n
       		fprintf(fp1,"</data>\n");
     		fprintf(fp1,"</edge>\n");
 
+/*-----------print source pointer node------------*/
+
+fprintf(fp1," \n<node id=\"s%s-%d\">\n",info1->symbol,off->dev->id);
+ fprintf(fp1,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
+ fprintf(fp1,"<y:Fill color=\"#FF9999\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n");
+ fprintf(fp1," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\"> Map Source Ptr (%s): %X <y:LabelModel>\n",info1->symbol,map->map_source_ptr);
+ fprintf(fp1," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n </node>"); 
+
+//-------------------
+
+int numa_node = -1;
+get_mempolicy(&numa_node, NULL, 0, (void*)map->map_source_ptr, MPOL_F_NODE | MPOL_F_ADDR);
+printf("\n%d",numa_node);
+
+//-------------------
+/*
+void * ptr_to_check = map->map_source_ptr;
+ //here you should align ptr_to_check to page boundary 
+ int status[1];
+ int ret_code;
+ status[0]=-1;
+ ret_code=move_pages(0 , 1, &ptr_to_check, NULL, status, 0);
+ printf("Memory at %p is at %d node (retcode %d)\n", ptr_to_check, status[0], ret_code);
+*/
+//-------------------
+
+/*uintptr_t vaddr = map->map_source_ptr; 
+ FILE *pagemap, *numa;
+    intptr_t paddr = 0;
+    int offset = (vaddr / sysconf(_SC_PAGESIZE)) * sizeof(uint64_t);
+    uint64_t e;
+
+    // https://www.kernel.org/doc/Documentation/vm/pagemap.txt
+    if ((pagemap = fopen("/proc/self/pagemap", "r"))) {
+        if (lseek(fileno(pagemap), offset, SEEK_SET) == offset) {
+            if (fread(&e, sizeof(uint64_t), 1, pagemap)) {
+                if (e & (1ULL << 63)) { // page present ?
+                    paddr = e & ((1ULL << 54) - 1); // pfn mask
+                    paddr = paddr * sysconf(_SC_PAGESIZE);
+                    // add offset within page
+                    paddr = paddr | (vaddr & (sysconf(_SC_PAGESIZE) - 1));
+                }   
+            }   
+        }   
+        fclose(pagemap);
+    }
+numa = fopen("/proc/self/numa_maps", "r");
+
+printf("--------------%ld", paddr); */
+/*
+//----------------------------
+char buffer[12];
+
+   
+   if(!memcmp("self" ,"self",sizeof("self"))){
+      sprintf(path_buf, "/proc/self/pagemap");
+      pid = -1;
+   }
+   else{
+         pid = strtol("self" ,&end, 10);
+         if (end == "self"  || *end != '\0' || pid<=0){ 
+            printf("PID must be a positive number or 'self'\n");
+            return -1;
+            }
+       }
+   virt_addr = strtol(map->map_source_ptr, NULL, 16);
+   if(pid!=-1)
+      sprintf(path_buf, "/proc/%u/pagemap", pid);
+   
+   read_pagemap(path_buf, virt_addr);
+
+ */     
+/*---------------edge printing for each source pointer node with the array node------------------*/
+
+		fprintf(fp1,"\n<edge id=\"s%s:%d\" source=\"%s-%d\" target=\"s%s-%d\">\n",info1->symbol,off->dev->id,info1->symbol,map->dev->id,info1->symbol,off->dev->id);
+          	fprintf(fp1,"<data key=\"d10\"/>\n");
+ 	     	fprintf(fp1,"<data key=\"d11\">\n");
+       		fprintf(fp1,"<y:PolyLineEdge>\n");
+          	fprintf(fp1,"<y:Path sx=\"0.0\" sy=\"-56.5\" tx=\"0.0\" ty=\"37.5\"/>\n");
+          	fprintf(fp1,"<y:LineStyle color=\"#000000\" type=\"line\" width=\"1.0\"/>\n");
+          	fprintf(fp1,"<y:Arrows source=\"none\" target=\"standard\"/>\n");
+          	fprintf(fp1,"<y:BendStyle smoothed=\"false\"/>\n");
+        	fprintf(fp1,"</y:PolyLineEdge>\n");
+      		fprintf(fp1,"</data>\n");
+    		fprintf(fp1,"</edge>\n");
        
+/*-----------print device pointer node------------*/
+
+fprintf(fp1," \n<node id=\"d%s-%d\">\n",info1->symbol,off->dev->id);
+ fprintf(fp1,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
+ fprintf(fp1,"<y:Fill color=\"#00CCCC\" transparent=\"false\"/> \n <y:BorderStyle hasColor=\"false\"  type=\"line\" width=\"1.0\"/> \n");
+ fprintf(fp1," <y:NodeLabel alignment=\"center\" autoSizePolicy=\"content\" fontFamily=\"Dialog\" fontSize=\"12\" fontStyle=\"plain\" hasBackgroundColor=\"false\" hasLineColor=\"false\" height=\"17.96875\" horizontalTextPosition=\"center\" iconTextGap=\"4\" modelName=\"custom\" textColor=\"#000000\" verticalTextPosition=\"bottom\" visible=\"true\" width=\"70.171875\" x=\"42.9140625\" y=\"28.015625\"> Map Device Ptr (%s): %X <y:LabelModel>\n",info1->symbol,map->map_dev_ptr);
+ fprintf(fp1," <y:SmartNodeLabelModel distance=\"4.0\"/> \n </y:LabelModel> \n <y:ModelParameter> \n <y:SmartNodeLabelModelParameter labelRatioX=\"0.0\" labelRatioY=\"0.0\" nodeRatioX=\"0.0\" nodeRatioY=\"0.0\" offsetX=\"0.0\" offsetY=\"0.0\" upX=\"0.0\" upY=\"-1.0\"/>\n </y:ModelParameter>\n </y:NodeLabel> \n </y:GenericNode>\n </data>\n </node>"); 
+      
+/*---------------edge printing for each device pointer node with the array node------------------*/
+
+		fprintf(fp1,"\n<edge id=\"d%s:%d\" source=\"%s-%d\" target=\"d%s-%d\">\n",info1->symbol,off->dev->id,info1->symbol,map->dev->id,info1->symbol,off->dev->id);
+          	fprintf(fp1,"<data key=\"d10\"/>\n");
+ 	     	fprintf(fp1,"<data key=\"d11\">\n");
+       		fprintf(fp1,"<y:PolyLineEdge>\n");
+          	fprintf(fp1,"<y:Path sx=\"0.0\" sy=\"-56.5\" tx=\"0.0\" ty=\"37.5\"/>\n");
+          	fprintf(fp1,"<y:LineStyle color=\"#000000\" type=\"line\" width=\"1.0\"/>\n");
+          	fprintf(fp1,"<y:Arrows source=\"none\" target=\"standard\"/>\n");
+          	fprintf(fp1,"<y:BendStyle smoothed=\"false\"/>\n");
+        	fprintf(fp1,"</y:PolyLineEdge>\n");
+      		fprintf(fp1,"</data>\n");
+    		fprintf(fp1,"</edge>\n");
 fclose(fp1);	
 
 
@@ -2278,6 +2544,8 @@ void omp_yed_for_loop(omp_offloading_info_t *info1)
     	long len;
  	fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
 fp2 = fopen("/home/aditi/homp/benchmarks/axpy_clean/test2.graphml", "w+");
+//printf("CPU: %d\n", sched_getcpu());
+
 	for (i=0; i<info1->top->nnodes; i++)   				
 		{
 	omp_offloading_t *off= &info1->offloadings[i];
@@ -2307,7 +2575,7 @@ fp2 = fopen("/home/aditi/homp/benchmarks/axpy_clean/test2.graphml", "w+");
 	long *length = off->loop_dist[i].length;
 	
 	   
-	fprintf(fp2,"\n----%lu----%lu --%d",offset,length,info1->loop_depth);
+	//fprintf(fp2,"\n----%lu----%lu --%d",offset,length,info1->loop_depth);
 
 	}
 
@@ -2317,16 +2585,69 @@ fp2 = fopen("/home/aditi/homp/benchmarks/axpy_clean/test2.graphml", "w+");
 }
 
 
+
 void omp_offloading_info_report_profile(omp_offloading_info_t *info, int num) {
 
 	int i, j;
-	omp_offloading_t *off;
+	//omp_offloading_t *off = &info->offloadings[0];
 #if defined(PROFILE_PLOT)
 	char plotscript_filename[128];
 	omp_yed_start1();	/* to print the start of graphml file   */    
 	omp_yed_xml(info,num);   /* to print the mid-content of graphml file   */
 	omp_yed_for_loop(info);
 	omp_yed_end1();		/* to print the end of graphml file   */
+
+//------------------------------------------
+//int pid1 = getpid();
+//printf("---%d----",pid1);
+/*
+ sprintf(path_buf, "/proc/%d/numa_maps",getpid());
+	FILE *f = fopen(path_buf, "r");      // open the specified file
+    if (f != NULL)
+    {
+        int c;
+
+        while ((c = fgetc(f)) != EOF)     // read character from file until EOF
+        {
+            putchar(c);                   // output character
+        }
+        fclose(f);
+    }
+	
+printf("\n----------------------------\n");
+//-------------------------------------------
+*/
+//sprintf(path_buf, "/proc/self/smaps");
+//printf("\n----------------------------\n");
+//sprintf(path_buf, "/proc/self/status");
+//sprintf(path_buf, "/proc/self/mem");
+
+
+
+/*
+//------------------------------------------
+//sprintf(path_buf, "/proc/kpagecount");
+
+
+sprintf(path_buf, "/proc/meminfo");
+	 f = fopen(path_buf, "r");      // open the specified file
+    if (f != NULL)
+    {
+        unsigned long c;
+
+        while ((c = fgetc(f)) != EOF)     // read character from file until EOF
+        {
+            putchar(c);                   // output character
+        }
+        fclose(f);
+    }
+	
+//-------------------------------------------
+char buf[100];
+sprintf(buf, "numastat -c -m -n -p %d", getpid());
+int status = system(buf);
+*/
+//----------------------------
 		
 	omp_offloading_info_report_filename(info, plotscript_filename);
 	FILE * plotscript_file = fopen(plotscript_filename, "w+");
@@ -2349,6 +2670,7 @@ void omp_offloading_info_report_profile(omp_offloading_info_t *info, int num) {
 	fprintf(plotscript_file, "unset key\n");
 	fprintf(plotscript_file, "set ytics out nomirror (");
 	int yposoffset = 5;
+	omp_offloading_t *off;
 	for (i=0; i<info->top->nnodes; i++) {
 		off = &info->offloadings[i];
 		int devid = off->dev->id;
@@ -2530,7 +2852,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	fprintf(report_csv_transpose_file, "\"%s, size: %d on %d devices, policy: %s, %s\"\n", info->name, full_length, info->top->nnodes,
 			dist_policy_str, time_buff);
 
-	off = &info->offloadings[0];
+	//off = &info->offloadings[0];
 	fprintf(report_csv_transpose_file, "DIST POLICY,Device");
 	for (j=0; j<misc_event_index_start; j++) {
 		omp_event_t * ev = &off->events[j];

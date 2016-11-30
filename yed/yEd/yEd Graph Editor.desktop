@@ -1,0 +1,7 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Name=yEd Graph Editor
+Exec=/bin/sh "/home/aditi/homp/yed/yEd/yEd"
+Icon=/home/aditi/homp/yed/yEd/.install4j/yEd.png
+Categories=Application;

@@ -1,0 +1,660 @@
+[INFO] logger started at Tue Oct 18 12:00:09 PDT 2016
+[INFO] executable name: /home/aditi/yEd-3.16.2.1_64-bit_setup.sh
+[INFO] install4j version: 5.1.15 (build 5739)
+[INFO] Properties: 
+-- listing properties --
+java.runtime.name=Java(TM) SE Runtime Environment
+exe4j.moduleName=/home/aditi/yEd-3.16.2.1_64-bit_setup.sh
+sun.boot.library.path=/home/aditi/yEd-3.16.2.1_64-bit_setup...
+java.vm.version=25.102-b14
+java.vm.vendor=Oracle Corporation
+java.vendor.url=http://java.oracle.com/
+path.separator=:
+java.vm.name=Java HotSpot(TM) 64-Bit Server VM
+file.encoding.pkg=sun.io
+user.country=US
+sun.java.launcher=SUN_STANDARD
+sun.os.patch.level=unknown
+install4j.exeDir=/home/aditi/
+java.vm.specification.name=Java Virtual Machine Specification
+user.dir=/home/aditi/yEd-3.16.2.1_64-bit_setup...
+java.runtime.version=1.8.0_102-b14
+java.awt.graphicsenv=sun.awt.X11GraphicsEnvironment
+java.endorsed.dirs=/home/aditi/yEd-3.16.2.1_64-bit_setup...
+os.arch=amd64
+java.io.tmpdir=/tmp
+line.separator=
+
+java.vm.specification.vendor=Oracle Corporation
+os.name=Linux
+exe4j.totalDataLength=81475831
+sun.java2d.noddraw=true
+sun.jnu.encoding=UTF-8
+java.library.path=/usr/java/packages/lib/amd64:/usr/lib...
+sun.awt.enableExtraMouseButtons=true
+java.specification.name=Java Platform API Specification
+java.class.version=52.0
+sun.management.compiler=HotSpot 64-Bit Tiered Compilers
+os.version=4.4.0-42-generic
+i4j.vpt=true
+user.home=/home/aditi
+install4j.cwd=/home/aditi
+user.timezone=America/Los_Angeles
+java.awt.printerjob=sun.print.PSPrinterJob
+java.specification.version=1.8
+install4j.jvmDir=/home/aditi/yEd-3.16.2.1_64-bit_setup...
+file.encoding=UTF-8
+user.name=aditi
+java.class.path=i4jruntime.jar:user.jar
+java.vm.specification.version=1.8
+sun.arch.data.model=64
+java.home=/home/aditi/yEd-3.16.2.1_64-bit_setup...
+sun.java.command=com.install4j.runtime.launcher.Launch...
+java.specification.vendor=Oracle Corporation
+user.language=en
+awt.toolkit=sun.awt.X11.XToolkit
+java.vm.info=mixed mode
+java.version=1.8.0_102
+java.ext.dirs=/home/aditi/yEd-3.16.2.1_64-bit_setup...
+sun.boot.class.path=/home/aditi/yEd-3.16.2.1_64-bit_setup...
+java.vendor=Oracle Corporation
+i4j.vmov=true
+install4j.appDir=/home/aditi/
+file.separator=/
+java.vendor.url.bug=http://bugreport.sun.com/bugreport/
+sun.cpu.endian=little
+sun.io.unicode.encoding=UnicodeLittle
+sun.font.fontmanager=sun.awt.X11FontManager
+sun.desktop=gnome
+sun.cpu.isalist=
+[INFO] com.install4j.runtime.beans.actions.misc.RequestPrivilegesAction [ID 60]: Execute action
+       Property obtainIfAdminWin: true
+       Property obtainIfNormalWin: true
+       Property failIfNotObtainedWin: false
+       Property obtainIfAdminMac: false
+       Property obtainIfNormalMac: true
+       Property failIfNotObtainedMac: false
+       Property failIfNotRootUnix: false
+       Property allRequested: false
+       Property rollbackSupported: false
+       Execute action successful after 1 ms
+[INFO] com.install4j.runtime.beans.screens.StartupScreen [ID 4]: command: move 1 screens, executing actions, checking condition
+[INFO] com.install4j.runtime.beans.screens.WelcomeScreen [ID 5]: Show screen
+       thread name AWT-EventQueue-0
+[INFO] com.install4j.runtime.beans.screens.WelcomeScreen [ID 5]: command: move 1 screens, executing actions, checking condition
+[INFO] com.install4j.runtime.beans.screens.LicenseScreen [ID 6]: Show screen
+[INFO] com.install4j.runtime.beans.screens.LicenseScreen [ID 6]: command: move 1 screens, executing actions, checking condition
+[INFO] com.install4j.runtime.beans.screens.InstallationDirectoryScreen [ID 7]: Show screen
+       Variable changed: sys.installationDir=/home/aditi/homp/yed/yEd[class java.lang.String]
+       checking writable with maximum
+[INFO] com.install4j.runtime.beans.screens.InstallationDirectoryScreen [ID 7]: command: move 1 screens, executing actions, checking condition
+[INFO] com.install4j.runtime.beans.screens.StandardProgramGroupScreen [ID 9]: Show screen
+       Variable changed: sys.symlinkDir=/usr/local/bin[class java.lang.String]
+       Variable changed: sys.programGroupDisabled=false[class java.lang.Boolean]
+[INFO] com.install4j.runtime.beans.screens.StandardProgramGroupScreen [ID 9]: command: move 1 screens, executing actions, checking condition
+[INFO] com.install4j.runtime.beans.screens.AdditionalConfirmationsScreen [ID 55]: Show screen
+       Variable changed: createDesktopLinkAction=true[class java.lang.Boolean]
+       Variable changed: createQuicklaunchIconAction=false[class java.lang.Boolean]
+[INFO] com.install4j.runtime.beans.screens.AdditionalConfirmationsScreen [ID 55]: command: move 1 screens, executing actions, checking condition
+[INFO] com.install4j.runtime.beans.screens.InstallationScreen [ID 11]: Show screen
+[INFO] com.install4j.runtime.beans.actions.InstallFilesAction [ID 12]: Execute action
+       Property checkFreeSpace: true
+       Property validateApplicationId: false
+       Property saveDownloadedFiles: false
+       Property updateBundledJre: true
+       Property sizeCalculatorScript: null
+       Property installRuntime: true
+       Property fileFilterScript: null
+       Property directoryResolverScript: null
+       Property triggerReboot: true
+       Property delay: false
+       Property showFileNames: true
+       Property rollbackSupported: true
+       Install file: /home/aditi/homp/yed/yEd/jre/COPYRIGHT; size: 3244 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 444, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/LICENSE; size: 40 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/README; size: 46 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/THIRDPARTYLICENSEREADME-JAVAFX.txt; size: 110114 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/THIRDPARTYLICENSEREADME.txt; size: 177094 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 444, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/Welcome.html; size: 955 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 444, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/unpack200; size: 228485 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/servertool; size: 7965 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/javaws; size: 128791 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/rmid; size: 7941 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/policytool; size: 7997 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/tnameserv; size: 8181 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/jcontrol; size: 6264 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/orbd; size: 8149 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/pack200; size: 7957 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/jjs; size: 7941 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/java; size: 7734 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/rmiregistry; size: 7949 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/bin/keytool; size: 7941 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.RedHat.5.bfc; size: 4532 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 555, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libsaproc.so; size: 56477 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libnet.so; size: 115745 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libunpack.so; size: 164183 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libnio.so; size: 93112 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjfr.so; size: 25913 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libawt.so; size: 772804 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libnpjp2.so; size: 221525 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libprism_es2.so; size: 61848 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libmlib_image.so; size: 912788 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjsdt.so; size: 11678 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libavplugin-ffmpeg-56.so; size: 53268 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libhprof.so; size: 177596 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libresource.so; size: 10473 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libavplugin-55.so; size: 50191 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libavplugin-53.so; size: 49482 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libprism_sw.so; size: 73022 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjava_crw_demo.so; size: 25734 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjsound.so; size: 7350 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/liblcms.so; size: 413979 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjava.so; size: 225499 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjavafx_font_t2k.so; size: 891127 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libj2pkcs11.so; size: 78544 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libzip.so; size: 124327 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libmanagement.so; size: 50289 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libdt_socket.so; size: 22374 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjavafx_font_pango.so; size: 24452 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjfxwebkit.so; size: 57457976 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libawt_xawt.so; size: 442404 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libsplashscreen.so; size: 451129 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libverify.so; size: 66472 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libnpt.so; size: 14342 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libdeploy.so; size: 161767 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libawt_headless.so; size: 37420 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjdwp.so; size: 270293 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjsig.so; size: 11052 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libfontmanager.so; size: 525411 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libdcpr.so; size: 207604 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libattach.so; size: 15981 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjfxmedia.so; size: 229428 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libkcms.so; size: 401494 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/jvm.cfg; size: 627 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libavplugin-56.so; size: 50191 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libgstreamer-lite.so; size: 1774720 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libsctp.so; size: 28487 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/server/Xusage.txt; size: 1423 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/server/libjvm.so; size: 16981195 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjaas_unix.so; size: 7652 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libj2gss.so; size: 47509 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libsunec.so; size: 256702 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjpeg.so; size: 263985 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjsoundalsa.so; size: 81242 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libj2pcsc.so; size: 15884 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libinstrument.so; size: 49341 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libglass.so; size: 226196 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjavafx_font.so; size: 16935 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libprism_common.so; size: 56933 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libdecora_sse.so; size: 73636 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/jli/libjli.so; size: 102352 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjavafx_iio.so; size: 242063 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjavafx_font_freetype.so; size: 25939 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libavplugin-54.so; size: 50109 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libbci.so; size: 9594 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libfxplugins.so; size: 151091 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libjawt.so; size: 7013 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/amd64/libt2k.so; size: 492629 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/javafx.properties; size: 56 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 08:58:54 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/MixedCodeMainDialogJs.ui; size: 6110 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_fr.properties; size: 3409 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/splash_11-lic.gif; size: 7805 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_it.properties; size: 3223 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_zh_HK.properties; size: 3752 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_de.properties; size: 3306 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_pt_BR.properties; size: 3285 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/MixedCodeMainDialog.ui; size: 4507 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/mixcode_s.png; size: 3115 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_zh_TW.properties; size: 3752 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/ffjcext.zip; size: 13454 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/splash@2x.gif; size: 15276 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/cautionshield.icns; size: 3588 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_ko.properties; size: 5712 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/java-icon.ico; size: 29926 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/splash_11@2x-lic.gif; size: 12250 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages.properties; size: 2860 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_sv.properties; size: 3409 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_es.properties; size: 3600 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_ja.properties; size: 6349 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/splash.gif; size: 8590 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy/messages_zh_CN.properties; size: 4072 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/net.properties; size: 3070 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.SuSE.10.bfc; size: 6702 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 555, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.SuSE.10.properties.src; size: 16772 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/flavormap.properties; size: 3901 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/classlist; size: 84311 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/calendars.properties; size: 1378 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.properties.src; size: 1938 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.RedHat.6.properties.src; size: 8735 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jce.jar; size: 115557 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.RedHat.6.bfc; size: 4250 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 555, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jfr/profile.jfc; size: 20065 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jfr/default.jfc; size: 20109 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.SuSE.11.bfc; size: 7032 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 555, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/meta-index; size: 2034 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/pt_BR/LC_MESSAGES/sunw_java_plugin.mo; size: 2420 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/zh_TW.BIG5/LC_MESSAGES/sunw_java_plugin.mo; size: 2025 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/ko/LC_MESSAGES/sunw_java_plugin.mo; size: 2399 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/ja/LC_MESSAGES/sunw_java_plugin.mo; size: 2415 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/it/LC_MESSAGES/sunw_java_plugin.mo; size: 2434 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/sv/LC_MESSAGES/sunw_java_plugin.mo; size: 2359 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/de/LC_MESSAGES/sunw_java_plugin.mo; size: 2483 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/zh/LC_MESSAGES/sunw_java_plugin.mo; size: 2002 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/zh_TW/LC_MESSAGES/sunw_java_plugin.mo; size: 2025 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/fr/LC_MESSAGES/sunw_java_plugin.mo; size: 2746 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/es/LC_MESSAGES/sunw_java_plugin.mo; size: 2477 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/zh.GBK/LC_MESSAGES/sunw_java_plugin.mo; size: 2002 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/zh_HK.BIG5HK/LC_MESSAGES/sunw_java_plugin.mo; size: 2025 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/locale/ko.UTF-8/LC_MESSAGES/sunw_java_plugin.mo; size: 2753 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/psfont.properties.ja; size: 2796 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaBrightDemiItalic.ttf; size: 75124 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaSansDemiBold.ttf; size: 317896 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/fonts.dir; size: 4041 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaSansRegular.ttf; size: 698236 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaBrightRegular.ttf; size: 344908 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaTypewriterBold.ttf; size: 234068 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaTypewriterRegular.ttf; size: 242700 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaBrightDemiBold.ttf; size: 75144 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fonts/LucidaBrightItalic.ttf; size: 80856 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.bfc; size: 1678 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 555, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/currency.data; size: 4122 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/trusted.libraries; size: 0 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/blacklist; size: 4054 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/cacerts; size: 112860 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/java.policy; size: 2466 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/java.security; size: 26224 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/local_policy.jar; size: 3527 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/US_export_policy.jar; size: 3026 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/javaws.policy; size: 98 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/security/blacklisted.certs; size: 1273 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.SuSE.11.properties.src; size: 16781 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jexec; size: 10584 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/content-types.properties; size: 5916 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/oblique-fonts/LucidaTypewriterBoldOblique.ttf; size: 63168 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/oblique-fonts/fonts.dir; size: 2115 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/oblique-fonts/LucidaSansOblique.ttf; size: 253724 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/oblique-fonts/LucidaSansDemiOblique.ttf; size: 91352 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/oblique-fonts/LucidaTypewriterOblique.ttf; size: 137484 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/tzdb.dat; size: 103910 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/cmm/LINEAR_RGB.pf; size: 1044 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 444, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/cmm/PYCC.pf; size: 274474 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/cmm/CIEXYZ.pf; size: 51236 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/cmm/sRGB.pf; size: 3144 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/cmm/GRAY.pf; size: 632 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/psfontj2d.properties; size: 10393 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/sound.properties; size: 1210 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/mime/packages/x-java-archive.xml; size: 1822 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/mime/packages/x-java-jnlp-file.xml; size: 412 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/48x48/mimetypes/gnome-mime-text-x-java.png; size: 1948 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/48x48/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 1948 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/48x48/mimetypes/gnome-mime-application-x-java-archive.png; size: 1948 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/48x48/apps/sun-javaws.png; size: 1507 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/48x48/apps/sun-jcontrol.png; size: 1507 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/48x48/apps/sun-java.png; size: 1507 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/16x16/mimetypes/gnome-mime-text-x-java.png; size: 525 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/16x16/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 525 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/16x16/mimetypes/gnome-mime-application-x-java-archive.png; size: 525 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/16x16/apps/sun-javaws.png; size: 519 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/16x16/apps/sun-jcontrol.png; size: 519 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/LowContrast/16x16/apps/sun-java.png; size: 519 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/48x48/mimetypes/gnome-mime-text-x-java.png; size: 2085 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/48x48/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 2085 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/48x48/mimetypes/gnome-mime-application-x-java-archive.png; size: 2085 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/48x48/apps/sun-javaws.png; size: 3410 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/48x48/apps/sun-jcontrol.png; size: 3410 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/48x48/apps/sun-java.png; size: 3410 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/16x16/mimetypes/gnome-mime-text-x-java.png; size: 473 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/16x16/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 473 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/16x16/mimetypes/gnome-mime-application-x-java-archive.png; size: 473 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/16x16/apps/sun-javaws.png; size: 402 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/16x16/apps/sun-jcontrol.png; size: 402 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrastInverse/16x16/apps/sun-java.png; size: 402 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/48x48/mimetypes/gnome-mime-text-x-java.png; size: 3202 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/48x48/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 3202 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/48x48/mimetypes/gnome-mime-application-x-java-archive.png; size: 3202 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/48x48/apps/sun-javaws.png; size: 1439 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/48x48/apps/sun-jcontrol.png; size: 1439 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/48x48/apps/sun-java.png; size: 1439 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/16x16/mimetypes/gnome-mime-text-x-java.png; size: 783 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/16x16/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 783 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/16x16/mimetypes/gnome-mime-application-x-java-archive.png; size: 783 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/16x16/apps/sun-javaws.png; size: 383 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/16x16/apps/sun-jcontrol.png; size: 383 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/hicolor/16x16/apps/sun-java.png; size: 383 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/48x48/mimetypes/gnome-mime-text-x-java.png; size: 2088 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/48x48/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 2088 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/48x48/mimetypes/gnome-mime-application-x-java-archive.png; size: 2088 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/48x48/apps/sun-javaws.png; size: 3451 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/48x48/apps/sun-jcontrol.png; size: 3451 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/48x48/apps/sun-java.png; size: 3451 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/16x16/mimetypes/gnome-mime-text-x-java.png; size: 464 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/16x16/mimetypes/gnome-mime-application-x-java-jnlp-file.png; size: 464 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/16x16/mimetypes/gnome-mime-application-x-java-archive.png; size: 464 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/16x16/apps/sun-javaws.png; size: 417 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/16x16/apps/sun-jcontrol.png; size: 417 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/icons/HighContrast/16x16/apps/sun-java.png; size: 417 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/applications/sun-javaws.desktop; size: 619 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/applications/sun_java.desktop; size: 624 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/desktop/applications/sun-java.desktop; size: 777 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/logging.properties; size: 2455 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/motif_MoveNoDrop32x32.gif; size: 153 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/invalid32x32.gif; size: 153 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/motif_MoveDrop32x32.gif; size: 141 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/motif_CopyNoDrop32x32.gif; size: 153 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/motif_LinkNoDrop32x32.gif; size: 153 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/motif_CopyDrop32x32.gif; size: 158 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/cursors.properties; size: 1274 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/cursors/motif_LinkDrop32x32.gif; size: 162 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/icons/sun-java_LowContrast.png; size: 4012 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/icons/sun-java_HighContrastInverse.png; size: 3777 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/icons/sun-java_HighContrast.png; size: 3729 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/images/icons/sun-java.png; size: 4707 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.RedHat.5.properties.src; size: 8841 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.Turbo.bfc; size: 4668 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 555, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jvm.hprof.txt; size: 4226 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/sunec.jar; size: 39771 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/meta-index; size: 1269 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:30 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/sunjce_provider.jar; size: 279427 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/sunpkcs11.jar; size: 250826 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/management/jmxremote.access; size: 3998 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/management/snmp.acl.template; size: 3376 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 444, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/management/jmxremote.password.template; size: 2856 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/management/management.properties; size: 14630 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/hijrah-config-umalqura.properties; size: 13962 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/fontconfig.Turbo.properties.src; size: 9192 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:00 PDT 2016, mode: 755, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/plugin/desktop/sun_java.desktop; size: 624 bytes; exists: false
+       File options set to: [fileTime: Wed Jun 22 18:53:01 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/plugin/desktop/sun_java.png; size: 4351 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jfxswt.jar; size: 33469 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:06:34 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/resources.jar; size: 3503707 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:07 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/javaws.jar; size: 476893 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:06:36 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/rt.jar; size: 65768663 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:05 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jfr.jar; size: 558233 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:06:34 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/plugin.jar; size: 942230 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:06:36 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/deploy.jar; size: 2229013 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:09 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/charsets.jar; size: 3133431 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:07 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/management-agent.jar; size: 370 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:05 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/jsse.jar; size: 632371 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:06:34 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/jfxrt.jar; size: 18416873 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:15 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/nashorn.jar; size: 1978459 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:17 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/cldrdata.jar; size: 3837830 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:26 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/localedata.jar; size: 1174524 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:27 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/zipfs.jar; size: 67458 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:18 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/jaccess.jar; size: 43839 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:28 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/jre/lib/ext/dnsns.jar; size: 8150 bytes; exists: false
+       File options set to: [fileTime: Tue Aug 02 10:07:17 PDT 2016, mode: 664, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, but not for update, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/.install4j/uninstall.png; size: 5320 bytes; exists: false
+       File options set to: [fileTime: Wed Oct 12 12:42:16 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: Always, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/.install4j/yEd.png; size: 1922 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/common-image.jar; size: 84466 bytes; exists: false
+       File options set to: [fileTime: Wed Oct 12 12:41:52 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/lib/common-io.jar; size: 90800 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/common-lang.jar; size: 121070 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-bmp.jar; size: 54773 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-core.jar; size: 65232 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-hdr.jar; size: 19808 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-icns.jar; size: 23031 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-iff.jar; size: 34848 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-jpeg.jar; size: 58805 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-metadata.jar; size: 73478 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-pcx.jar; size: 25196 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-pict.jar; size: 64821 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-psd.jar; size: 68326 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-sgi.jar; size: 14426 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-tga.jar; size: 20443 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-thumbsdb.jar; size: 18423 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/imageio-tiff.jar; size: 88359 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/lib/vectorgraphics.jar; size: 783810 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/license.html; size: 5107 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/thirdpartylicenses.html; size: 41827 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/uninstall; size: 11674 bytes; exists: false
+       File options set to: [fileTime: Wed Oct 12 12:42:16 PDT 2016, mode: 700, overwriteMode: If newer otherwise ask, shared: false, uninstallMode: If created, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/yEd; size: 10806 bytes; exists: false
+       File options set to: [fileTime: Wed Oct 12 12:42:16 PDT 2016, mode: 755, overwriteMode: If newer otherwise ask, shared: false, uninstallMode: If created, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/yed.jar; size: 37574390 bytes; exists: false
+       File options set to: [fileTime: Wed Oct 12 12:41:52 PDT 2016, mode: 644, overwriteMode: Always ask except for update, shared: false, uninstallMode: If created, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/.install4j/inst_jre.cfg; size: 54 bytes; exists: false
+       File options set to: [fileTime: Tue Oct 18 12:03:11 PDT 2016, mode: 644, overwriteMode: Always, shared: false, uninstallMode: If created, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/.install4j/pref_jre.cfg; size: 29 bytes; exists: false
+       File options set to: [fileTime: Tue Oct 18 12:03:11 PDT 2016, mode: 644, overwriteMode: Always, shared: false, uninstallMode: If created, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/.install4j/i4jruntime.jar; size: 1033997 bytes; exists: false
+       File options set to: [fileTime: Tue Oct 18 12:03:11 PDT 2016, mode: 644, overwriteMode: Always, shared: false, uninstallMode: Always, delayIfNecessary: false]
+       Install file: /home/aditi/homp/yed/yEd/.install4j/MessagesDefault; size: 32732 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/.install4j/i4jparams.conf; size: 31105 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/.install4j/stats.properties; size: 373 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/.install4j/user.jar; size: 4386 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/.install4j/i4j_extf_0_1aawyej.utf8; size: 32732 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/.install4j/i4j_extf_2_1aawyej_k3n8ea.ico; size: 25214 bytes; exists: false
+       Install file: /home/aditi/homp/yed/yEd/.install4j/i4j_extf_1_1aawyej.html; size: 5107 bytes; exists: false
+       Execute action successful after 9702 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateProgramGroupAction [ID 13]: Execute action
+       Property programGroupName: 
+       Property allUsers: true
+       Property linkDirectory: /usr/local/bin
+       Property unixSymlinks: true
+       Property failForSymlinksNotCreated: false
+       Property unixMenuEntries: true
+       Property addUninstaller: true
+       Property uninstallerMenuName: yEd Graph Editor Uninstaller
+       Property addDefaultLauncherLinks: true
+       Property categories: Application
+       Property programGroupEntryConfigs: []
+       Property rollbackSupported: true
+       Install file: /home/aditi/homp/yed/yEd/yEd Graph Editor.desktop; size: 196 bytes; exists: false
+       File options set to: [fileTime: Tue Oct 18 12:03:12 PDT 2016, mode: 755, overwriteMode: Always, shared: false, uninstallMode: Always, delayIfNecessary: false]
+       Install file: /home/aditi/.local/share/applications/yEd Graph Editor-0.desktop; size: 196 bytes; exists: false
+       File options set to: [fileTime: Tue Oct 18 12:03:12 PDT 2016, mode: 644, overwriteMode: Always, shared: false, uninstallMode: Always, delayIfNecessary: false]
+       Execute action successful after 696 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.RegisterAddRemoveAction [ID 14]: Execute action
+       Property icon: null
+       Property itemName: yEd Graph Editor 3.16.2.1
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Execute action successful after 0 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateFileAssociationAction [ID 15]: Execute action
+       Property launcherId: 2
+       Property mac: true
+       Property windowsIconFile: i4j_extf_2_1aawyej_k3n8ea.ico
+       Property winAdditionalParameters: null
+       Property macIconFile: null
+       Property macRole: Viewer
+       Property restartFinder: false
+       Property windows: true
+       Property description: Graph Markup Language
+       Property selected: true
+       Property extension: graphml
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Nothing to do
+       Execute action successful after 1 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateFileAssociationAction [ID 16]: Execute action
+       Property launcherId: 2
+       Property mac: true
+       Property windowsIconFile: i4j_extf_2_1aawyej_k3n8ea.ico
+       Property winAdditionalParameters: null
+       Property macIconFile: null
+       Property macRole: Viewer
+       Property restartFinder: false
+       Property windows: true
+       Property description: Graph Markup Language (Compressed)
+       Property selected: true
+       Property extension: graphmlz
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Nothing to do
+       Execute action successful after 0 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateFileAssociationAction [ID 17]: Execute action
+       Property launcherId: 2
+       Property mac: true
+       Property windowsIconFile: i4j_extf_2_1aawyej_k3n8ea.ico
+       Property winAdditionalParameters: null
+       Property macIconFile: null
+       Property macRole: Viewer
+       Property restartFinder: false
+       Property windows: true
+       Property description: yWorks Binary Graph Format
+       Property selected: true
+       Property extension: ygf
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Nothing to do
+       Execute action successful after 0 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateFileAssociationAction [ID 18]: Execute action
+       Property launcherId: 2
+       Property mac: true
+       Property windowsIconFile: i4j_extf_2_1aawyej_k3n8ea.ico
+       Property winAdditionalParameters: null
+       Property macIconFile: null
+       Property macRole: Viewer
+       Property restartFinder: false
+       Property windows: true
+       Property description: Graph Modeling Language
+       Property selected: true
+       Property extension: gml
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Nothing to do
+       Execute action successful after 0 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateFileAssociationAction [ID 19]: Execute action
+       Property launcherId: 2
+       Property mac: true
+       Property windowsIconFile: i4j_extf_2_1aawyej_k3n8ea.ico
+       Property winAdditionalParameters: null
+       Property macIconFile: null
+       Property macRole: Viewer
+       Property restartFinder: false
+       Property windows: true
+       Property description: Graph Modeling Language (XML)
+       Property selected: true
+       Property extension: xgml
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Nothing to do
+       Execute action successful after 0 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateFileAssociationAction [ID 20]: Execute action
+       Property launcherId: 2
+       Property mac: true
+       Property windowsIconFile: i4j_extf_2_1aawyej_k3n8ea.ico
+       Property winAdditionalParameters: null
+       Property macIconFile: null
+       Property macRole: Viewer
+       Property restartFinder: false
+       Property windows: true
+       Property description: Trivial Graph Format
+       Property selected: true
+       Property extension: tgf
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Nothing to do
+       Execute action successful after 0 ms
+[INFO] com.install4j.runtime.beans.actions.desktop.CreateFileAssociationAction [ID 21]: Execute action
+       Property launcherId: 2
+       Property mac: true
+       Property windowsIconFile: i4j_extf_2_1aawyej_k3n8ea.ico
+       Property winAdditionalParameters: null
+       Property macIconFile: null
+       Property macRole: Viewer
+       Property restartFinder: false
+       Property windows: true
+       Property description: GEDCOM Data
+       Property selected: true
+       Property extension: ged
+       Property persistentProperties: {}
+       Property rollbackSupported: true
+       Nothing to do
+       Execute action successful after 1 ms
+[INFO] com.install4j.runtime.beans.screens.InstallationScreen [ID 11]: Rollback barrier reached
+       command: move 1 screens, executing actions, checking condition
+[INFO] com.install4j.runtime.beans.screens.FinishedScreen [ID 22]: Show screen
+[INFO] com.install4j.runtime.beans.screens.FinishedScreen [ID 22]: command: finish
+       cleaning up
+       Finished

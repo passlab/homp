@@ -10,6 +10,9 @@ BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING
 # BASE_CFLAGS += -DDEBUG_CUTOFF=1
 BASE_CFLAGS += -DPROFILE_PLOT=1
 #
+LIB_DIR     = ./axpy-cpu
+LIB_NET_API = -lnuma
+LIB_PATH    = -L ${LIB_DIR}
 
 # CFLAGS for NVGPU_CUDA support
 NVCC_CFLAGS += -DDEVICE_NVGPU_CUDA_SUPPORT=1 -I${CUDA_PATH}/include
@@ -28,7 +31,7 @@ ICC_CFLAGS += -DDEVICE_ITLMIC_SUPPORT=1
 # -L/opt/intel/lib/intel64/ -loffload
 
 #fornax
-LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread
+LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread -lnuma
 
 RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c
 

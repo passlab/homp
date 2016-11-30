@@ -1,0 +1,9 @@
+#install4j response file for yEd Graph Editor 3.16.2.1
+#Tue Oct 18 12:03:14 PDT 2016
+createDesktopLinkAction$Boolean=true
+sys.programGroupDisabled$Boolean=false
+sys.symlinkDir=/usr/local/bin
+sys.languageId=en
+sys.adminRights$Boolean=false
+sys.installationDir=/home/aditi/homp/yed/yEd
+createQuicklaunchIconAction$Boolean=false
