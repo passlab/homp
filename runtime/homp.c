@@ -1549,7 +1549,7 @@ void omp_print_map_info(omp_data_map_info_t * info) {
  FILE *fp;
 
 	
-        fp = fopen("/home/aditi/homp/benchmarks/axpy_clean/graph.graphml", "a+");
+        fp = fopen("graph.graphml", "a+");
 	printf("MAPS for %s", info->symbol);
 	for (i=0; i<info->num_dims;i++) printf("[%d]", info->dims[i]);
 	printf(", ");
@@ -2188,7 +2188,7 @@ void omp_yed_start1()
 {
       FILE *fp1;
 
-        fp1 = fopen("/home/aditi/homp/graph.graphml", "w");
+        fp1 = fopen("graph.graphml", "w");
         
         fprintf(fp1,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
 fprintf(fp1,"<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\" xmlns:java=\"http://www.yworks.com/xml/yfiles-common/1.0/java\" xmlns:sys=\"http://www.yworks.com/xml/yfiles-common/markup/primitives/2.0\" xmlns:x=\"http://www.yworks.com/xml/yfiles-common/markup/2.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:y=\"http://www.yworks.com/xml/graphml\" xmlns:yed=\"http://www.yworks.com/xml/yed/3\" xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns http://www.yworks.com/xml/schema/graphml/1.1/ygraphml.xsd\">\n");
@@ -2215,7 +2215,7 @@ void omp_yed_end1()
 {
 FILE *fp1;
 
-        fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+        fp1 = fopen("graph.graphml", "a+");
         fprintf(fp1,"\n</graph>\n"); 
 	fprintf(fp1,"<data key=\"d7\">\n");
     	fprintf(fp1,"<y:Resources/>\n");
@@ -2229,11 +2229,11 @@ void omp_yed_xml(omp_offloading_info_t *info,int num)
 	
 	FILE *fp1;
 int i,j;
- fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+ fp1 = fopen("graph.graphml", "a+");
 //-------------------------------------
 
 sprintf(path_buf, "/proc/self/maps");				//to get the address range
-freopen("/home/aditi/homp/mapinfo.txt", "w", stdout);
+freopen("mapinfo.txt", "w", stdout);
 	 f = fopen(path_buf, "r");      // open the specified file
     if (f != NULL)
     {
@@ -2286,8 +2286,8 @@ freopen("/dev/tty", "w", stdout);
   fprintf(fp1,"</data>\n");
   fprintf(fp1,"<graph edgedefault=\"directed\" id=\"n0:\">\n");
 i=0;
-system("cut -d' ' -f1 /home/aditi/homp/mapinfo.txt > /home/aditi/homp/mapinfo1.txt");		//to select just the first column of the mapinfo.txt file
-FILE* file = fopen("/home/aditi/homp/mapinfo1.txt", "r"); /* should check the result */
+system("cut -d' ' -f1 mapinfo.txt > mapinfo1.txt");		//to select just the first column of the mapinfo.txt file
+FILE* file = fopen("mapinfo1.txt", "r"); /* should check the result */
     char line[256];
     while (fgets(line, sizeof(line), file)) {
                printf("%s", line); 	
@@ -2401,7 +2401,7 @@ void omp_yed_node(omp_data_map_t * map, omp_offloading_t *off)			/* to display n
 {
 		FILE *fp1;
 	omp_data_map_info_t * info1 = map->info;
-        fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
+        fp1 = fopen("graph.graphml", "a+");
 	
 	fprintf(fp1," \n<node id=\"%s-%d\">\n",info1->symbol,off->dev->id);
  fprintf(fp1,"<data key=\"d6\">\n  <y:GenericNode configuration=\"ShinyPlateNode3\"> \n <y:Geometry height=\"75.0\" width=\"190.0\" x=\"659.0\" y=\"233.0\"/>\n");
@@ -2542,8 +2542,8 @@ void omp_yed_for_loop(omp_offloading_info_t *info1)
 	int i;
  	long start,offset;
     	long len;
- 	fp1 = fopen("/home/aditi/homp/graph.graphml", "a+");
-fp2 = fopen("/home/aditi/homp/benchmarks/axpy_clean/test2.graphml", "w+");
+ 	fp1 = fopen("graph.graphml", "a+");
+fp2 = fopen("test2.graphml", "w+");
 //printf("CPU: %d\n", sched_getcpu());
 
 	for (i=0; i<info1->top->nnodes; i++)   				
@@ -2589,7 +2589,7 @@ fp2 = fopen("/home/aditi/homp/benchmarks/axpy_clean/test2.graphml", "w+");
 void omp_offloading_info_report_profile(omp_offloading_info_t *info, int num) {
 
 	int i, j;
-	//omp_offloading_t *off = &info->offloadings[0];
+	omp_offloading_t *off;
 #if defined(PROFILE_PLOT)
 	char plotscript_filename[128];
 	omp_yed_start1();	/* to print the start of graphml file   */    
@@ -2670,7 +2670,6 @@ int status = system(buf);
 	fprintf(plotscript_file, "unset key\n");
 	fprintf(plotscript_file, "set ytics out nomirror (");
 	int yposoffset = 5;
-	omp_offloading_t *off;
 	for (i=0; i<info->top->nnodes; i++) {
 		off = &info->offloadings[i];
 		int devid = off->dev->id;
@@ -2852,7 +2851,7 @@ set ytics out nomirror ("device 0" 3, "device 1" 6, "device 2" 9, "device 3" 12,
 	fprintf(report_csv_transpose_file, "\"%s, size: %d on %d devices, policy: %s, %s\"\n", info->name, full_length, info->top->nnodes,
 			dist_policy_str, time_buff);
 
-	//off = &info->offloadings[0];
+	off = &info->offloadings[0];
 	fprintf(report_csv_transpose_file, "DIST POLICY,Device");
 	for (j=0; j<misc_event_index_start; j++) {
 		omp_event_t * ev = &off->events[j];

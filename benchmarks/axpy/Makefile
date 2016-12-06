@@ -8,7 +8,7 @@ CFLAGS = ${BASE_CFLAGS}
 # To enable breakdown timing and profiling, to disable, comment the following line
 BASE_CFLAGS += -g -DOMP_BREAKDOWN_TIMING
 # BASE_CFLAGS += -DDEBUG_CUTOFF=1
-# BASE_CFLAGS += -DPROFILE_PLOT=1
+BASE_CFLAGS += -DPROFILE_PLOT=1
 #
 
 # CFLAGS for NVGPU_CUDA support
@@ -28,7 +28,7 @@ ICC_CFLAGS += -DDEVICE_ITLMIC_SUPPORT=1
 # -L/opt/intel/lib/intel64/ -loffload
 
 #fornax
-LDFLAGS = -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread
+LDFLAGS = -L/usr/lib64 -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7 -lgomp -lm -lrt -lpthread -lnuma
 
 RUNTIME_SOURCES = ../../runtime/homp.c ../../runtime/dev_xthread.c ../../util/iniparser.c ../../util/dictionary.c
 
