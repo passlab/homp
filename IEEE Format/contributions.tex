@@ -1,0 +1,10 @@
+\section{Contributions}
+The main challenges of memory optimization are NUMA and its first touch policy, cache coherence and false sharing, memory bandwidth contention and shared cache contention for both bandwidth and size. Considering these challenges, following are the contributions of this work: \newline
+Visualization of: 
+\begin{itemize}
+  \item Location of memory allocation: The work uses the program data access graph and data layout access in memory graph for computation and array distribution for displaying the layout of memory allocation to ease the process of optimization. 
+  \item Stack/heap Memory Usage of the application in the system 
+  \item Read/write memory bandwidth contention
+  \item Level 1/level 2 Cache Hit/Miss evaluation, mostly focusing on shared cache	
+\end{itemize}
+The above contribution will allow the users to gather data to get more insight into NUMA performance. Thus the work will create a glass box of memory behavior to the users who have no expertise. It will measure and aggregate NUMA-related events and will associate them with source code contexts, such as functions and statements. It will gather instruction and data address pairs to associate instructions that access memory with the variables that they touch. It will provide a wealth of information to guide NUMA optimization, including information about how and where to distribute data to maximize local accesses and reduce memory bandwidth contention.

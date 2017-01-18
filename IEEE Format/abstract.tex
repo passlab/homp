@@ -1,0 +1,8 @@
+%\newpage
+\IEEEtitleabstractindextext{%
+\begin{abstract}
+Current performance tools such as TAU, Vampire, Paraver, Jumpshot, Scalasca, Peekperf, EXPERT performance-analysis environment, Cilkview, HPCToolkit, etc. provide measurement and visualization of performance and scalability of parallel program execution to help users for performance analysis and tuning. They however do not provide enough and intuitive insight on how data are layer-out and accessed during parallel execution, thus relying users’ expertise to manually diagnose issues related to memory access, such as shared cache contention, false sharing and memory bandwidth optimization. We propose a visualization tool dealing with displaying data layout and parallel program access in clear picture of array distribution and computation distribution, maps of program data to the physical NUMA memory region, pattern of memory access, contention on memory bandwidth and shared cache (bandwidth or size). Visualization of data layout will make user sound of peak stack or heap memory usage and peak read/write memory bandwidth contention. Location of memory allocation is a critical factor as NUMA or cache coherence effect can hugely affect the performance of the computation. In order to tackle this challenge, visualization of memory location will help user to identify this bottleneck for the performance issue. To get started, we are thinking of pictorial presentation of 1) program data access graph and 2) data layout/access in memory layout for different programs to get clear insight of the memory usage. This will allow us to find solution for the problem with a greater ease.
+\end{abstract}
+\begin{IEEEkeywords}
+bandwidth optimization, NUMA effect, performance visualization  
+\end{IEEEkeywords}}

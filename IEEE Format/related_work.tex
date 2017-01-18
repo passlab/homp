@@ -1,0 +1,76 @@
+\section{Related work}
+\subsection{ParaGraph: A Tool for Visualizing Performance of Parallel Programs}
+ParaGraph is a graphical display system for visualizing the behavior and performance of parallel programs on message-passing multi-computer architectures. The visual animation is based on execution trace information monitored during an actual run of a parallel program on a message-passing parallel computer. The resulting trace data are replayed pictorially to provide a dynamic depiction of the behavior of the parallel program, as well as graphical summaries of its overall performance. Many different visual perspectives are provided to view the same performance data, in an attempt to gain insights that might be missed by any single view.\newline
+\textit{Contributions}\newline
+ParaGraph provides twenty five different displays or views, all based on the same underlying execution trace data.
+ParaGraph is based on the X Window System, and thus runs on a wide variety of scientific workstations from many different vendors.
+ParaGraph provides a mechanism for users to add new displays of their own design that can be viewed along with the other displays already provided.
+Utilization Display: It allows to determine the effectiveness with which the processors are used and how evenly the computational work is distributed across the processors.
+Communication display
+Task displays \newline
+\textit{Limitations}\newline
+Tracefile is a script which is played out, to visually re-enact the original live action of parallel program execution in order to provide insight into the program's dynamic behavior, but it fails to show array and computation distributions from program level view. Also, it does not provide mapping of data across multiple cores and between multiple discrete memory spaces such as in accelerators
+
+\subsection{MemAxes: Interactive Visual Analysis of Memory Access Data}
+MemAxes is a system for visualizing and analyzing the memory performance of a node within a supercomputing cluster. This system have been developed to collect fine-grained memory access data. By extracting higher-level variables from memory performance data, MemAxes present data in a variety of different contexts, each of which serves to elucidate different aspects of the data. It uses existing techniques as well as new visual metaphors to present each context in an intuitive manner. The fully interactive and tightly linked combination of contextual views allows high-performance computing experts to gain new insight into memory performance data effectively and accurately.\newline
+\textit{Contributions}\newline
+It explains how well are memory and processor resources being utilized by software and what data access patterns are intended by the HPC program
+It also uncover inefficient access patterns or data structures, improper use of parallelism (memory thrashing, race issues), data-dependent bottlenecks, data objects, lines of code, indices, or time steps associated with performance issues, inefficient hardware resources
+\newline
+\textit{Limitations}\newline
+This system currently visualizes the memory accesses of a single node, but HPC systems nearly all involve multiple nodes that may differ in achieved performance
+Although this visualization is designed to help understanding NUMA performance issues, it shows which event occurs and where it occurs, but does not tell directly why it occurs. The user still has to correlate several pieces of information to guess the source of a performance issue.
+
+\subsection{SCALEA: a performance analysis tool for parallel programs}
+SCALEA is a performance instrumentation, measurement, analysis, and visualization tool for parallel programs that supports post-mortem performance analysis. SCALEA currently focuses on performance analysis for OpenMP, MPI, HPF, and mixed parallel programs. It computes a variety of performance metrics based on a novel classification of overhead. SCALEA also supports multi-experiment performance analysis that allows one to compare and to evaluate the performance outcome of several experiments. A highly flexible instrumentation and measurement system is provided which can be controlled by command-line options and program directives. SCALEA can be interfaced by external tools through the provision of a full Fortran90 OpenMP/MPI/HPF frontend that allows one to instrument an abstract syntax tree at a very high-level with C-function calls and to generate source code. A graphical user interface is provided to view a large variety of performance metrics at the level of arbitrary code regions, threads, processes, and computational nodes for single and multi-experiment performance analysis. SCALEA divides the program sources into code regions (ranging from entire program units to single statements) and finds out what performance problems occur in those regions.\newline
+\textit{Contributions}\newline
+It can be used to instrument arbitrary code regions and to enable the programmer to request a large variety of performance metrics ranging from timing information and hardware parameters to performance overheads.
+It contains a performance data repository which holds all relevant information about applications and performance experiments.
+SCALEA is not yet compatible with C/C++, Java programs and other programming paradigms such as the component-based model.
+
+\subsection{Visualization of Memory Access Behavior on Hierarchical NUMA Architectures}
+This work presents a new tool for the visualization of performance data of the non-uniform memory access behavior. Because of the visual design of the tool, the developer is able to judge the severity of remote memory access in a time-dependent simulation, which is currently not possible using existing tools.\newline
+\textit{Contributions}\newline
+A visualization for time-resolved hardware performance counter data.
+A visual correlation of time-resolved data access information to the actual hardware architecture.
+A methodology to pinpoint NUMA-related performance issues based on the new visualization and analysis tool.\newline
+\textit{Limitations}\newline
+This paper does not throw light on data distribution and data movement among the multiple cores.
+\subsection{A Visual Approach to Investigating System Behaviour of NUMA Systems and Job Scheduling Processes in HPC Clusters} 
+This paper present the design of the visualization tools and demonstrate how these tools allow users to gain valuable insights into the systems they are studying. The proposed visualization tools run on the targeted iOS platform (iPads), offering users mobility as well as an unique experience of monitoring and analyzing system behaviour via an intuitive, multi-touch interface.\newline
+\textit{Limitations}\newline
+This implementation focuses on the visualization of accessed data points per memory node neglecting the bandwidth.
+Furthermore, the presentation of the software does not clarify whether the example is extensible to more than four memory nodes or not.
+Nevertheless, the visualization offers a simple way to gather a broad overview of whether load balancing is achieved or not, but does not offer any further ’zooming’ into the data to gain detailed insights.
+
+\subsection{Visualizing the Memory Access Behavior of Shared Memory Applications on NUMA Architectures}
+This paper presents a visualization tool displaying the monitored data in a user understandable way thereby showing the memory access behavior of shared memory applications. In addition, it projects the physical addresses in the memory transactions back to the data structures within the source code. This increases a programmer’s ability to effectively understand, develop, and optimize programs.\newline
+\textit{Limitations}\newline
+The “Access histogram” reflects the memory accesses to the whole global virtual memory, while the “Memory region” shows a region of it. But falls short to show the mapping between virtual and physical pages.
+Although all these tools can help developers understand the kind of performance issues they are facing, they never give the reason why a particular issue is happening, for instance by showing the distribution of memory accesses within data structures.
+This paper is more oriented to visualization of the interconnect traffic
+
+\subsection{MemProf: A Memory Profiler for NUMA Multicore Systems}
+MemProf is a profiler that allows programmers to choose and implement efficient application-level optimizations for NUMA systems. MemProf builds temporal flows of interactions between threads and objects, which help programmers understand why and which memory objects are accessed remotely.\newline
+\textit{Limitations}\newline
+It relies on programmers to establish a diagnosis and devise a solution
+It provide only textual output
+The developer might face a huge amount of information and not be able to differentiate normal behaviors from problematic ones.
+\subsection{A Tool to Analyze the Performance of Multithreaded Programs on NUMA Architectures}
+This paper presents a visualization tool displaying the monitored data in a user understandable way thereby showing the memory access behavior of shared memory applications. In addition, it projects the physical addresses in the memory transactions back to the data structures within the source code.\newline
+\textit{Limitations}\newline
+It provide an address centric visualization, which shows how much each thread accesses a data structure. Such a visualization is a bit closer to providing the source of the performance issue, but it does not show how the accesses are distributed inside a structure, and how the structure is shared between the threads.
+
+\subsection{The Paradyn Parallel Performance Measurement Tool}
+Paradyn is a tool for measuring the performance of large-scale parallel programs. The goal of this new performance tool is to provide detailed, flexible performance information without incurring the space (and time) overhead typically associated with trace-based tools. Paradyn achieves this goal by dynamically instrumenting the application and automatically controlling this instrumentation in search of performance problems. Dynamic instrumentation lets us defer insertion until the moment it is needed (and remove it when it is no longer needed).\newline
+\textit{Limitations}\newline
+Paradyn’s Performance Consultant decides when and where to insert instrumentation. Although Paradyn enables dynamic insertion of probes into a running code, its analysis is limited to procedures and procedure calls whereas the proposed system can instrument at source level arbitrary code regions including single statements.
+
+\subsection{Ad Hoc Visualization of Distributed Arrays}
+This paper have incorporated data visualization in a debugger for parallel programs written with PVM. It use features of the debugger to write the requested data to a file for each PVM task, provide a simple menu for the user to describe the data distribution, and create a single file with the data in natural order. The user then invokes any existing visualizer to look at the data.
+
+\subsection{Visualization and Analysis of Parallel Dataflow Execution with Smart Traces}
+This work investigates the requirements to create visualizations of execution traces of parallel programs modeled as dataflows. It proposes the Smart Trace (ST) concept, to encode the structure of the data, and guide the construction of specialized visualizations. A visualization tool can then leverage the relationships in the data to automate a given analysis task. The paper show with examples the power and flexibility of visualizations one can create to address specific questions formulated about the analysis of the data, with emphasis in parallel dataflow traces.
+
+\subsection{TABARNAC: Tools for Analyzing Behavior of Applications Running on NUMA Architecture}
+TABARNAC provides tools to trace and visualize the memory access behavior of parallel applications. More precisely, it helps to understand why performance issues occur by providing information on how data structures are accessed and shared by the different threads. Since it is based on memory accesses traces, TABARNAC has a very high accuracy while maintaining a reasonable overhead that enables the analysis of large applications. In an evaluation with several parallel applications, it is seen that relatively small code changes suggested by TABARNAC can substantially improve application performance. Providing a deep understanding of the memory access behavior, it enables the user to find the best mapping policy.
